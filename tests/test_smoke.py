@@ -48,6 +48,18 @@ class VoiceCommandsDefaultsTests(unittest.TestCase):
         self.assertNotIn("reg add", defaults.lower())
 
 
+class InstanceManagerTests(unittest.TestCase):
+    def test_exposes_cleanup_pid_file(self):
+        src = (ROOT / "src" / "whisper_key" / "instance_manager.py").read_text(encoding="utf-8")
+        self.assertIn("def cleanup_pid_file", src)
+        self.assertIn("os.kill", src)
+        self.assertIn("_wait_for_lock", src)
+
+    def test_main_calls_cleanup_pid_file(self):
+        main_src = (ROOT / "src" / "whisper_key" / "main.py").read_text(encoding="utf-8")
+        self.assertIn("cleanup_pid_file(instance_name)", main_src)
+
+
 class UtilsTests(unittest.TestCase):
     def test_resolve_asset_path_relative(self):
         from whisper_key.utils import resolve_asset_path

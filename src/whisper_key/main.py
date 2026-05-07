@@ -20,7 +20,7 @@ from .clipboard_manager import ClipboardManager
 from .state_manager import StateManager
 from .system_tray import SystemTray
 from .audio_feedback import AudioFeedback
-from .instance_manager import guard_against_multiple_instances
+from .instance_manager import cleanup_pid_file, guard_against_multiple_instances
 from .model_registry import ModelRegistry
 from .streaming_manager import StreamingManager
 from .voice_commands import VoiceCommandManager
@@ -299,6 +299,7 @@ def main():
         
     finally:
         shutdown_app(hotkey_listener, state_manager, logger)
+        cleanup_pid_file(instance_name)
 
 if __name__ == "__main__":
     main()
