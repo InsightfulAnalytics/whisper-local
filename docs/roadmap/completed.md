@@ -1,4 +1,7 @@
-# Whisper Key - Completed Stories
+# Whisper Local - Completed Stories
+
+> Inherited from upstream `whisper-key-local`. Issue and PR links below point to the upstream repo for context.
+
 
 - As a *user* I want an optional **"transcription complete" sound** so I get an audible cue when the result is ready ([#35](https://github.com/PinW/whisper-key-local/pull/35))
 - As a *user*, I want **audio recording length** so I can get a feel for transcription times

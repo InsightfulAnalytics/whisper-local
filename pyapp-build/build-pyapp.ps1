@@ -1,6 +1,6 @@
 param(
     [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot),
-    [string]$AppName = "whisper-key",
+    [string]$AppName = "whisper-local",
     [switch]$Clean
 )
 
@@ -84,7 +84,7 @@ Write-Host "Starting pyapp build for $AppName v$AppVersion..." -ForegroundColor 
 Write-Host "PyApp source: $PyAppSourcePath" -ForegroundColor Gray
 Write-Host "Distribution: $DistPath" -ForegroundColor Gray
 
-$env:PYAPP_PROJECT_NAME = "whisper-key-local"
+$env:PYAPP_PROJECT_NAME = "whisper-local"
 $env:PYAPP_PROJECT_VERSION = $AppVersion
 $env:PYAPP_PYTHON_VERSION = "3.12"
 $env:PYAPP_EXEC_CODE = 'from whisper_key.main import main; main()'

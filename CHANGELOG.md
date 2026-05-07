@@ -1,6 +1,6 @@
 # Changelog
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.8.1] - 2026-04-18
 

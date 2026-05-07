@@ -1,4 +1,4 @@
-Builds `whisper-key.exe` using [pyapp](https://github.com/ofek/pyapp) (Rust wrapper that bootstraps Python + pip install at first launch).
+Builds `whisper-local.exe` using [pyapp](https://github.com/ofek/pyapp) (Rust wrapper that bootstraps Python + pip install at first launch).
 
 ## Prerequisites
 
@@ -21,4 +21,4 @@ powershell.exe -ExecutionPolicy Bypass -File pyapp-build/build-pyapp.ps1
 
 `-Clean` flag forces full Rust rebuild.
 
-Produces two executables: `whisper-key.exe` (console) and `whisper-key-hideable.exe` (GUI subsystem, for start_hidden/minimize-to-tray).
+Produces two executables: `whisper-local.exe` (console) and `whisper-local-hideable.exe` (GUI subsystem, for start_hidden/minimize-to-tray).

@@ -1,5 +1,7 @@
 Local faster-whisper speech-to-text app with global hotkeys for Windows 10+ and macOS
 
+Personal fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local), maintained as `drajb/whisper-local`. Internal Python module name remains `whisper_key`.
+
 - Start here: `state_manager.py` coordinates all components workflow
 
 ## Component Architecture
@@ -20,7 +22,6 @@ Local faster-whisper speech-to-text app with global hotkeys for Windows 10+ and 
 | **Instance Management** | `instance_manager.py` | Single instance enforcement | win32event (Win), fcntl (Mac) |
 | **Voice Commands** | `voice_commands.py` | Trigger matching & command execution | subprocess |
 | **Platform Abstraction** | `platform/` | OS-specific implementations | pywin32 (Win), pyobjc (Mac) |
-| **Update Checker** | `update_checker.py` | PyPI version check & auto-update | urllib, subprocess |
 | **GPU Onboarding** | `onboarding.py` | GPU setup prompt & package installation | subprocess |
 | **Hardware Detection** | `hardware_detection.py` | Platform GPU detection wrapper | - |
 | **Terminal UI** | `terminal_ui.py` | Interactive terminal prompts | - |
@@ -29,8 +30,8 @@ Local faster-whisper speech-to-text app with global hotkeys for Windows 10+ and 
 ## Project Structure
 
 ```
-whisper-key-local/
-├── whisper-key.py                     # Development wrapper script
+whisper-local/
+├── whisper-local.py                   # Development wrapper script
 ├── pyproject.toml                     # Dependencies & PyPI config
 ├── CLAUDE.md                          # Claude AI project instructions
 ├── README.md                          # Project documentation
@@ -71,7 +72,6 @@ whisper-key-local/
 │       ├── voice_commands.py          # Voice command matching & execution
 │       ├── hardware_detection.py       # Platform GPU detection wrapper
 │       ├── terminal_ui.py             # Interactive terminal prompts
-│       ├── update_checker.py          # PyPI version check & auto-update
 │       └── whisper_engine.py          # Faster-whisper transcription
 │
 ├── docs/                              # Project documentation

@@ -1,14 +1,5 @@
-# Contributing to Whisper Key
+# Contributing to Whisper Local
 
-Thanks for your interest in contributing!
+This is a personal fork. Issues and PRs against this repo are not actively triaged.
 
-## Before You Start
-
-- Bug fixes and small improvements are welcome as direct PRs
-- **Please open an issue before submitting feature PRs**
-
-Check the [roadmap](docs/roadmap/roadmap.md) to see what's planned
-
-## Questions?
-
-Join the [Discord](https://discord.gg/uZnXV8snhz) to chat about ideas before diving in.
+For the official project, please contribute upstream at [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local).

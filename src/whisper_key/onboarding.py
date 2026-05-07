@@ -56,7 +56,7 @@ def handle_gpu_failure(error, config_manager):
         config_manager.update_user_setting('onboarding', 'gpu', 'pending')
         restart_or_exit(
             f"\n{BOLD_GREEN}Restarting for GPU setup...{RESET}\n",
-            f"\n{BOLD_GREEN}Please restart Whisper Key to re-run GPU setup.{RESET}\n",
+            f"\n{BOLD_GREEN}Please restart Whisper Local to re-run GPU setup.{RESET}\n",
         )
 
     print(f"\n{BOLD_GREEN}Falling back to CPU for this session.{RESET}\n")
@@ -190,7 +190,7 @@ def _install_gpu_packages(gpu_class, gpu_name, config_manager):
 
     restart_or_exit(
         f"\n{BOLD_GREEN}GPU acceleration installed. Restarting...{RESET}\n",
-        f"\n{BOLD_GREEN}GPU acceleration installed. Please restart Whisper Key.{RESET}\n",
+        f"\n{BOLD_GREEN}GPU acceleration installed. Please restart Whisper Local.{RESET}\n",
     )
 
 

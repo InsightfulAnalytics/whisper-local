@@ -150,6 +150,8 @@ def _find_cuda_runtime() -> str | None:
     search_dirs.extend(os.environ.get('PATH', '').split(os.pathsep))
 
     for search_dir in search_dirs:
+        if not search_dir or not os.path.isdir(search_dir):
+            continue
         for dll_path in glob.glob(os.path.join(search_dir, 'cudart64_*.dll')):
             version = _get_cuda_version_from_dll(dll_path)
             if version:
@@ -186,10 +188,14 @@ def _find_rocm_runtime() -> str | None:
     if spec and spec.submodule_search_locations:
         search_dirs.append(os.path.join(spec.submodule_search_locations[0], 'bin'))
 
-    search_dirs.append(r'C:\Windows\System32')
+    system32 = r'C:\Windows\System32'
+    if os.path.isdir(system32):
+        search_dirs.append(system32)
     search_dirs.extend(os.environ.get('PATH', '').split(os.pathsep))
 
     for search_dir in search_dirs:
+        if not search_dir or not os.path.isdir(search_dir):
+            continue
         for dll_path in glob.glob(os.path.join(search_dir, 'amdhip64_*.dll')):
             version = _get_hip_version_from_dll(dll_path)
             if version:

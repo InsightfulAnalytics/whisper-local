@@ -54,7 +54,7 @@ def handle_missing_permission(config_manager) -> bool:
         config_manager.update_user_setting('clipboard', 'auto_paste', True)
         request_accessibility_permission()
         print()
-        print("Please restart Whisper Key after permission is granted")
+        print("Please restart Whisper Local after permission is granted")
         os.kill(os.getpid(), signal.SIGINT)
         return False
     elif choice == 2:

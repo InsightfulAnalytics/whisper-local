@@ -63,7 +63,7 @@ def _set_icon():
 
 
 def _configure_console():
-    kernel32.SetConsoleTitleW("Whisper Key")
+    kernel32.SetConsoleTitleW("Whisper Local")
     _set_icon()
 
     handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)

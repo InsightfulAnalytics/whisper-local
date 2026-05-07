@@ -74,7 +74,7 @@ def restart_or_exit(message_restart, message_exit):
 def get_version():
     if is_installed_package():
         import importlib.metadata
-        return importlib.metadata.version("whisper-key-local")
+        return importlib.metadata.version("whisper-local")
 
     pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
     with open(pyproject_path, 'rb') as f:

@@ -9,14 +9,14 @@ from ruamel.yaml import YAML
 from .utils import resolve_asset_path, beautify_hotkey, get_user_app_data_path, get_version
 from .platform import IS_MACOS
 
-REPO_URL = "https://github.com/PinW/whisper-key-local"
+REPO_URL = "https://github.com/drajb/whisper-local"
 
 
 def _build_settings_header():
     version = get_version()
     ref = "master" if version.endswith("-dev") else f"v{version}"
     return (
-        f"# Whisper Key {version} - User Settings\n"
+        f"# Whisper Local {version} - User Settings\n"
         "#\n"
         f"# Available settings: {REPO_URL}/tree/{ref}?tab=readme-ov-file#%EF%B8%8F-configuration\n"
         f"# Defaults reference: {REPO_URL}/blob/{ref}/src/whisper_key/config.defaults.yaml\n"
@@ -306,9 +306,6 @@ class ConfigManager:
 
     def get_console_config(self) -> Dict[str, Any]:
         return self.config.get('console', {}).copy()
-
-    def get_update_config(self) -> Dict[str, Any]:
-        return self.config.get('update', {}).copy()
 
     def get_streaming_config(self) -> Dict[str, Any]:
         return self.config.get('streaming', {}).copy()

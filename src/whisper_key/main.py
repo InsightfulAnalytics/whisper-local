@@ -26,7 +26,6 @@ from .streaming_manager import StreamingManager
 from .voice_commands import VoiceCommandManager
 from .hardware_detection import detect_and_print as detect_hardware
 from .onboarding import check_gpu
-from .update_checker import check_for_updates
 from .utils import get_user_app_data_path, get_version
 
 def setup_logging(config_manager: ConfigManager):
@@ -203,7 +202,7 @@ def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, l
 def main():
     console.setup()
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stdout.write("\033]0;Whisper Key\007")
+    sys.stdout.write("\033]0;Whisper Local\007")
     sys.stdout.flush()
     app.setup()
 
@@ -215,7 +214,7 @@ def main():
     mutex_handle = guard_against_multiple_instances(instance_name)
 
     mode_label = " [TEST]" if args.test else ""
-    print(f"Starting Whisper Key [{get_version()}]{mode_label}...")
+    print(f"Starting Whisper Local [{get_version()}]{mode_label}...")
     
     shutdown_event = threading.Event()
     setup_signal_handlers(shutdown_event)
@@ -229,8 +228,6 @@ def main():
         setup_logging(config_manager)
         logger = logging.getLogger(__name__)
         setup_exception_handler()
-
-        check_for_updates(config_manager, test_mode=args.test)
 
         whisper_config = config_manager.get_whisper_config()
         audio_config = config_manager.get_audio_config()
@@ -284,7 +281,7 @@ def main():
                     return
                 clipboard_manager.update_auto_paste(False)
 
-        print("🚀 Whisper Key ready!")
+        print("🚀 Whisper Local ready!")
         config_manager.print_startup_hotkey_instructions()
         print("   [CTRL+C] to quit", flush=True)
 

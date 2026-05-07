@@ -251,7 +251,7 @@ class StateManager:
             print(f"❌ Test failed: {e}")
     
     def shutdown(self):        
-        print("Whisper Key is shutting down... goodbye!")
+        print("Whisper Local is shutting down... goodbye!")
 
         if self.audio_recorder.get_recording_status():
             self.audio_recorder.stop_recording()

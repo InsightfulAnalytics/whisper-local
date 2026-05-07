@@ -1,8 +1,8 @@
-# Whisper Key - Local Speech-to-Text
+# Whisper Local - Speech-to-Text
 
-Global hotkeys to record speech and transcribe directly to your cursor. 
+Global hotkeys to record speech and transcribe directly to your cursor.
 
-> Questions or ideas? [Discord](https://discord.gg/uZnXV8snhz)
+> **Personal fork.** This is `drajb`'s personal fork of [`PinW/whisper-key-local`](https://github.com/PinW/whisper-key-local). See attribution at the bottom.
 
 ## ✨ Features
 
@@ -18,33 +18,22 @@ Global hotkeys to record speech and transcribe directly to your cursor.
 
 ## 🚀 Quick Start
 
-### From PyPI (Recommended)
+### From Source (recommended for this fork)
 
-Requires Python 3.11-3.13
+Requires Python 3.11–3.13.
 
 ```bash
-# With pipx (isolated environment)
-pipx install whisper-key-local
-
-# Or with pip
-pip install whisper-key-local
+git clone https://github.com/drajb/whisper-local.git
+cd whisper-local
+pip install -e .
+python whisper-local.py
 ```
 
-Then run: `whisper-key` (or `wk` for short)
+After installation, the CLI is available as `whisper-local` (or `wl` for short).
 
 ### Windows App
 
-1. Download `whisper-key.exe` from the [latest release](https://github.com/PinW/whisper-key-local/releases/latest)
-2. Run `whisper-key.exe`
-
-### From Source
-
-```bash
-git clone https://github.com/PinW/whisper-key-local.git
-cd whisper-key-local
-pip install -e .
-python whisper-key.py
-```
+Use the build script in [`pyapp-build/`](pyapp-build/) to produce a standalone exe — see [`pyapp-build/CLAUDE.md`](pyapp-build/CLAUDE.md).
 
 ## 🎤 Basic Usage
 
@@ -82,9 +71,13 @@ commands:
 
 See the **[Voice Commands Guide](docs/voice-commands.md)** for full details.
 
+> **Heads-up on shell commands.** Voice commands with `run:` execute through your system shell. Only add commands you trust, since anything in `commands.yaml` will run with your user privileges.
+
 ## ⚡ GPU Acceleration
 
-Whisper Key detects your GPU on first launch and offers one-press install of the required runtime libraries. Supports **NVIDIA** (CUDA) and **AMD** (ROCm).
+Whisper Local detects your GPU on first launch and offers one-press install of the required runtime libraries. Supports **NVIDIA** (CUDA) and **AMD** (ROCm).
+
+> **Note on AMD ROCm wheels.** The optional AMD ROCm setup downloads CTranslate2 wheels from the upstream maintainer's GitHub releases ([`PinW/ctranslate2-rocm-wheels`](https://github.com/PinW/ctranslate2-rocm-wheels)). NVIDIA setup uses official `nvidia-*` packages from PyPI.
 
 For manual setup or troubleshooting, see the **[GPU Setup Guide](docs/gpu-setup.md)**.
 
@@ -94,7 +87,7 @@ Local settings at:
 - **Windows:** `%APPDATA%\whisperkey\user_settings.yaml`
 - **macOS:** `~/.whisperkey/user_settings.yaml`
 
-Delete this file and restart app to reset to defaults.
+Delete this file and restart the app to reset to defaults.
 
 | Option | Default | Notes |
 |--------|---------|-------|
@@ -143,7 +136,7 @@ Delete this file and restart app to reset to defaults.
 | `audio_feedback.transcription_complete_sound` | `assets/sounds/...` | Custom sound file path |
 | **System Tray** |||
 | `system_tray.enabled` | `true` | Show tray icon |
-| `system_tray.tooltip` | `Whisper Key` | Hover text |
+| `system_tray.tooltip` | `Whisper Local` | Hover text |
 | **Voice Commands** |||
 | `voice_commands.enabled` | `true` | Enable voice command mode |
 
@@ -153,10 +146,6 @@ Default path for transcription models (via HuggingFace):
 - **Windows:** `%USERPROFILE%\.cache\huggingface\hub\`
 - **macOS:** `~/.cache/huggingface/hub/`
 
-## Contributing
-
-Check the [roadmap](docs/roadmap/roadmap.md) for planned features and see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. Please open an issue before starting work on new features.
-
 ## 📦 Dependencies
 
 **Cross-platform:**
@@ -165,3 +154,11 @@ Check the [roadmap](docs/roadmap/roadmap.md) for planned features and see [CONTR
 **Windows:** `global-hotkeys` · `pywin32`
 
 **macOS:** `pyobjc-framework-Quartz` · `pyobjc-framework-ApplicationServices`
+
+---
+
+## 🙏 Attribution
+
+This is a personal fork of **[whisper-key-local](https://github.com/PinW/whisper-key-local)** by **Pin Wang ([@PinW](https://github.com/PinW))**. All credit for the original design, implementation, and ongoing work goes to the upstream author. The original project is licensed under MIT and the original copyright is preserved in [`LICENSE`](LICENSE).
+
+This fork exists for personal use and experimentation. For the official project, releases, community, and support, please visit the upstream repo.

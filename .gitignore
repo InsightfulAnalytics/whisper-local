@@ -72,8 +72,6 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
 
 # celery beat schedule file
 celerybeat-schedule
@@ -131,3 +129,5 @@ pyapp-build/build-config.json
 CLAUDE.local.md
 .claude/local-memory/
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/

@@ -341,9 +341,9 @@ class SystemTray:
             menu = self._create_menu()
 
             self.icon = pystray.Icon(
-                name="whisper-key",
+                name="whisper-local",
                 icon=idle_icon,
-                title="Whisper Key",
+                title="Whisper Local",
                 menu=menu
             )
 

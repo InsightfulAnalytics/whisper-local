@@ -22,7 +22,7 @@ def guard_against_multiple_instances(app_name: str = "WhisperKeyLocal"):
         raise
 
 def _exit_to_prevent_duplicate():
-    print("\nWhisper Key is already running!")
+    print("\nWhisper Local is already running!")
     print("\nThis app will close in 3 seconds...")
 
     for i in range(3, 0, -1):
