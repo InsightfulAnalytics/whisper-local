@@ -131,3 +131,7 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# Personal launcher scripts (user-local, not part of the repo)
+start_whisper_key.vbs
+start_whisper_local.vbs
