@@ -2,7 +2,7 @@
 
 History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## Fork (drajb/whisper-local) — 2026-05
+## [0.9.0] - 2026-05-07 (drajb/whisper-local fork)
 
 ### Added
 - **Pre-roll audio buffer** — `sd.InputStream` is opened once at startup and runs continuously. A 500ms ring buffer is prepended to every recording, eliminating first-word clipping on push-to-talk launches. `latency='low'` for smaller PortAudio buffers.

@@ -70,6 +70,31 @@ def setup_exception_handler():
     sys.excepthook = exception_handler
 
 
+def _send_quit_to_running_instance() -> int:
+    import signal
+    from pathlib import Path
+    pid_file = Path(get_user_app_data_path()) / "WhisperKeyLocal.pid"
+    if not pid_file.exists():
+        print("No running Whisper Local instance found.")
+        return 0
+    try:
+        pid = int(pid_file.read_text().strip())
+    except (ValueError, OSError):
+        print("PID file is unreadable; removing.")
+        try: pid_file.unlink()
+        except OSError: pass
+        return 0
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Sent SIGTERM to PID {pid}")
+        return 0
+    except (ProcessLookupError, PermissionError, OSError):
+        print(f"No running instance (stale PID {pid}); removing PID file.")
+        try: pid_file.unlink()
+        except OSError: pass
+        return 0
+
+
 def _write_crash_report(exc_type, exc_value, exc_traceback):
     import datetime
     import traceback
@@ -228,20 +253,30 @@ def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, l
         state_manager.shutdown()
 
 def main():
-    console.setup()
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stdout.write("\033]0;Whisper Local\007")
-    sys.stdout.flush()
-    app.setup()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true', help='Run as separate test instance')
     parser.add_argument('--doctor', action='store_true', help='Run diagnostics and exit')
+    parser.add_argument('--version', action='store_true', help='Print version and exit')
+    parser.add_argument('--quit', action='store_true', help='Stop a running instance and exit')
     args = parser.parse_args()
+
+    if args.version:
+        print(f"whisper-local {get_version()}")
+        sys.exit(0)
 
     if args.doctor:
         from .doctor import run_doctor
         sys.exit(run_doctor())
+
+    if args.quit:
+        sys.exit(_send_quit_to_running_instance())
+
+    console.setup()
+    sys.stdout.write("\033]0;Whisper Local\007")
+    sys.stdout.flush()
+    app.setup()
 
     instance_name = "WhisperKeyLocal_test" if args.test else "WhisperKeyLocal"
     mutex_handle = guard_against_multiple_instances(instance_name)
