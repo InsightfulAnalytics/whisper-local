@@ -1,0 +1,308 @@
+import importlib
+import os
+import platform
+import sys
+from pathlib import Path
+
+GREEN = "\033[32m"
+RED = "\033[31m"
+YELLOW = "\033[33m"
+DIM = "\033[2m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+OK = f"{GREEN}[OK]{RESET}  "
+WARN = f"{YELLOW}[!]{RESET}   "
+FAIL = f"{RED}[X]{RESET}   "
+INFO = f"{DIM}[i]{RESET}   "
+
+REQUIRED_PACKAGES = [
+    "faster_whisper", "ctranslate2", "numpy", "soxr", "sounddevice",
+    "pyperclip", "ruamel.yaml", "pystray", "PIL", "playsound3", "ten_vad",
+]
+
+
+class Check:
+    def __init__(self, name):
+        self.name = name
+        self.status = None
+        self.detail = ""
+
+    def ok(self, detail=""):
+        self.status = OK
+        self.detail = detail
+        return self
+
+    def warn(self, detail=""):
+        self.status = WARN
+        self.detail = detail
+        return self
+
+    def fail(self, detail=""):
+        self.status = FAIL
+        self.detail = detail
+        return self
+
+    def info(self, detail=""):
+        self.status = INFO
+        self.detail = detail
+        return self
+
+    def print(self):
+        line = f"{self.status}{self.name}"
+        if self.detail:
+            line += f"  {DIM}{self.detail}{RESET}"
+        print(line)
+
+
+def run_doctor() -> int:
+    print(f"\n{BOLD}Whisper Local — Doctor{RESET}\n{'=' * 24}\n")
+
+    failures = 0
+    failures += _section_runtime()
+    failures += _section_packages()
+    failures += _section_config()
+    failures += _section_audio()
+    failures += _section_model()
+    failures += _section_hotkeys()
+    failures += _section_logs()
+
+    print()
+    if failures == 0:
+        print(f"{GREEN}{BOLD}All checks passed.{RESET}\n")
+        return 0
+    print(f"{RED}{BOLD}{failures} issue(s) found.{RESET}  Review the [X] lines above.\n")
+    return 1
+
+
+def _section_runtime() -> int:
+    print(f"{BOLD}Runtime{RESET}")
+    failures = 0
+
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    if sys.version_info >= (3, 11):
+        Check("Python version").ok(py_version).print()
+    else:
+        Check("Python version").fail(f"{py_version} (need ≥3.11)").print()
+        failures += 1
+
+    Check("Platform").info(f"{platform.system()} {platform.release()}").print()
+
+    try:
+        from .utils import get_version
+        Check("Whisper Local version").ok(get_version()).print()
+    except Exception as e:
+        Check("Whisper Local version").fail(str(e)).print()
+        failures += 1
+
+    print()
+    return failures
+
+
+def _section_packages() -> int:
+    print(f"{BOLD}Dependencies{RESET}")
+    failures = 0
+
+    for pkg in REQUIRED_PACKAGES:
+        try:
+            importlib.import_module(pkg)
+            Check(pkg).ok().print()
+        except ImportError as e:
+            Check(pkg).fail(str(e)).print()
+            failures += 1
+
+    if sys.platform == "win32":
+        for pkg in ("win32api", "global_hotkeys"):
+            try:
+                importlib.import_module(pkg)
+                Check(pkg).ok().print()
+            except ImportError as e:
+                Check(pkg).fail(str(e)).print()
+                failures += 1
+
+    print()
+    return failures
+
+
+def _section_config() -> int:
+    print(f"{BOLD}Configuration{RESET}")
+    failures = 0
+
+    try:
+        from .utils import get_user_app_data_path
+        config_dir = Path(get_user_app_data_path())
+        Check("Config directory").ok(str(config_dir)).print()
+
+        if not os.access(config_dir, os.W_OK):
+            Check("Config directory writable").fail("not writable").print()
+            failures += 1
+        else:
+            Check("Config directory writable").ok().print()
+    except Exception as e:
+        Check("Config directory").fail(str(e)).print()
+        return failures + 1
+
+    user_settings = config_dir / "user_settings.yaml"
+    failures += _check_yaml_parses("user_settings.yaml", user_settings, required=False)
+
+    commands_yaml = config_dir / "commands.yaml"
+    failures += _check_yaml_parses("commands.yaml", commands_yaml, required=False, count_key="commands")
+
+    try:
+        from .config_manager import ConfigManager
+        cfg = ConfigManager()
+        Check("Effective config loads").ok().print()
+        whisper_cfg = cfg.get_whisper_config()
+        Check("Selected model").info(f"{whisper_cfg.get('model', '?')} on {whisper_cfg.get('device', '?')}").print()
+        hotkey_cfg = cfg.get_hotkey_config()
+        Check("Recording mode").info(hotkey_cfg.get('recording_mode', 'toggle')).print()
+        Check("Recording hotkey").info(hotkey_cfg.get('recording_hotkey', '?')).print()
+    except Exception as e:
+        Check("Effective config loads").fail(str(e)).print()
+        failures += 1
+
+    print()
+    return failures
+
+
+def _check_yaml_parses(label: str, path: Path, required: bool, count_key: str = None) -> int:
+    if not path.exists():
+        if required:
+            Check(label).fail(f"missing at {path}").print()
+            return 1
+        Check(label).info("not present (defaults will be used)").print()
+        return 0
+    try:
+        from ruamel.yaml import YAML
+        with open(path, encoding="utf-8") as f:
+            data = YAML().load(f)
+        detail = ""
+        if count_key and isinstance(data, dict) and isinstance(data.get(count_key), list):
+            detail = f"{len(data[count_key])} entries"
+        Check(label).ok(detail).print()
+        return 0
+    except Exception as e:
+        Check(label).fail(str(e)).print()
+        return 1
+
+
+def _section_audio() -> int:
+    print(f"{BOLD}Audio{RESET}")
+    failures = 0
+
+    try:
+        import sounddevice as sd
+        from .config_manager import ConfigManager
+        cfg = ConfigManager().get_audio_config()
+        configured_host = cfg.get('host')
+
+        default_input = sd.query_devices(kind='input')
+        Check("Default input device").ok(default_input.get('name', '?')).print()
+        os_host = sd.query_hostapis(default_input['hostapi'])['name']
+        if configured_host:
+            Check("Host API (configured)").info(f"{configured_host}  (OS default: {os_host})").print()
+        else:
+            Check("Host API").info(f"{os_host}  (auto-selected)").print()
+        Check("Sample rate").info(f"{int(default_input.get('default_samplerate', 0))} Hz").print()
+    except Exception as e:
+        Check("Audio device probe").fail(str(e)).print()
+        failures += 1
+
+    print()
+    return failures
+
+
+def _section_model() -> int:
+    print(f"{BOLD}Whisper model cache{RESET}")
+    failures = 0
+
+    try:
+        from .config_manager import ConfigManager
+        from .model_registry import ModelRegistry
+        cfg = ConfigManager()
+        whisper_cfg = cfg.get_whisper_config()
+        streaming_cfg = cfg.get_streaming_config()
+        registry = ModelRegistry(
+            whisper_models_config=whisper_cfg.get('models', {}),
+            streaming_models_config=streaming_cfg.get('models', {}),
+        )
+        model_key = whisper_cfg.get('model', 'tiny')
+        cached = False
+        for getter in ('is_cached', 'is_model_cached', 'get_cached_models'):
+            if hasattr(registry, getter):
+                try:
+                    result = getattr(registry, getter)(model_key) if getter != 'get_cached_models' else getattr(registry, getter)()
+                    cached = bool(result) if getter != 'get_cached_models' else (model_key in (result or []))
+                    break
+                except TypeError:
+                    continue
+        if cached:
+            Check(f"Model '{model_key}' cached").ok().print()
+        else:
+            Check(f"Model '{model_key}' cache").info("will download on first use").print()
+    except Exception as e:
+        Check("Model cache check").warn(str(e)).print()
+
+    print()
+    return failures
+
+
+def _section_hotkeys() -> int:
+    print(f"{BOLD}Hotkeys{RESET}")
+    failures = 0
+
+    try:
+        from .platform import hotkeys  # noqa
+        Check("Hotkey backend importable").ok().print()
+    except Exception as e:
+        Check("Hotkey backend importable").fail(str(e)).print()
+        failures += 1
+
+    if sys.platform == "win32":
+        try:
+            from .platform.windows import keyboard  # noqa
+            Check("Keyboard simulation backend").ok("ctypes SendInput").print()
+        except Exception as e:
+            Check("Keyboard simulation backend").fail(str(e)).print()
+            failures += 1
+
+    print()
+    return failures
+
+
+def _section_logs() -> int:
+    print(f"{BOLD}Recent log activity{RESET}")
+    failures = 0
+
+    try:
+        from .utils import get_user_app_data_path
+        log_path = Path(get_user_app_data_path()) / "app.log"
+        if not log_path.exists():
+            Check("app.log").info("not yet created").print()
+            print()
+            return 0
+
+        size_kb = log_path.stat().st_size / 1024
+        Check("app.log size").info(f"{size_kb:.1f} KB").print()
+
+        recent_errors = _scan_recent_errors(log_path)
+        if recent_errors:
+            Check(f"Recent errors (last 200 lines): {len(recent_errors)}").warn().print()
+            for line in recent_errors[-3:]:
+                print(f"   {DIM}{line.strip()[:140]}{RESET}")
+        else:
+            Check("No recent ERROR/CRITICAL in log").ok().print()
+    except Exception as e:
+        Check("Log scan").warn(str(e)).print()
+
+    print()
+    return failures
+
+
+def _scan_recent_errors(log_path: Path):
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            tail = f.readlines()[-200:]
+    except OSError:
+        return []
+    return [line for line in tail if " ERROR " in line or " CRITICAL " in line]

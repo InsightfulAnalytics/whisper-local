@@ -39,9 +39,12 @@ def setup_logging(config_manager: ConfigManager):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     
     if log_config['file']['enabled']:
+        from logging.handlers import RotatingFileHandler
         whisperkey_dir = get_user_app_data_path()
         log_file_path = os.path.join(whisperkey_dir, log_config['file']['filename'])
-        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler = RotatingFileHandler(
+            log_file_path, maxBytes=5_000_000, backupCount=3, encoding='utf-8'
+        )
         file_handler.setLevel(getattr(logging, log_config['level']))
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
@@ -58,11 +61,36 @@ def setup_exception_handler():
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-        
-        logging.getLogger().error("Uncaught exception", 
-                                 exc_info=(exc_type, exc_value, exc_traceback))
-    
+
+        logging.getLogger().error(
+            "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
+        )
+        _write_crash_report(exc_type, exc_value, exc_traceback)
+
     sys.excepthook = exception_handler
+
+
+def _write_crash_report(exc_type, exc_value, exc_traceback):
+    import datetime
+    import traceback
+    try:
+        crash_dir = os.path.join(get_user_app_data_path(), "crashes")
+        os.makedirs(crash_dir, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        crash_path = os.path.join(crash_dir, f"crash-{stamp}.txt")
+        with open(crash_path, 'w', encoding='utf-8') as f:
+            f.write(f"Whisper Local crash report\nTime: {datetime.datetime.now().isoformat()}\n")
+            f.write(f"Version: {get_version()}\nPython: {sys.version}\n\n")
+            f.write("Traceback:\n")
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+            f.write("\nLast 50 log lines:\n")
+            log_path = os.path.join(get_user_app_data_path(), "app.log")
+            if os.path.exists(log_path):
+                with open(log_path, encoding='utf-8', errors='replace') as logf:
+                    f.writelines(logf.readlines()[-50:])
+        print(f"\nCrash report written to: {crash_path}\n")
+    except Exception:
+        pass
 
 def setup_audio_recorder(audio_config, state_manager, vad_manager, streaming_manager):
     return AudioRecorder(
@@ -208,7 +236,12 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true', help='Run as separate test instance')
+    parser.add_argument('--doctor', action='store_true', help='Run diagnostics and exit')
     args = parser.parse_args()
+
+    if args.doctor:
+        from .doctor import run_doctor
+        sys.exit(run_doctor())
 
     instance_name = "WhisperKeyLocal_test" if args.test else "WhisperKeyLocal"
     mutex_handle = guard_against_multiple_instances(instance_name)

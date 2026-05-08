@@ -479,23 +479,28 @@ class StateManager:
         if not available_hosts:
             return None
 
-        normalized_lookup = {
-            host['name'].lower(): host['name']
-            for host in available_hosts
-        }
-
         if configured_host:
-            match = normalized_lookup.get(configured_host.lower())
+            match = self._match_host(configured_host, available_hosts)
             if match:
                 return match
 
         preferred_host = self._preferred_platform_host()
         if preferred_host:
-            preferred_match = normalized_lookup.get(preferred_host.lower())
+            preferred_match = self._match_host(preferred_host, available_hosts)
             if preferred_match:
                 return preferred_match
 
         return available_hosts[0]['name']
+
+    def _match_host(self, requested: str, available_hosts) -> Optional[str]:
+        requested_lower = requested.lower().strip()
+        for host in available_hosts:
+            if host['name'].lower() == requested_lower:
+                return host['name']
+        for host in available_hosts:
+            if requested_lower in host['name'].lower():
+                return host['name']
+        return None
 
     def _preferred_platform_host(self) -> Optional[str]:
         system_name = platform.system().lower()
