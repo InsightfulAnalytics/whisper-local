@@ -113,6 +113,27 @@ class SystemTray:
 
         return items
 
+    def _build_profile_menu(self):
+        try:
+            profiles = self.state_manager.list_profiles()
+            active = self.state_manager.get_active_profile()
+        except Exception:
+            return []
+        if not profiles:
+            return []
+
+        def make_activator(name):
+            return lambda icon, item: self.state_manager.activate_profile(name)
+
+        def make_is_active(name):
+            return lambda item: active == name
+
+        return [
+            pystray.MenuItem(name.title(), make_activator(name),
+                             radio=True, checked=make_is_active(name))
+            for name in profiles
+        ]
+
     def _build_recent_transcriptions_menu(self):
         try:
             recent = self.state_manager.get_recent_transcriptions()
@@ -218,6 +239,14 @@ class SystemTray:
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(f"Model: {current_model.title()}", pystray.Menu(*model_sub_menu_items)),
             ]
+
+            profile_items = self._build_profile_menu()
+            if profile_items:
+                active_profile = self.state_manager.get_active_profile() or "—"
+                menu_items.append(pystray.MenuItem(
+                    f"Profile: {active_profile.title()}",
+                    pystray.Menu(*profile_items)
+                ))
 
             recent_items = self._build_recent_transcriptions_menu()
             if recent_items:

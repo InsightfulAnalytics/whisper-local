@@ -1,0 +1,49 @@
+# Whisper Local — Profiles
+#
+# Each profile defines overrides applied to user_settings.yaml when the
+# profile is activated from the system tray "Profile" submenu.
+#
+# Sections that can be overridden: any top-level key in config.defaults.yaml
+# (whisper, hotkey, vad, audio, clipboard, voice_commands, ...).
+
+active: dictation
+
+profiles:
+  dictation:
+    description: General-purpose voice typing
+    overrides:
+      clipboard:
+        auto_paste: true
+        delivery_method: paste
+      whisper:
+        model: tiny
+      voice_commands:
+        enabled: true
+
+  chat:
+    description: Hold-to-talk for chat apps; auto-send on Alt
+    overrides:
+      hotkey:
+        recording_mode: push_to_talk
+      clipboard:
+        auto_paste: true
+        delivery_method: paste
+
+  code:
+    description: Copy-only mode for editors; never auto-send
+    overrides:
+      clipboard:
+        auto_paste: false
+        delivery_method: paste
+      voice_commands:
+        enabled: true
+
+  notes:
+    description: Quiet copy-to-clipboard mode for note-taking
+    overrides:
+      clipboard:
+        auto_paste: false
+      whisper:
+        model: tiny
+      voice_commands:
+        enabled: false

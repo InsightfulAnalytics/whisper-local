@@ -16,6 +16,7 @@ from .audio_feedback import AudioFeedback
 from .utils import OptionalComponent
 from .voice_activity_detection import VadEvent, VadManager
 from .voice_commands import VoiceCommandManager
+from .profiles import ProfileManager
 
 class StateManager:
     def __init__(self,
@@ -50,6 +51,7 @@ class StateManager:
         self.logger = logging.getLogger(__name__)
         self._current_audio_host = None
         self._initialize_audio_host()
+        self.profile_manager = ProfileManager(config_manager)
 
     def attach_components(self,
                           audio_recorder: AudioRecorder,
@@ -348,6 +350,21 @@ class StateManager:
             self.logger.error(f"Failed to initiate model change: {e}")
             print(f"❌ Failed to change model: {e}")
             self.set_model_loading(False)
+
+    def list_profiles(self) -> list:
+        return self.profile_manager.list_profiles()
+
+    def get_active_profile(self) -> Optional[str]:
+        return self.profile_manager.get_active()
+
+    def activate_profile(self, name: str) -> bool:
+        if not self.profile_manager.apply(name):
+            return False
+        self.logger.info(f"Activated profile: {name}")
+        print(f"   ✓ Profile activated: {name}")
+        self.system_tray.notify(f"Profile: {name}")
+        self.system_tray.refresh_menu()
+        return True
 
     def get_recent_transcriptions(self) -> list:
         return list(self.recent_transcriptions)
