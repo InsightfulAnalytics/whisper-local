@@ -1,3 +1,4 @@
+import collections
 import logging
 import time
 import threading
@@ -39,6 +40,7 @@ class StateManager:
         self.is_processing = False
         self.is_model_loading = False
         self.last_transcription = None
+        self.recent_transcriptions = collections.deque(maxlen=10)
         self._pending_model_change = None
         self._pending_device_change = None
         self._command_mode = False
@@ -159,6 +161,7 @@ class StateManager:
             self.audio_feedback.play_stop_sound()
 
             if audio_data is None:
+                self.system_tray.notify("No audio captured — was the mic muted?")
                 return
 
             duration = self.audio_recorder.get_audio_duration(audio_data)
@@ -169,6 +172,7 @@ class StateManager:
             transcribed_text = self.whisper_engine.transcribe_audio(audio_data)
 
             if not transcribed_text:
+                self.system_tray.notify("Transcription was empty (silence or noise only).")
                 return
 
             if command_mode:
@@ -181,6 +185,8 @@ class StateManager:
 
             if success:
                 self.last_transcription = transcribed_text
+                self.recent_transcriptions.appendleft(transcribed_text)
+                self.system_tray.refresh_menu()
                 self.audio_feedback.play_transcription_complete_sound()
             
         except Exception as e:
@@ -342,6 +348,15 @@ class StateManager:
             self.logger.error(f"Failed to initiate model change: {e}")
             print(f"❌ Failed to change model: {e}")
             self.set_model_loading(False)
+
+    def get_recent_transcriptions(self) -> list:
+        return list(self.recent_transcriptions)
+
+    def recopy_recent_transcription(self, index: int):
+        if 0 <= index < len(self.recent_transcriptions):
+            text = self.recent_transcriptions[index]
+            self.clipboard_manager.copy_text(text)
+            print(f"   ✓ Re-copied: {text[:60]}{'...' if len(text) > 60 else ''}")
 
     def get_available_audio_devices(self, host_filter: Optional[str] = None):
         host_name = host_filter if host_filter is not None else self._current_audio_host

@@ -113,6 +113,23 @@ class SystemTray:
 
         return items
 
+    def _build_recent_transcriptions_menu(self):
+        try:
+            recent = self.state_manager.get_recent_transcriptions()
+        except Exception:
+            return []
+        if not recent:
+            return []
+
+        def make_recopy(idx):
+            return lambda icon, item: self.state_manager.recopy_recent_transcription(idx)
+
+        items = []
+        for i, text in enumerate(recent):
+            label = text if len(text) <= 50 else text[:47] + "..."
+            items.append(pystray.MenuItem(label, make_recopy(i)))
+        return items
+
     def _create_menu(self):
         try:
             app_state = self.state_manager.get_application_state()
@@ -200,6 +217,11 @@ class SystemTray:
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(f"Model: {current_model.title()}", pystray.Menu(*model_sub_menu_items)),
             ]
+
+            recent_items = self._build_recent_transcriptions_menu()
+            if recent_items:
+                menu_items.append(pystray.Menu.SEPARATOR)
+                menu_items.append(pystray.MenuItem("Recent", pystray.Menu(*recent_items)))
 
             menu_items.extend([
                 pystray.Menu.SEPARATOR,
@@ -307,6 +329,14 @@ class SystemTray:
     def _quit_application_from_tray(self, icon=None, item=None):        
         os.kill(os.getpid(), signal.SIGINT)
     
+    def notify(self, message: str, title: str = "Whisper Local"):
+        if not TRAY_AVAILABLE or not self.is_running or not self.icon:
+            return
+        try:
+            self.icon.notify(message, title)
+        except Exception as e:
+            self.logger.debug(f"Tray notify failed: {e}")
+
     def update_state(self, new_state: str):
         if not TRAY_AVAILABLE or not self.is_running:
             return
