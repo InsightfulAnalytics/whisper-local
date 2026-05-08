@@ -255,7 +255,8 @@ class StateManager:
 
         if self.audio_recorder.get_recording_status():
             self.audio_recorder.stop_recording()
-        
+        self.audio_recorder.shutdown()
+
         self.system_tray.stop()
     
     def set_model_loading(self, loading: bool):
