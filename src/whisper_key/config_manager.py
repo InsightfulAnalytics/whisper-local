@@ -81,7 +81,7 @@ def _resolve_platform_values(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class ConfigManager:   
-    def __init__(self, config_path: str = None, use_user_settings: bool = True):
+    def __init__(self, config_path: str = None, use_user_settings: bool = True, quiet: bool = False):
         if config_path is None:
             config_path = resolve_asset_path("config.defaults.yaml")
         
@@ -93,7 +93,8 @@ class ConfigManager:
         self.config_path = self._determine_config_path(use_user_settings, config_path)
         
         self.config = self._load_config()
-        self._print_config_status()
+        if not quiet:
+            self._print_config_status()
 
         self.logger.info("Configuration loaded successfully")
     

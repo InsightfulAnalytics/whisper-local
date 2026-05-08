@@ -150,7 +150,7 @@ def _section_config() -> int:
 
     try:
         from .config_manager import ConfigManager
-        cfg = ConfigManager()
+        cfg = ConfigManager(quiet=True)
         Check("Effective config loads").ok().print()
         whisper_cfg = cfg.get_whisper_config()
         Check("Selected model").info(f"{whisper_cfg.get('model', '?')} on {whisper_cfg.get('device', '?')}").print()
@@ -193,7 +193,7 @@ def _section_audio() -> int:
     try:
         import sounddevice as sd
         from .config_manager import ConfigManager
-        cfg = ConfigManager().get_audio_config()
+        cfg = ConfigManager(quiet=True).get_audio_config()
         configured_host = cfg.get('host')
 
         default_input = sd.query_devices(kind='input')
