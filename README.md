@@ -8,7 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](#-quick-start)
 
-<!-- Demo: replace docs/demo.gif with your own recording (see docs/demo-recording.md) -->
+![Whisper Local — press, speak, type](docs/hero.svg)
+
+<sub>Want a real screen-recording demo here? See [`docs/demo-recording.md`](docs/demo-recording.md) — drop a `docs/demo.gif` in and uncomment the line below.</sub>
 <!-- ![Demo](docs/demo.gif) -->
 
 
