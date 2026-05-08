@@ -17,6 +17,8 @@ from .utils import OptionalComponent
 from .voice_activity_detection import VadEvent, VadManager
 from .voice_commands import VoiceCommandManager
 from .profiles import ProfileManager
+from .app_rules import AppRules
+from .text_postprocess import postprocess
 
 class StateManager:
     def __init__(self,
@@ -52,6 +54,7 @@ class StateManager:
         self._current_audio_host = None
         self._initialize_audio_host()
         self.profile_manager = ProfileManager(config_manager)
+        self.app_rules = AppRules()
 
     def attach_components(self,
                           audio_recorder: AudioRecorder,
@@ -181,9 +184,41 @@ class StateManager:
                 self._handle_command_transcription(transcribed_text, use_auto_enter)
                 return
 
-            success = self.clipboard_manager.deliver_transcription(
-                transcribed_text, use_auto_enter
-            )
+            postprocess_cfg = self.config_manager.get_postprocess_config()
+            transcribed_text = postprocess(transcribed_text, postprocess_cfg)
+
+            rule = self.app_rules.match_for_foreground()
+            if rule and rule.get('suppress'):
+                self.logger.info(f"Delivery suppressed by app rule: {rule.get('match')}")
+                self.clipboard_manager.copy_text(transcribed_text)
+                self.last_transcription = transcribed_text
+                self.recent_transcriptions.appendleft(transcribed_text)
+                self.system_tray.refresh_menu()
+                self.system_tray.notify("Delivery suppressed for this app — text on clipboard.")
+                return
+
+            effective_auto_enter = use_auto_enter
+            effective_auto_paste = None
+            if rule:
+                if rule.get('auto_send') is True:
+                    effective_auto_enter = True
+                elif rule.get('auto_send') is False:
+                    effective_auto_enter = False
+                if 'auto_paste' in rule:
+                    effective_auto_paste = bool(rule['auto_paste'])
+
+            previous_auto_paste = None
+            if effective_auto_paste is not None:
+                previous_auto_paste = self.clipboard_manager.auto_paste
+                self.clipboard_manager.update_auto_paste(effective_auto_paste)
+
+            try:
+                success = self.clipboard_manager.deliver_transcription(
+                    transcribed_text, effective_auto_enter
+                )
+            finally:
+                if previous_auto_paste is not None:
+                    self.clipboard_manager.update_auto_paste(previous_auto_paste)
 
             if success:
                 self.last_transcription = transcribed_text

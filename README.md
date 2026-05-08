@@ -8,6 +8,10 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](#-quick-start)
 
+<!-- Demo: replace docs/demo.gif with your own recording (see docs/demo-recording.md) -->
+<!-- ![Demo](docs/demo.gif) -->
+
+
 Whisper Local is a free, open-source **voice-to-text dictation tool** for power users who want **AI transcription without sending audio to the cloud**. Built around [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper), it gives you **push-to-talk dictation in any application** — chat apps, code editors, browsers, terminals, design tools, anywhere a cursor blinks.
 
 ---
@@ -38,6 +42,8 @@ Whisper Local is a free, open-source **voice-to-text dictation tool** for power 
 - 🔁 **Hot-reload** — edit `commands.yaml` and your change applies on the next transcription, no restart
 - 🩺 **Built-in diagnostics** — `whisper-local --doctor` checks audio devices, model cache, hotkeys, and recent errors
 - 🎛️ **Profiles** — switch between Dictation / Chat / Code / Notes presets from the tray
+- 🪟 **Per-app rules** — different behaviour per foreground app (auto-send in Slack, copy-only in VS Code, suppress in 1Password)
+- 🧹 **Optional LLM cleanup** — pipe transcripts through a local [Ollama](https://ollama.ai) model for punctuation / capitalisation polish (off by default, fully local)
 - 📜 **Recent transcriptions** — last 10 results in the tray menu, click to copy back
 - 🔧 **Settings backup/restore** — `--export-settings` / `--import-settings` for portability
 - 🛡️ **Crash reports** — uncaught errors write a self-contained dump to disk
@@ -136,6 +142,48 @@ Switch between presets from the tray icon → **Profile**:
 Edit or add new profiles in `%APPDATA%\whisperkey\profiles.yaml`.
 
 ---
+
+## 🪟 Per-app rules
+
+Different apps want different behaviour. Whisper Local detects the
+foreground window before delivering each transcription and matches it
+against rules in `%APPDATA%\whisperkey\app_rules.yaml`:
+
+```yaml
+rules:
+  # Chat apps: send the message immediately
+  - match: ["slack.exe", "discord.exe"]
+    auto_send: true
+
+  # Code editors: never auto-send, copy only
+  - match: ["code.exe", "cursor.exe"]
+    auto_paste: false
+
+  # Password managers: skip delivery entirely
+  - match: ["1password.exe", "bitwarden.exe"]
+    suppress: true
+```
+
+Hot-reloads — edit and the next transcription picks it up.
+
+## 🧹 Optional LLM cleanup
+
+If you have [Ollama](https://ollama.ai) running locally, Whisper Local can
+pipe each transcript through a small local model for punctuation and
+capitalisation polish. **Off by default and fully local** — set
+`postprocess.ollama.enabled: true` in `user_settings.yaml` to enable.
+
+```yaml
+postprocess:
+  capitalize_first: true        # works without Ollama
+  ensure_punctuation: true      # works without Ollama
+  strip_filler_words: true      # works without Ollama
+  ollama:
+    enabled: false              # set true to opt in
+    endpoint: http://localhost:11434
+    model: llama3.2
+    timeout: 5
+```
 
 ## ⚙️ Configuration
 

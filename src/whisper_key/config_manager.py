@@ -308,6 +308,9 @@ class ConfigManager:
     def get_console_config(self) -> Dict[str, Any]:
         return self.config.get('console', {}).copy()
 
+    def get_postprocess_config(self) -> Dict[str, Any]:
+        return self.config.get('postprocess', {}).copy()
+
     def get_streaming_config(self) -> Dict[str, Any]:
         return self.config.get('streaming', {}).copy()
 

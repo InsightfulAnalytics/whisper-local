@@ -1,0 +1,31 @@
+# Whisper Local — Per-app rules
+#
+# When a transcription is about to be delivered, the foreground window is
+# inspected. If its exe name OR window title contains any "match" string,
+# the rule applies and overrides the global behaviour for that delivery.
+#
+# Supported overrides:
+#   auto_send:   true | false   - force ENTER after paste (auto-send)
+#   auto_paste:  true | false   - force or suppress paste-to-cursor
+#   suppress:    true           - skip delivery entirely (only log + recent)
+#
+# Rules are matched top-down; first match wins. Edit this file freely;
+# it hot-reloads on the next transcription.
+
+rules:
+  # Chat apps: send the message immediately
+  - match: ["slack.exe", "discord.exe", "telegram.exe", "whatsapp.exe", "Slack", "Discord"]
+    auto_send: true
+
+  # Code editors: never auto-send, never paste — copy only so the user
+  # decides where it lands
+  - match: ["code.exe", "cursor.exe", "windsurf.exe", "rider64.exe", "pycharm64.exe", "idea64.exe"]
+    auto_paste: false
+
+  # Password managers: never deliver dictation into a password field
+  - match: ["1password.exe", "1password-7.exe", "lastpass.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe"]
+    suppress: true
+
+  # Terminals: copy only — pasting into a terminal can run commands
+  - match: ["windowsterminal.exe", "wt.exe", "conhost.exe", "powershell.exe", "cmd.exe", "alacritty.exe", "wezterm-gui.exe"]
+    auto_paste: false

@@ -65,6 +65,7 @@ def run_doctor() -> int:
     failures += _section_audio()
     failures += _section_model()
     failures += _section_hotkeys()
+    failures += _section_postprocess_and_rules()
     failures += _section_logs()
 
     print()
@@ -268,6 +269,68 @@ def _section_hotkeys() -> int:
 
     print()
     return failures
+
+
+def _section_postprocess_and_rules() -> int:
+    print(f"{BOLD}Post-process & app rules{RESET}")
+    failures = 0
+
+    try:
+        from .config_manager import ConfigManager
+        cfg = ConfigManager(quiet=True)
+        post_cfg = cfg.get_postprocess_config()
+        if post_cfg.get('strip_filler_words') or post_cfg.get('capitalize_first') or post_cfg.get('ensure_punctuation'):
+            enabled = [k for k in ('strip_filler_words', 'capitalize_first', 'ensure_punctuation') if post_cfg.get(k)]
+            Check("Text filters").ok(", ".join(enabled)).print()
+        else:
+            Check("Text filters").info("none enabled").print()
+
+        ollama_cfg = post_cfg.get('ollama') or {}
+        if ollama_cfg.get('enabled'):
+            failures += _probe_ollama(ollama_cfg)
+        else:
+            Check("Ollama post-edit").info("disabled").print()
+    except Exception as e:
+        Check("Post-process config").warn(str(e)).print()
+
+    try:
+        from pathlib import Path
+        from .utils import get_user_app_data_path
+        rules_path = Path(get_user_app_data_path()) / "app_rules.yaml"
+        if rules_path.exists():
+            from ruamel.yaml import YAML
+            with open(rules_path, encoding="utf-8") as f:
+                data = YAML().load(f) or {}
+            count = len((data.get('rules') or []))
+            Check("Per-app rules").ok(f"{count} rules in app_rules.yaml").print()
+        else:
+            Check("Per-app rules").info("not yet created").print()
+    except Exception as e:
+        Check("Per-app rules").warn(str(e)).print()
+
+    print()
+    return failures
+
+
+def _probe_ollama(cfg: dict) -> int:
+    import json
+    import urllib.error
+    import urllib.request
+    endpoint = cfg.get('endpoint', 'http://localhost:11434').rstrip('/')
+    timeout = float(cfg.get('timeout', 5))
+    try:
+        with urllib.request.urlopen(f"{endpoint}/api/tags", timeout=timeout) as resp:
+            data = json.loads(resp.read())
+        names = [m.get('name', '') for m in data.get('models', [])]
+        target = cfg.get('model', 'llama3.2')
+        if any(target in n for n in names):
+            Check("Ollama post-edit").ok(f"{endpoint} reachable, model '{target}' available").print()
+            return 0
+        Check("Ollama post-edit").warn(f"{endpoint} reachable but '{target}' not pulled").print()
+        return 1
+    except (urllib.error.URLError, OSError) as e:
+        Check("Ollama post-edit").fail(f"unreachable at {endpoint} ({e})").print()
+        return 1
 
 
 def _section_logs() -> int:

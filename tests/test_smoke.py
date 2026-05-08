@@ -60,6 +60,53 @@ class InstanceManagerTests(unittest.TestCase):
         self.assertIn("cleanup_pid_file(instance_name)", main_src)
 
 
+class TextPostprocessTests(unittest.TestCase):
+    def test_strip_filler_words(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'strip_filler_words': True}
+        self.assertEqual(postprocess("um, hello like world", cfg), "hello world")
+
+    def test_capitalize_first(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'capitalize_first': True}
+        self.assertEqual(postprocess("hello world", cfg), "Hello world")
+
+    def test_ensure_punctuation(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'ensure_punctuation': True}
+        self.assertEqual(postprocess("hello world", cfg), "hello world.")
+        self.assertEqual(postprocess("hello world.", cfg), "hello world.")
+
+    def test_postprocess_passthrough_when_empty(self):
+        from whisper_key.text_postprocess import postprocess
+        self.assertEqual(postprocess("hello", {}), "hello")
+        self.assertEqual(postprocess("", {'capitalize_first': True}), "")
+
+
+class AppRulesShapeTests(unittest.TestCase):
+    def test_defaults_yaml_is_valid(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "app_rules.defaults.yaml"
+        self.assertTrue(path.exists())
+        with open(path, encoding="utf-8") as f:
+            data = YAML().load(f)
+        self.assertIn('rules', data)
+        self.assertIsInstance(data['rules'], list)
+        for rule in data['rules']:
+            self.assertIn('match', rule)
+
+
+class ProfilesShapeTests(unittest.TestCase):
+    def test_defaults_yaml_is_valid(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "profiles.defaults.yaml"
+        self.assertTrue(path.exists())
+        with open(path, encoding="utf-8") as f:
+            data = YAML().load(f)
+        self.assertIn('profiles', data)
+        self.assertIn('dictation', data['profiles'])
+
+
 class UtilsTests(unittest.TestCase):
     def test_resolve_asset_path_relative(self):
         from whisper_key.utils import resolve_asset_path

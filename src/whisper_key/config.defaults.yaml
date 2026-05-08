@@ -318,3 +318,25 @@ voice_commands: # Voice Command Settings
     # false = disable voice commands entirely
     # Define commands in commands.yaml (same folder as user_settings.yaml)
     enabled: true
+
+postprocess: # Transcription post-processing pipeline (off-by-default)
+    # Strip "um", "uh", "like", "you know" filler words
+    strip_filler_words: false
+
+    # Force first letter uppercase
+    capitalize_first: false
+
+    # Append a period if the text doesn't end in punctuation
+    ensure_punctuation: false
+
+    # Optional local LLM cleanup via Ollama (https://ollama.ai)
+    # Off by default. Requires Ollama running locally on the configured endpoint.
+    ollama:
+        enabled: false
+        endpoint: http://localhost:11434
+        model: llama3.2
+        timeout: 5
+        prompt: |-
+            Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:
+
+            {text}
