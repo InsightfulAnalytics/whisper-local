@@ -303,7 +303,14 @@ def main():
         system_tray = setup_system_tray(tray_config, config_manager, state_manager, model_registry, console_config)
         state_manager.attach_components(audio_recorder, system_tray)
         
-        hotkey_listener = setup_hotkey_listener(hotkey_config, state_manager, voice_commands_config['enabled'])
+        try:
+            hotkey_listener = setup_hotkey_listener(hotkey_config, state_manager, voice_commands_config['enabled'])
+        except Exception as hotkey_error:
+            logger.error(f"Hotkey registration failed: {hotkey_error}")
+            print(f"\n❌ Could not register hotkeys ({hotkey_error}).")
+            print("   Likely cause: another app is holding the same combination.")
+            print(f"   Check the recording_hotkey in user_settings.yaml: {hotkey_config.get('recording_hotkey')}")
+            raise
 
         system_tray.start()
 

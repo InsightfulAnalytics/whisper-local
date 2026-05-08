@@ -38,6 +38,7 @@ class VoiceCommandManager:
             raise
 
         self.commands_path = user_path
+        self._commands_mtime = self._read_mtime()
         raw_commands = data.get('commands', []) if data else []
         self.commands = self._validate_commands(raw_commands)
         self.commands.sort(key=lambda cmd: len(cmd.get('trigger', '')), reverse=True)
@@ -61,6 +62,7 @@ class VoiceCommandManager:
         return valid
 
     def match_command(self, text: str) -> Optional[dict]:
+        self._reload_if_changed()
         normalized = re.sub(r'[^\w\s]', '', text.lower()).strip()
 
         for command in self.commands:
@@ -69,6 +71,35 @@ class VoiceCommandManager:
                 return command
 
         return None
+
+    def _read_mtime(self) -> float:
+        try:
+            return os.path.getmtime(self.commands_path)
+        except OSError:
+            return 0.0
+
+    def _reload_if_changed(self):
+        if not getattr(self, 'commands_path', None):
+            return
+        current_mtime = self._read_mtime()
+        if current_mtime <= self._commands_mtime:
+            return
+
+        self.logger.info(f"Detected change to {self.commands_path}, reloading commands")
+        try:
+            yaml = YAML()
+            with open(self.commands_path, 'r', encoding='utf-8') as f:
+                data = yaml.load(f)
+            raw = data.get('commands', []) if data else []
+            new_commands = self._validate_commands(raw)
+            new_commands.sort(key=lambda cmd: len(cmd.get('trigger', '')), reverse=True)
+            self.commands = new_commands
+            self._commands_mtime = current_mtime
+            self.logger.info(f"Reloaded {len(self.commands)} voice commands")
+            print(f"   🔄 Reloaded {len(self.commands)} voice commands from commands.yaml")
+        except Exception as e:
+            self.logger.error(f"Failed to reload commands: {e}")
+            print(f"   ⚠ Failed to reload commands.yaml: {e}")
 
     def execute_command(self, command: dict, use_auto_enter: bool = False):
         trigger = command.get('trigger', '')
