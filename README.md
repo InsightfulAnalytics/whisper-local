@@ -6,19 +6,19 @@ Global hotkeys to record speech and transcribe directly to your cursor.
 
 ## ✨ Features
 
-- **Global Hotkey**: Start recording speech from any app
-- **Auto-Paste**: Transcribe directly to cursor
-- **Auto-Send**: Optionally auto-send with ENTER keypress
-- **Local/Offline**: Voice data never leaves your computer
-- **CPU Ready**: Small, efficient models available
-- **GPU Ready**: Support for both NVIDIA & AMD cards
-- **Cross-platform**: Works on Windows and macOS
-- **Voice Commands**: Trigger shortcuts, text snippets, and shell commands by voice — [docs](docs/voice-commands.md)
-- **Configurable**: Customize hotkeys, models, and [much more](#️-configuration)
+- **Global hotkey** — start recording from any app (push-to-talk or toggle)
+- **Pre-roll buffer** — 500ms of audio captured continuously, so the first word is never clipped
+- **Auto-paste / auto-send** — transcript lands at your cursor, optionally followed by Enter
+- **Local & offline** — audio never leaves your machine; no telemetry, no network calls during use
+- **GPU optional** — NVIDIA CUDA and AMD ROCm supported; CPU works out of the box
+- **Voice commands** — speak triggers to run shortcuts, type snippets, or launch shell commands ([docs](docs/voice-commands.md))
+- **Recent transcriptions** — last 10 results kept in the tray menu, click to re-copy
+- **Doctor command** — `whisper-local --doctor` runs structured diagnostics
+- **Restart-on-second-launch** — running the launcher again replaces the old instance instead of refusing
+- **Hot-reload** — edits to `commands.yaml` apply on the next transcription
+- **Cross-platform** — Windows and macOS
 
 ## 🚀 Quick Start
-
-### From Source (recommended for this fork)
 
 Requires Python 3.11–3.13.
 
@@ -26,12 +26,28 @@ Requires Python 3.11–3.13.
 git clone https://github.com/drajb/whisper-local.git
 cd whisper-local
 pip install -e .
-python whisper-local.py
+whisper-local
 ```
 
-After installation, the CLI is available as `whisper-local` (or `wl` for short).
+After install, three ways to launch:
 
-### Windows App
+| | |
+|---|---|
+| **Terminal** | `whisper-local` or `wl` |
+| **Double-click** | `whisper-local.cmd` (Windows) or `whisper-local.py` |
+| **Start Menu / Startup** | Create a shortcut to `whisper-local.cmd` and drop it in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\` |
+
+Press `Ctrl+Win` to begin recording. (Configurable.)
+
+### Diagnostics
+
+```bash
+whisper-local --doctor
+```
+
+Runs through Python version, dependencies, config validation, audio devices, model cache, hotkey backend, and recent log errors. Exit code 0 = clean.
+
+### Windows App (standalone exe)
 
 Use the build script in [`pyapp-build/`](pyapp-build/) to produce a standalone exe — see [`pyapp-build/CLAUDE.md`](pyapp-build/CLAUDE.md).
 

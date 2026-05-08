@@ -2,6 +2,32 @@
 
 History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Fork (drajb/whisper-local) — 2026-05
+
+### Added
+- **Pre-roll audio buffer** — `sd.InputStream` is opened once at startup and runs continuously. A 500ms ring buffer is prepended to every recording, eliminating first-word clipping on push-to-talk launches. `latency='low'` for smaller PortAudio buffers.
+- **Restart-on-second-launch** — launching while an instance is running now terminates the existing process via PID file + SIGTERM and takes over the lock instead of refusing to start.
+- **`whisper-local --doctor`** — structured health check across runtime, dependencies, config, audio, model cache, hotkeys, and recent log errors.
+- **Recent transcriptions menu** — last 10 transcriptions kept in a deque and exposed via `Recent` submenu in the system tray; click any to copy back to clipboard.
+- **Hot-reload commands.yaml** — the file's mtime is checked before each match; edits take effect on the next transcription with no restart.
+- **Tray notifications on failure** — empty transcription / no audio captured surface as a tray toast instead of silently dropping.
+- **Crash reports** — uncaught exceptions write a timestamped report to `%APPDATA%\whisperkey\crashes\` with the traceback and last 50 log lines.
+- **Log rotation** — `app.log` rotates at 5MB with 3 backups (was unbounded).
+- **Smoke test suite** — `python -m unittest tests.test_smoke` covers package metadata, instance-manager wiring, hotkey utilities, asset path resolution, and YAML safety properties.
+- **Personal launcher** — `whisper-local.cmd` plus Start Menu and Startup-folder shortcuts.
+
+### Changed
+- Rebrand from `whisper-key-local` → `whisper-local`. CLI: `whisper-local` / `wl`. Display name: "Whisper Local". Repo URL: `drajb/whisper-local`.
+- Audio host matcher now does substring matching, so `audio.host: WASAPI` correctly resolves to "Windows WASAPI" instead of falling back to MME.
+- Auto-updater removed entirely (network call + pip install path).
+- Risky `reg add` voice commands removed from defaults.
+- GitHub Actions workflows for Claude review removed (no longer wired to a secret).
+
+### Fixed
+- Defensive `os.path.isdir` checks around DLL search dirs in `platform/windows/gpu.py` (skips non-existent entries from `PATH`).
+
+---
+
 ## [0.8.1] - 2026-04-18
 
 ### Added

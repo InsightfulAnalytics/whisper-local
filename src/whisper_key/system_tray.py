@@ -198,6 +198,7 @@ class SystemTray:
             menu_items += [
                 pystray.MenuItem("Open log file...", self._open_log_file),
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
+                pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open config folder...", self._open_config_folder),
                 pystray.MenuItem("Open settings file...", self._open_config_file),
@@ -326,8 +327,19 @@ class SystemTray:
             console.hide()
         console.start_minimize_monitor(console.hide)
 
-    def _quit_application_from_tray(self, icon=None, item=None):        
+    def _quit_application_from_tray(self, icon=None, item=None):
         os.kill(os.getpid(), signal.SIGINT)
+
+    def _run_doctor_in_window(self, icon=None, item=None):
+        import subprocess
+        import sys
+        try:
+            subprocess.Popen(
+                [sys.executable, '-m', 'whisper_key.main', '--doctor'],
+                creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0)
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to launch doctor: {e}")
     
     def notify(self, message: str, title: str = "Whisper Local"):
         if not TRAY_AVAILABLE or not self.is_running or not self.icon:
