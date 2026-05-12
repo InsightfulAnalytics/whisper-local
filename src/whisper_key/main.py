@@ -262,6 +262,7 @@ def main():
     parser.add_argument('--quit', action='store_true', help='Stop a running instance and exit')
     parser.add_argument('--export-settings', metavar='PATH', help='Export user settings + commands to a directory')
     parser.add_argument('--import-settings', metavar='PATH', help='Restore user settings + commands from an export directory')
+    parser.add_argument('--stats', action='store_true', help='Show transcription stats and exit')
     args = parser.parse_args()
 
     if args.version:
@@ -282,6 +283,10 @@ def main():
     if args.import_settings:
         from .settings_io import import_settings
         sys.exit(import_settings(args.import_settings))
+
+    if args.stats:
+        from .stats import show_stats
+        sys.exit(show_stats())
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")

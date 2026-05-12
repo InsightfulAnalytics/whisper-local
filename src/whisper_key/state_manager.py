@@ -19,6 +19,8 @@ from .voice_commands import VoiceCommandManager
 from .profiles import ProfileManager
 from .app_rules import AppRules
 from .text_postprocess import postprocess
+from .stats import record_transcription
+from .platform import foreground
 
 class StateManager:
     def __init__(self,
@@ -225,6 +227,12 @@ class StateManager:
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.audio_feedback.play_transcription_complete_sound()
+                fg = foreground.get_foreground_app() or {}
+                record_transcription(
+                    char_count=len(transcribed_text),
+                    duration_seconds=duration,
+                    app=fg.get('exe', ''),
+                )
             
         except Exception as e:
             self.logger.error(f"Error in processing workflow: {e}")
@@ -385,6 +393,24 @@ class StateManager:
             self.logger.error(f"Failed to initiate model change: {e}")
             print(f"❌ Failed to change model: {e}")
             self.set_model_loading(False)
+
+    def get_current_language(self) -> str:
+        return self.config_manager.config.get('whisper', {}).get('language', 'auto')
+
+    def set_language(self, code: str) -> bool:
+        current = self.get_current_language()
+        if current == code:
+            return False
+        self.config_manager.update_user_setting('whisper', 'language', code)
+        try:
+            self.whisper_engine.language = None if code == 'auto' else code
+        except Exception:
+            pass
+        self.logger.info(f"Language switched: {current} -> {code}")
+        print(f"   ✓ Language set to: {code}")
+        self.system_tray.notify(f"Language: {code}")
+        self.system_tray.refresh_menu()
+        return True
 
     def list_profiles(self) -> list:
         return self.profile_manager.list_profiles()

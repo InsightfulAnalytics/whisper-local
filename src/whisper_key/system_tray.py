@@ -113,6 +113,31 @@ class SystemTray:
 
         return items
 
+    LANGUAGES = [
+        ('auto', 'Auto-detect'), ('en', 'English'), ('es', 'Spanish'),
+        ('fr', 'French'), ('de', 'German'), ('it', 'Italian'),
+        ('pt', 'Portuguese'), ('nl', 'Dutch'), ('pl', 'Polish'),
+        ('ru', 'Russian'), ('ja', 'Japanese'), ('zh', 'Chinese'),
+        ('ko', 'Korean'), ('hi', 'Hindi'), ('ar', 'Arabic'),
+    ]
+
+    def _build_language_menu(self):
+        try:
+            current = self.state_manager.get_current_language()
+        except Exception:
+            current = 'auto'
+
+        def make_setter(code):
+            return lambda icon, item: self.state_manager.set_language(code)
+
+        def make_is_current(code):
+            return lambda item: current == code
+
+        return [
+            pystray.MenuItem(label, make_setter(code), radio=True, checked=make_is_current(code))
+            for code, label in self.LANGUAGES
+        ]
+
     def _build_profile_menu(self):
         try:
             profiles = self.state_manager.list_profiles()
@@ -220,6 +245,8 @@ class SystemTray:
                 pystray.MenuItem("Open log file...", self._open_log_file),
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
                 pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
+                pystray.MenuItem("View stats...", self._run_stats_in_window),
+                pystray.MenuItem("Edit hotwords / settings...", self._open_config_file),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open config folder...", self._open_config_folder),
                 pystray.MenuItem("Open settings file...", self._open_config_file),
@@ -238,6 +265,10 @@ class SystemTray:
                 pystray.MenuItem("Copy to clipboard", lambda icon, item: self._set_transcription_mode(False), radio=True, checked=lambda item: not auto_paste_enabled),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(f"Model: {current_model.title()}", pystray.Menu(*model_sub_menu_items)),
+                pystray.MenuItem(
+                    f"Language: {self.state_manager.get_current_language()}",
+                    pystray.Menu(*self._build_language_menu())
+                ),
             ]
 
             profile_items = self._build_profile_menu()
@@ -360,15 +391,21 @@ class SystemTray:
         os.kill(os.getpid(), signal.SIGINT)
 
     def _run_doctor_in_window(self, icon=None, item=None):
+        self._run_module_in_window('--doctor')
+
+    def _run_stats_in_window(self, icon=None, item=None):
+        self._run_module_in_window('--stats')
+
+    def _run_module_in_window(self, flag: str):
         import subprocess
         import sys
         try:
             subprocess.Popen(
-                [sys.executable, '-m', 'whisper_key.main', '--doctor'],
+                [sys.executable, '-m', 'whisper_key.main', flag],
                 creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0)
             )
         except Exception as e:
-            self.logger.error(f"Failed to launch doctor: {e}")
+            self.logger.error(f"Failed to launch {flag}: {e}")
     
     def notify(self, message: str, title: str = "Whisper Local"):
         if not TRAY_AVAILABLE or not self.is_running or not self.icon:
