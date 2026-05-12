@@ -2,9 +2,20 @@
 
 History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.9.0] - 2026-05-07 (drajb/whisper-local fork)
+## [0.9.0] - 2026-05-11 (drajb/whisper-local fork)
 
 ### Added
+- **AI rephrase voice commands** — select text, say "make this concise" / "make this professional" / "fix grammar"; the selection is sent to local Ollama and the response replaces it.
+- **Inline voice formatting** — say "comma", "period", "new line", "new paragraph", "question mark", "open quote", "dash" etc. mid-sentence to insert punctuation/structure.
+- **Voice command DSL upgrade** — `match_regex:` patterns, `${selection}` / `${clipboard}` template vars, per-command `confirm:` flag.
+- **Risky-shell confirmation** — voice commands matching dangerous patterns (`rm -r`, `format`, `shutdown`, redirects, `sudo`, etc.) now prompt before executing.
+- **Setup wizard** — `whisper-local --setup` walks model selection (hardware-aware), recording mode, and microphone.
+- **Stats dashboard** — `whisper-local --stats` and tray item show transcription history, words, minutes saved vs typing.
+- **Multi-language quick-switch** — tray submenu of 15 languages, hot-swaps `whisper.language`.
+- **Whisper warmup** — model runs a 1-second zeros transcription right after load so the first real recording skips JIT.
+- **Auto-trim trailing silence** — VAD-style RMS scan trims the tail of each recording, removing Whisper's silence-induced hallucinations.
+- **Tray mic level meter** — animated 6-bar level inside the tray icon's tooltip while recording.
+- **Per-profile Whisper `initial_prompt`** — each profile primes Whisper for its context (code identifiers, chat tone, markdown notes).
 - **Pre-roll audio buffer** — `sd.InputStream` is opened once at startup and runs continuously. A 500ms ring buffer is prepended to every recording, eliminating first-word clipping on push-to-talk launches. `latency='low'` for smaller PortAudio buffers.
 - **Restart-on-second-launch** — launching while an instance is running now terminates the existing process via PID file + SIGTERM and takes over the lock instead of refusing to start.
 - **`whisper-local --doctor`** — structured health check across runtime, dependencies, config, audio, model cache, hotkeys, and recent log errors.

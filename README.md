@@ -36,7 +36,9 @@ Whisper Local is a free, open-source **voice-to-text dictation tool** for power 
 ## 🎯 Features
 
 - 🎙️ **Global push-to-talk hotkey** — start recording from any app with `Ctrl+Win` (Windows) or `Fn+Ctrl` (macOS)
-- ⚡ **Pre-roll buffer** — captures the 500 ms before you press the key, so the first word is never clipped
+- ⚡ **Pre-roll buffer + warmup** — captures the 500 ms before you press the key *and* pre-loads Whisper at boot, so the first word is never clipped and the first recording feels instant
+- 📝 **Inline voice formatting** — say "comma", "period", "question mark", "new paragraph", "open quote", etc. mid-sentence
+- 🤖 **AI rephrase** — select text, say "make this concise" or "fix grammar"; your local Ollama rewrites it in place
 - 📋 **Auto-paste at cursor** — transcript lands wherever you're typing, optionally followed by Enter (auto-send)
 - 🔒 **100 % local & private** — no network calls during use; Whisper models cached on disk
 - 🚀 **GPU acceleration** — NVIDIA CUDA and AMD ROCm supported, CPU works out of the box
@@ -219,7 +221,9 @@ Full reference: [`config.defaults.yaml`](src/whisper_key/config.defaults.yaml).
 
 ```bash
 whisper-local                      # Run the app (or use `wl`)
+whisper-local --setup              # Interactive setup wizard (model, mode, mic)
 whisper-local --doctor             # Run diagnostics
+whisper-local --stats              # Transcription history & time saved
 whisper-local --version            # Print version
 whisper-local --quit               # Stop the running instance
 whisper-local --export-settings DIR
