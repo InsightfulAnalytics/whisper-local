@@ -19,10 +19,11 @@ RISKY_PATTERNS = re.compile(
 
 
 class VoiceCommandManager:
-    def __init__(self, enabled=True, clipboard_manager=None, log_transcriptions=False):
+    def __init__(self, enabled=True, clipboard_manager=None, log_transcriptions=False, ollama_config_provider=None):
         self.enabled = enabled
         self.clipboard_manager = clipboard_manager
         self.log_transcriptions = log_transcriptions
+        self.ollama_config_provider = ollama_config_provider
         self.logger = logging.getLogger(__name__)
 
         if not self.enabled:
@@ -56,14 +57,14 @@ class VoiceCommandManager:
         for i, cmd in enumerate(raw_commands):
             trigger = cmd.get('trigger', '')
             has_match = bool(trigger or cmd.get('match_regex'))
-            action_count = sum(1 for key in ('run', 'hotkey', 'type') if key in cmd)
+            action_count = sum(1 for key in ('run', 'hotkey', 'type', 'rephrase') if key in cmd)
 
             if not has_match:
                 self.logger.warning(f"Command {i}: missing trigger and match_regex, skipping")
                 continue
 
             if action_count != 1:
-                self.logger.warning(f"Command '{trigger}': needs exactly one of 'run', 'hotkey', or 'type', skipping")
+                self.logger.warning(f"Command '{trigger}': needs exactly one of 'run', 'hotkey', 'type', or 'rephrase', skipping")
                 continue
 
             valid.append(cmd)
@@ -140,6 +141,62 @@ class VoiceCommandManager:
             self._send_hotkey(command['hotkey'], trigger)
         elif 'type' in command:
             self._deliver_text(self._expand_template(command['type']), trigger, use_auto_enter)
+        elif 'rephrase' in command:
+            self._execute_rephrase(command['rephrase'], trigger)
+
+    def _execute_rephrase(self, instruction: str, trigger: str):
+        import time
+        from .text_postprocess import _ollama_polish
+
+        if not self.ollama_config_provider:
+            print("   ✗ Rephrase requires Ollama config; nothing wired")
+            return
+
+        try:
+            original_clipboard = pyperclip.paste()
+        except Exception:
+            original_clipboard = ''
+
+        keyboard.send_hotkey('ctrl', 'c')
+        time.sleep(0.12)
+        try:
+            selection = pyperclip.paste()
+        except Exception:
+            selection = ''
+
+        if not selection or selection == original_clipboard:
+            print(f"   ✗ Nothing selected to rephrase ({trigger})")
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+            return
+
+        ollama_cfg = dict(self.ollama_config_provider() or {})
+        ollama_cfg['enabled'] = True
+        prompt = (
+            f"{instruction}\n\n"
+            "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
+            "Input:\n{text}"
+        )
+        ollama_cfg['prompt'] = prompt
+
+        polished = _ollama_polish(selection, ollama_cfg)
+        if not polished:
+            print(f"   ✗ Rephrase failed — Ollama unreachable or returned nothing")
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+            return
+
+        try:
+            pyperclip.copy(polished)
+            time.sleep(0.05)
+            keyboard.send_hotkey('ctrl', 'v')
+            time.sleep(0.2)
+        finally:
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+
+        self.logger.info(f"Rephrased via '{trigger}': {len(selection)} → {len(polished)} chars")
+        print(f"   ✓ Rephrased: {trigger}")
 
     def _execute_shell(self, run_str: str, trigger: str, require_confirm: Optional[bool] = None):
         is_risky = bool(RISKY_PATTERNS.search(run_str))

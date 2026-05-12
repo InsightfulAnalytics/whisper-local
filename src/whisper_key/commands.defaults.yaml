@@ -50,3 +50,14 @@ commands:
     run: 'snippingtool'
   - trigger: "lock screen"
     run: 'rundll32.exe user32.dll,LockWorkStation'
+
+  # AI rephrase — select text in any app first, then trigger command mode
+  # and speak the trigger. The selection is sent to your local Ollama LLM
+  # with the instruction; the result replaces the selection.
+  # Requires `ollama serve` running locally.
+  - trigger: "make this concise"
+    rephrase: "Rewrite this text to be more concise while preserving meaning"
+  - trigger: "make this professional"
+    rephrase: "Rewrite this text in a polished, professional tone"
+  - trigger: "fix grammar"
+    rephrase: "Fix grammar, spelling, and punctuation in this text. Do not change wording otherwise"

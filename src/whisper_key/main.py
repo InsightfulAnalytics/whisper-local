@@ -190,11 +190,15 @@ def setup_audio_feedback(audio_feedback_config):
         transcription_complete_sound=audio_feedback_config['transcription_complete_sound']
     )
 
-def setup_voice_commands(voice_commands_config, clipboard_manager, log_transcriptions=False):
+def setup_voice_commands(voice_commands_config, clipboard_manager, log_transcriptions=False, config_manager=None):
+    provider = None
+    if config_manager is not None:
+        provider = lambda: (config_manager.get_postprocess_config().get('ollama') or {})
     return VoiceCommandManager(
         enabled=voice_commands_config['enabled'],
         clipboard_manager=clipboard_manager,
-        log_transcriptions=log_transcriptions
+        log_transcriptions=log_transcriptions,
+        ollama_config_provider=provider,
     )
 
 def setup_system_tray(tray_config, config_manager, state_manager, model_registry, console_config=None):
@@ -263,6 +267,7 @@ def main():
     parser.add_argument('--export-settings', metavar='PATH', help='Export user settings + commands to a directory')
     parser.add_argument('--import-settings', metavar='PATH', help='Restore user settings + commands from an export directory')
     parser.add_argument('--stats', action='store_true', help='Show transcription stats and exit')
+    parser.add_argument('--setup', action='store_true', help='Run interactive setup wizard')
     args = parser.parse_args()
 
     if args.version:
@@ -287,6 +292,10 @@ def main():
     if args.stats:
         from .stats import show_stats
         sys.exit(show_stats())
+
+    if args.setup:
+        from .setup_wizard import run_wizard
+        sys.exit(run_wizard())
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")
@@ -337,7 +346,7 @@ def main():
         streaming_manager.initialize()
         clipboard_manager = setup_clipboard_manager(clipboard_config)
         audio_feedback = setup_audio_feedback(audio_feedback_config)
-        voice_command_manager = setup_voice_commands(voice_commands_config, clipboard_manager, log_transcriptions)
+        voice_command_manager = setup_voice_commands(voice_commands_config, clipboard_manager, log_transcriptions, config_manager)
 
         state_manager = StateManager(
             audio_recorder=None,

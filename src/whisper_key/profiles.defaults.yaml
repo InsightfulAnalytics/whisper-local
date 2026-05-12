@@ -17,6 +17,7 @@ profiles:
         delivery_method: paste
       whisper:
         model: tiny
+        initial_prompt: ""
       voice_commands:
         enabled: true
 
@@ -28,6 +29,8 @@ profiles:
       clipboard:
         auto_paste: true
         delivery_method: paste
+      whisper:
+        initial_prompt: "Casual chat message. Friendly tone."
 
   code:
     description: Copy-only mode for editors; never auto-send
@@ -35,6 +38,8 @@ profiles:
       clipboard:
         auto_paste: false
         delivery_method: paste
+      whisper:
+        initial_prompt: "Programming context. Identifiers, snake_case, camelCase, file paths, regex. Keep verbatim."
       voice_commands:
         enabled: true
 
@@ -45,5 +50,6 @@ profiles:
         auto_paste: false
       whisper:
         model: tiny
+        initial_prompt: "Note-taking. Markdown formatting. Bullet points."
       voice_commands:
         enabled: false
