@@ -72,6 +72,7 @@ class WhisperEngine:
             print(f"   ✓ Whisper model [{self.model_key}] ready!")
             device_label = "GPU" if self.device == "cuda" else "CPU"
             print(f"   ✓ Running on {device_label} with {self.compute_type} precision")
+            self._warmup()
 
         except Exception as e:
             self.logger.error(f"Failed to load Whisper model: {e}")
@@ -131,6 +132,19 @@ class WhisperEngine:
     def is_loading(self) -> bool:
         return self._loading_thread is not None and self._loading_thread.is_alive()
     
+
+    def _warmup(self):
+        try:
+            silent = np.zeros(16000, dtype=np.float32)
+            t0 = time.time()
+            segments, _ = self.model.transcribe(
+                silent, language=self.language, beam_size=1, vad_filter=False
+            )
+            for _ in segments:
+                pass
+            self.logger.info(f"Whisper warmup completed in {time.time() - t0:.2f}s")
+        except Exception as e:
+            self.logger.debug(f"Whisper warmup skipped: {e}")
 
     def transcribe_audio(self,
                          audio_data: np.ndarray) -> Optional[str]:

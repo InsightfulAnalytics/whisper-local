@@ -381,14 +381,57 @@ class SystemTray:
     def update_state(self, new_state: str):
         if not TRAY_AVAILABLE or not self.is_running:
             return
-        
+
         self.current_state = new_state
-        
+
         try:
             self.icon.icon = self.icons[new_state]
             self.icon.menu = self._create_menu()
         except Exception as e:
             self.logger.error(f"Failed to update tray icon: {e}")
+
+        if new_state == "recording":
+            self._start_level_monitor()
+        else:
+            self._stop_level_monitor()
+            try:
+                self.icon.title = self.tray_config.get('tooltip', 'Whisper Local')
+            except Exception:
+                pass
+
+    def _start_level_monitor(self):
+        import threading
+        if getattr(self, '_level_thread', None) and self._level_thread.is_alive():
+            return
+        self._level_stop = threading.Event()
+
+        def loop():
+            import time
+            while not self._level_stop.is_set():
+                try:
+                    level = self.state_manager.audio_recorder.get_current_level()
+                except Exception:
+                    level = 0.0
+                bars = self._level_bars(level)
+                try:
+                    if self.icon:
+                        self.icon.title = f"Whisper Local · 🎤 {bars}"
+                except Exception:
+                    pass
+                self._level_stop.wait(0.15)
+
+        self._level_thread = threading.Thread(target=loop, daemon=True, name="tray-level")
+        self._level_thread.start()
+
+    def _stop_level_monitor(self):
+        stop = getattr(self, '_level_stop', None)
+        if stop:
+            stop.set()
+
+    def _level_bars(self, level: float) -> str:
+        bins = ['░░░░░░', '█░░░░░', '██░░░░', '███░░░', '████░░', '█████░', '██████']
+        scaled = min(int(level * 60), len(bins) - 1)
+        return bins[scaled]
 
     def refresh_menu(self):
         if not self.icon:

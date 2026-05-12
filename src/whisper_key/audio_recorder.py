@@ -17,6 +17,8 @@ class AudioRecorder:
     LOOP_SLEEP_MS = 100
     STREAM_DTYPE = np.float32
     PREROLL_SECONDS = 0.5
+    TRAILING_SILENCE_TRIM_SECONDS = 0.4
+    SILENCE_RMS_THRESHOLD = 0.005
 
     def __init__(self,
                  on_vad_event: Callable[[VadEvent], None],
@@ -64,6 +66,7 @@ class AudioRecorder:
         self._capture_running = False
         self._capture_thread = None
         self._stream_error = None
+        self._current_level = 0.0
         self._start_capture()
 
     def _setup_continuous_vad_monitoring(self):
@@ -174,6 +177,11 @@ class AudioRecorder:
         chunk = audio_data.copy()
         recording = self.is_recording
 
+        if recording:
+            self._current_level = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
+        else:
+            self._current_level = 0.0
+
         self._buffer.append(chunk)
 
         if recording:
@@ -229,9 +237,37 @@ class AudioRecorder:
             self.logger.info(f"Resampling from {self._recording_rate} Hz to {self.WHISPER_SAMPLE_RATE} Hz")
             audio_array = self._resample_audio(audio_array, self._recording_rate, self.WHISPER_SAMPLE_RATE)
 
+        audio_array = self._trim_trailing_silence(audio_array)
+
         duration = self.get_audio_duration(audio_array)
-        self.logger.info(f"Recorded {duration:.2f} seconds of audio (incl. preroll)")
+        self.logger.info(f"Recorded {duration:.2f} seconds of audio (incl. preroll, trailing silence trimmed)")
         return audio_array
+
+    def _trim_trailing_silence(self, audio: np.ndarray) -> np.ndarray:
+        if audio.ndim > 1:
+            mono = audio.mean(axis=1)
+        else:
+            mono = audio
+        window = int(0.02 * self.WHISPER_SAMPLE_RATE)
+        if window < 1 or len(mono) < window * 4:
+            return audio
+        trim_samples = int(self.TRAILING_SILENCE_TRIM_SECONDS * self.WHISPER_SAMPLE_RATE)
+        last_voice = len(mono)
+        i = len(mono) - window
+        while i > 0:
+            block = mono[i:i + window]
+            rms = float(np.sqrt(np.mean(block ** 2)))
+            if rms > self.SILENCE_RMS_THRESHOLD:
+                last_voice = i + window
+                break
+            i -= window
+        keep_until = min(len(mono), last_voice + trim_samples)
+        if keep_until >= len(mono) - window:
+            return audio
+        return audio[:keep_until]
+
+    def get_current_level(self) -> float:
+        return self._current_level
 
     def cancel_recording(self):
         if not self.is_recording:
