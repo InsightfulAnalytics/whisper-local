@@ -8,10 +8,32 @@ logger = logging.getLogger(__name__)
 
 _SENTENCE_END = ('.', '!', '?', '"', "'", ')', ']', ':', ';', ',', '…')
 
+INLINE_FORMAT_REPLACEMENTS = [
+    (r'\bnew paragraph\b', '\n\n'),
+    (r'\bnew line\b', '\n'),
+    (r'\b(?:full stop|period)\b', '.'),
+    (r'\bcomma\b', ','),
+    (r'\bquestion mark\b', '?'),
+    (r'\bexclamation (?:mark|point)\b', '!'),
+    (r'\bcolon\b', ':'),
+    (r'\bsemi[- ]?colon\b', ';'),
+    (r'\bopen (?:quote|quotes)\b', ' "'),
+    (r'\bclose (?:quote|quotes)\b', '" '),
+    (r'\bopen paren(?:thesis)?\b', ' ('),
+    (r'\bclose paren(?:thesis)?\b', ') '),
+    (r'\bopen bracket\b', ' ['),
+    (r'\bclose bracket\b', '] '),
+    (r'\bdash\b', ' — '),
+    (r'\bhyphen\b', '-'),
+]
+
 
 def postprocess(text: str, config: dict) -> str:
     if not text or not config:
         return text
+
+    if config.get('inline_formatting', False):
+        text = _apply_inline_formatting(text)
 
     if config.get('strip_filler_words', False):
         text = _strip_fillers(text)
@@ -29,6 +51,16 @@ def postprocess(text: str, config: dict) -> str:
             text = polished
 
     return text
+
+
+def _apply_inline_formatting(text: str) -> str:
+    for pattern, replacement in INLINE_FORMAT_REPLACEMENTS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    text = re.sub(r' +([.,!?:;])', r'\1', text)
+    text = re.sub(r'\(\s+', '(', text)
+    text = re.sub(r'\s+\)', ')', text)
+    text = re.sub(r' {2,}', ' ', text)
+    return text.strip()
 
 
 def _strip_fillers(text: str) -> str:

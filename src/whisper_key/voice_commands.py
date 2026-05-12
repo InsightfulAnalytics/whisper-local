@@ -5,10 +5,17 @@ import shutil
 import subprocess
 from typing import Optional
 
+import pyperclip
 from ruamel.yaml import YAML
 
 from .utils import resolve_asset_path, get_user_app_data_path
 from .platform import keyboard
+
+RISKY_PATTERNS = re.compile(
+    r'\b(rm\s+-r|del\s+/[sq]|format\s+\w:|shutdown|reg\s+delete|sudo|takeown|del\s+/f)\b'
+    r'|>(?!\s*null)|\|\s*(out-file|tee)\b',
+    flags=re.IGNORECASE,
+)
 
 
 class VoiceCommandManager:
@@ -48,10 +55,11 @@ class VoiceCommandManager:
         valid = []
         for i, cmd in enumerate(raw_commands):
             trigger = cmd.get('trigger', '')
+            has_match = bool(trigger or cmd.get('match_regex'))
             action_count = sum(1 for key in ('run', 'hotkey', 'type') if key in cmd)
 
-            if not trigger:
-                self.logger.warning(f"Command {i}: missing trigger, skipping")
+            if not has_match:
+                self.logger.warning(f"Command {i}: missing trigger and match_regex, skipping")
                 continue
 
             if action_count != 1:
@@ -67,10 +75,31 @@ class VoiceCommandManager:
 
         for command in self.commands:
             trigger = command.get('trigger', '').lower()
+            regex_pattern = command.get('match_regex')
+
+            if regex_pattern:
+                try:
+                    if re.search(regex_pattern, text, flags=re.IGNORECASE):
+                        return command
+                except re.error as e:
+                    self.logger.warning(f"Invalid regex in command '{trigger}': {e}")
+                    continue
+
             if trigger and trigger in normalized:
                 return command
 
         return None
+
+    def _expand_template(self, value: str) -> str:
+        if not value or '${' not in value:
+            return value
+        try:
+            clipboard_text = pyperclip.paste() or ''
+        except Exception:
+            clipboard_text = ''
+        value = value.replace('${clipboard}', clipboard_text)
+        value = value.replace('${selection}', clipboard_text)
+        return value
 
     def _read_mtime(self) -> float:
         try:
@@ -105,13 +134,21 @@ class VoiceCommandManager:
         trigger = command.get('trigger', '')
 
         if 'run' in command:
-            self._execute_shell(command['run'], trigger)
+            self._execute_shell(self._expand_template(command['run']), trigger,
+                                 require_confirm=command.get('confirm', None))
         elif 'hotkey' in command:
             self._send_hotkey(command['hotkey'], trigger)
         elif 'type' in command:
-            self._deliver_text(command['type'], trigger, use_auto_enter)
+            self._deliver_text(self._expand_template(command['type']), trigger, use_auto_enter)
 
-    def _execute_shell(self, run_str: str, trigger: str):
+    def _execute_shell(self, run_str: str, trigger: str, require_confirm: Optional[bool] = None):
+        is_risky = bool(RISKY_PATTERNS.search(run_str))
+        needs_confirm = require_confirm if require_confirm is not None else is_risky
+        if needs_confirm and not self._confirm_risky_command(trigger, run_str):
+            self.logger.info(f"User declined risky command '{trigger}'")
+            print(f"   ✗ Cancelled: {trigger}")
+            return
+
         try:
             subprocess.Popen(run_str, shell=True)
             self.logger.info(f"Executed command '{trigger}': {run_str}")
@@ -119,6 +156,26 @@ class VoiceCommandManager:
         except Exception as e:
             self.logger.error(f"Failed to execute command '{trigger}': {e}")
             print(f"   Failed to execute command: {e}")
+
+    def _confirm_risky_command(self, trigger: str, run_str: str) -> bool:
+        if os.name == 'nt':
+            try:
+                import ctypes
+                MB_YESNO = 0x4
+                MB_ICONWARNING = 0x30
+                MB_DEFBUTTON2 = 0x100
+                IDYES = 6
+                result = ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"Voice command '{trigger}' would run:\n\n{run_str}\n\nProceed?",
+                    "Whisper Local — Confirm command",
+                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2,
+                )
+                return result == IDYES
+            except Exception as e:
+                self.logger.error(f"Could not show confirm dialog: {e}")
+                return False
+        return True
 
     def _send_hotkey(self, hotkey_str: str, trigger: str):
         keys = [k.strip() for k in hotkey_str.lower().split('+')]

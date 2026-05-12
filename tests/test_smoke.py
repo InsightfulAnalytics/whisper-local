@@ -82,6 +82,12 @@ class TextPostprocessTests(unittest.TestCase):
         self.assertEqual(postprocess("hello", {}), "hello")
         self.assertEqual(postprocess("", {'capitalize_first': True}), "")
 
+    def test_inline_formatting_basics(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'inline_formatting': True}
+        self.assertEqual(postprocess("hello comma world period", cfg), "hello, world.")
+        self.assertEqual(postprocess("what time is it question mark", cfg), "what time is it?")
+
 
 class AppRulesShapeTests(unittest.TestCase):
     def test_defaults_yaml_is_valid(self):

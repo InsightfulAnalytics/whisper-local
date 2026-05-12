@@ -319,7 +319,12 @@ voice_commands: # Voice Command Settings
     # Define commands in commands.yaml (same folder as user_settings.yaml)
     enabled: true
 
-postprocess: # Transcription post-processing pipeline (off-by-default)
+postprocess: # Transcription post-processing pipeline
+    # Inline voice formatting: say "comma", "period", "new line", "new paragraph",
+    # "question mark", "exclamation mark", "colon", "semicolon", "open quote",
+    # "close quote", "open paren", "close paren", "dash", "hyphen"
+    inline_formatting: true
+
     # Strip "um", "uh", "like", "you know" filler words
     strip_filler_words: false
 
