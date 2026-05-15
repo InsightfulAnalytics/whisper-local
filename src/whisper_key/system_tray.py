@@ -469,8 +469,12 @@ class SystemTray:
 
     def _start_level_monitor(self):
         import threading
-        if getattr(self, '_level_thread', None) and self._level_thread.is_alive():
-            return
+        prev_thread = getattr(self, '_level_thread', None)
+        if prev_thread and prev_thread.is_alive():
+            prev_stop = getattr(self, '_level_stop', None)
+            if prev_stop:
+                prev_stop.set()
+            prev_thread.join(timeout=0.3)
         self._level_stop = threading.Event()
 
         def loop():

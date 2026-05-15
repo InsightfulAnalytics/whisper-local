@@ -21,6 +21,20 @@ CHARS_PER_WORD = 5
 logger = logging.getLogger(__name__)
 
 
+def _safe_int(value, default=0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value, default=0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def record_transcription(char_count: int, duration_seconds: float, app: Optional[str] = None):
     if char_count <= 0:
         return
@@ -71,8 +85,8 @@ def maybe_show_daily_summary(notify_callback) -> Optional[str]:
                     continue
                 if entry.get('ts', '').startswith(yesterday):
                     count += 1
-                    chars += int(entry.get('chars', 0))
-                    seconds += float(entry.get('duration_s', 0))
+                    chars += _safe_int(entry.get('chars'))
+                    seconds += _safe_float(entry.get('duration_s'))
     except OSError:
         return None
 
@@ -120,16 +134,10 @@ def export_transcripts(dest: str) -> int:
                 continue
 
     def _seconds(entry):
-        try:
-            return float(entry.get('duration_s', 0))
-        except (TypeError, ValueError):
-            return 0.0
+        return _safe_float(entry.get('duration_s'))
 
     def _chars(entry):
-        try:
-            return int(entry.get('chars', 0))
-        except (TypeError, ValueError):
-            return 0
+        return _safe_int(entry.get('chars'))
 
     try:
         if fmt == '.csv':
@@ -184,8 +192,8 @@ def show_stats() -> int:
         return 0
 
     total = len(entries)
-    total_chars = sum(int(e.get('chars', 0)) for e in entries)
-    total_seconds = sum(float(e.get('duration_s', 0)) for e in entries)
+    total_chars = sum(_safe_int(e.get('chars')) for e in entries)
+    total_seconds = sum(_safe_float(e.get('duration_s')) for e in entries)
     words = total_chars // CHARS_PER_WORD
     minutes_typing = words / WPM_TYPING_BASELINE
     minutes_speaking = total_seconds / 60

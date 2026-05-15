@@ -95,9 +95,13 @@ def _iter_files(root: Path) -> Iterable[Path]:
                 continue
             if path.suffix.lower() not in TEXT_EXTENSIONS:
                 continue
-            if any(part.startswith('.') for part in path.parts):
+            try:
+                relative_parts = path.relative_to(root).parts
+            except ValueError:
+                relative_parts = path.parts
+            if any(part.startswith('.') for part in relative_parts):
                 continue
-            if any(part in SKIP_DIRS for part in path.parts):
+            if any(part in SKIP_DIRS for part in relative_parts):
                 continue
             if path.stat().st_size > MAX_FILE_SIZE:
                 continue
