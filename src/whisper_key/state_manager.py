@@ -231,6 +231,21 @@ class StateManager:
             if self.level_overlay:
                 self.level_overlay.show_recording()
 
+    def _maybe_restart_continuous(self):
+        audio_cfg = self.config_manager.config.get('audio', {})
+        if not audio_cfg.get('continuous_mode', False) or self.is_paused:
+            return
+        import threading
+        def restart():
+            import time
+            time.sleep(0.6)
+            if self.is_paused:
+                return
+            if not self.audio_recorder.get_recording_status():
+                self.logger.info("Continuous mode: auto-restarting recording")
+                self._begin_recording()
+        threading.Thread(target=restart, daemon=True, name='continuous-restart').start()
+
     def _maybe_pause_media(self):
         audio_cfg = self.config_manager.config.get('audio', {})
         if not audio_cfg.get('pause_media_on_record', False):
@@ -362,6 +377,7 @@ class StateManager:
                     duration_seconds=duration,
                     app=fg.get('exe', ''),
                 )
+                self._maybe_restart_continuous()
             elif self.level_overlay:
                 self.level_overlay.flash_failure()
             

@@ -271,6 +271,8 @@ def main():
     parser.add_argument('--import-settings', metavar='PATH', help='Restore user settings + commands from an export directory')
     parser.add_argument('--stats', action='store_true', help='Show transcription stats and exit')
     parser.add_argument('--setup', action='store_true', help='Run interactive setup wizard')
+    parser.add_argument('--export-transcripts', metavar='PATH', help='Export transcription history to .txt / .md / .csv')
+    parser.add_argument('--import-vocab', metavar='PATH', help='Scan a folder for terms and merge into whisper.hotwords')
     args = parser.parse_args()
 
     if args.version:
@@ -299,6 +301,14 @@ def main():
     if args.setup:
         from .setup_wizard import run_wizard
         sys.exit(run_wizard())
+
+    if args.export_transcripts:
+        from .stats import export_transcripts
+        sys.exit(export_transcripts(args.export_transcripts))
+
+    if args.import_vocab:
+        from .vocab_import import import_vocab
+        sys.exit(import_vocab(args.import_vocab))
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")

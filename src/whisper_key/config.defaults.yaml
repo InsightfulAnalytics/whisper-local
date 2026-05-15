@@ -209,6 +209,11 @@ audio: # Audio Recording Settings
     # etc.) by sending the system play/pause key. Does NOT auto-resume.
     pause_media_on_record: false
 
+    # Continuous dictation mode: after each successful delivery, the app
+    # auto-restarts recording after a short delay. Press Esc (cancel
+    # hotkey) to exit. Useful for long-form note dictation.
+    continuous_mode: false
+
     # Recording format
     # Options: "float32", "int16", "int24", "int32"
     # float32 recommended for best quality

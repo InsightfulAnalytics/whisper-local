@@ -37,6 +37,53 @@ def record_transcription(char_count: int, duration_seconds: float, app: Optional
         logger.debug(f"Stats record failed: {e}")
 
 
+def export_transcripts(dest: str) -> int:
+    path = Path(get_user_app_data_path()) / STATS_FILE
+    if not path.exists():
+        print("No transcription history to export.")
+        return 1
+
+    dest_path = Path(dest).expanduser().resolve()
+    fmt = dest_path.suffix.lower()
+    if fmt not in ('.txt', '.md', '.csv'):
+        print(f"Unknown extension '{fmt}'. Use .txt, .md, or .csv")
+        return 1
+
+    entries = []
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    try:
+        if fmt == '.csv':
+            import csv
+            with open(dest_path, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['timestamp', 'app', 'duration_seconds', 'characters'])
+                for e in entries:
+                    writer.writerow([e.get('ts', ''), e.get('app', ''),
+                                     e.get('duration_s', ''), e.get('chars', '')])
+        elif fmt == '.md':
+            with open(dest_path, 'w', encoding='utf-8') as f:
+                f.write(f"# Whisper Local — Transcription Log\n\n")
+                f.write(f"| Time | App | Seconds | Chars |\n|---|---|---|---|\n")
+                for e in entries:
+                    f.write(f"| {e.get('ts','')} | {e.get('app','')} | {e.get('duration_s',''):.1f} | {e.get('chars',0)} |\n")
+        else:
+            with open(dest_path, 'w', encoding='utf-8') as f:
+                for e in entries:
+                    f.write(f"{e.get('ts','')}\t{e.get('app','')}\t{e.get('duration_s',0)}s\t{e.get('chars',0)} chars\n")
+    except OSError as e:
+        print(f"Write failed: {e}")
+        return 1
+
+    print(f"Exported {len(entries)} entries to {dest_path}")
+    return 0
+
+
 def show_stats() -> int:
     path = Path(get_user_app_data_path()) / STATS_FILE
     if not path.exists():
