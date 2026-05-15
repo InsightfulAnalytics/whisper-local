@@ -21,6 +21,7 @@ from .app_rules import AppRules
 from .text_postprocess import postprocess
 from .stats import record_transcription
 from .platform import foreground
+from .level_overlay import LevelOverlay
 
 class StateManager:
     def __init__(self,
@@ -57,6 +58,7 @@ class StateManager:
         self._initialize_audio_host()
         self.profile_manager = ProfileManager(config_manager)
         self.app_rules = AppRules()
+        self.level_overlay = None
 
     def attach_components(self,
                           audio_recorder: AudioRecorder,
@@ -64,6 +66,15 @@ class StateManager:
         self.audio_recorder = audio_recorder
         self.system_tray = OptionalComponent(system_tray)
         self._ensure_audio_device_for_host(self._current_audio_host)
+
+        overlay_cfg = self.config_manager.config.get('overlay', {}) or {}
+        if overlay_cfg.get('enabled', True):
+            try:
+                self.level_overlay = LevelOverlay(level_provider=self.audio_recorder.get_current_level)
+                self.level_overlay.start()
+            except Exception as e:
+                self.logger.warning(f"Level overlay disabled: {e}")
+                self.level_overlay = None
     
     def handle_max_recording_duration_reached(self, audio_data):
         self.logger.info("Max recording duration reached - starting transcription")
@@ -110,6 +121,8 @@ class StateManager:
         self.audio_recorder.cancel_recording()
         self.audio_feedback.play_cancel_sound()
         self.system_tray.update_state("idle")
+        if self.level_overlay:
+            self.level_overlay.hide()
     
     def cancel_recording_hotkey_pressed(self) -> bool:
         current_state = self.get_current_state()
@@ -148,6 +161,8 @@ class StateManager:
             self.config_manager.print_command_stop_instructions()
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
+            if self.level_overlay:
+                self.level_overlay.show()
 
     def _begin_recording(self):
         success = self.audio_recorder.start_recording()
@@ -157,6 +172,8 @@ class StateManager:
             self.config_manager.print_stop_instructions_based_on_config()
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
+            if self.level_overlay:
+                self.level_overlay.show()
     
     def _transcription_pipeline(self, audio_data, use_auto_enter: bool = False):
         try:
@@ -175,6 +192,8 @@ class StateManager:
             print(f"   ✓ Recorded {duration:.1f} seconds, transcribing...")
 
             self.system_tray.update_state("processing")
+            if self.level_overlay:
+                self.level_overlay.hide()
 
             transcribed_text = self.whisper_engine.transcribe_audio(audio_data)
 
@@ -189,14 +208,24 @@ class StateManager:
             postprocess_cfg = self.config_manager.get_postprocess_config()
             transcribed_text = postprocess(transcribed_text, postprocess_cfg)
 
+            self.clipboard_manager.copy_text(transcribed_text)
+
             rule = self.app_rules.match_for_foreground()
             if rule and rule.get('suppress'):
                 self.logger.info(f"Delivery suppressed by app rule: {rule.get('match')}")
-                self.clipboard_manager.copy_text(transcribed_text)
                 self.last_transcription = transcribed_text
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.system_tray.notify("Delivery suppressed for this app — text on clipboard.")
+                return
+
+            if not self._foreground_is_textable():
+                self.logger.info("No textable foreground window; falling back to Notepad")
+                self._notepad_fallback(transcribed_text)
+                self.last_transcription = transcribed_text
+                self.recent_transcriptions.appendleft(transcribed_text)
+                self.system_tray.refresh_menu()
+                self.system_tray.notify("Opened transcript in Notepad — no text field was focused.")
                 return
 
             effective_auto_enter = use_auto_enter
@@ -308,6 +337,9 @@ class StateManager:
             self.audio_recorder.stop_recording()
         self.audio_recorder.shutdown()
 
+        if self.level_overlay:
+            self.level_overlay.shutdown()
+
         self.system_tray.stop()
     
     def set_model_loading(self, loading: bool):
@@ -393,6 +425,35 @@ class StateManager:
             self.logger.error(f"Failed to initiate model change: {e}")
             print(f"❌ Failed to change model: {e}")
             self.set_model_loading(False)
+
+    NON_TEXT_EXES = {'progman.exe', 'workerw.exe', 'dwm.exe', 'searchhost.exe',
+                     'shellexperiencehost.exe', 'startmenuexperiencehost.exe',
+                     'lockapp.exe', 'sihost.exe'}
+
+    def _foreground_is_textable(self) -> bool:
+        try:
+            info = foreground.get_foreground_app() or {}
+        except Exception:
+            return True
+        exe = (info.get('exe') or '').lower()
+        if not exe:
+            return False
+        return exe not in self.NON_TEXT_EXES
+
+    def _notepad_fallback(self, text: str):
+        import os
+        import subprocess
+        import tempfile
+        try:
+            fd, path = tempfile.mkstemp(prefix='whisper-local-', suffix='.txt', text=True)
+            os.close(fd)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(text)
+            subprocess.Popen(['notepad.exe', path])
+            print(f"   ✓ Opened transcript in Notepad: {path}")
+        except Exception as e:
+            self.logger.error(f"Notepad fallback failed: {e}")
+            print(f"   ⚠ Notepad fallback failed: {e}")
 
     def get_current_language(self) -> str:
         return self.config_manager.config.get('whisper', {}).get('language', 'auto')

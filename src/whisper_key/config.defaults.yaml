@@ -319,6 +319,11 @@ voice_commands: # Voice Command Settings
     # Define commands in commands.yaml (same folder as user_settings.yaml)
     enabled: true
 
+overlay: # Floating speech-level overlay (Wispr-style bottom-center bar)
+    # Show a thin pill at bottom-center of the screen while recording so you
+    # can see Whisper Local is listening and reacting to your voice.
+    enabled: true
+
 postprocess: # Transcription post-processing pipeline
     # Inline voice formatting: say "comma", "period", "new line", "new paragraph",
     # "question mark", "exclamation mark", "colon", "semicolon", "open quote",
