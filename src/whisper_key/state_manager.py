@@ -52,6 +52,7 @@ class StateManager:
         self._rephrase_mode = False
         self._rephrase_selection = ''
         self._rephrase_original_clipboard = ''
+        self._continuous_aborted = False
         self._pending_model_change = None
         self._pending_device_change = None
         self._command_mode = False
@@ -128,7 +129,11 @@ class StateManager:
     
     def cancel_active_recording(self):
         self._clear_streaming_display()
-        self._command_mode = False
+        with self._state_lock:
+            self._command_mode = False
+            self._rephrase_mode = False
+            self._rephrase_selection = ''
+        self._continuous_aborted = True
         self.audio_recorder.cancel_recording()
         self.audio_feedback.play_cancel_sound()
         self.system_tray.update_state("idle")
@@ -236,11 +241,13 @@ class StateManager:
         audio_cfg = self.config_manager.config.get('audio', {})
         if not audio_cfg.get('continuous_mode', False) or self.is_paused:
             return
+        self._continuous_aborted = False
         import threading
         def restart():
             import time
             time.sleep(0.6)
-            if self.is_paused:
+            if self.is_paused or self._continuous_aborted:
+                self.logger.info("Continuous mode: restart aborted")
                 return
             if not self.audio_recorder.get_recording_status():
                 self.logger.info("Continuous mode: auto-restarting recording")
@@ -260,6 +267,9 @@ class StateManager:
 
     def _maybe_seed_whisper_prompt_from_selection(self):
         whisper_cfg = self.config_manager.get_whisper_config()
+        baseline_prompt = whisper_cfg.get('initial_prompt') or None
+        self.whisper_engine.initial_prompt = baseline_prompt
+
         if not whisper_cfg.get('prompt_from_selection', False):
             return
         try:
@@ -276,7 +286,8 @@ class StateManager:
                 pass
             if selection and selection != original:
                 preview = selection[-200:].replace('\n', ' ')
-                self.whisper_engine.initial_prompt = preview
+                combined = f"{baseline_prompt} {preview}".strip() if baseline_prompt else preview
+                self.whisper_engine.initial_prompt = combined
                 self.logger.info(f"Seeded Whisper prompt from selection ({len(selection)} chars)")
         except Exception as e:
             self.logger.debug(f"Prompt-from-selection skipped: {e}")
@@ -296,6 +307,8 @@ class StateManager:
 
             if audio_data is None:
                 self.system_tray.notify("No audio captured — was the mic muted?")
+                if self.level_overlay:
+                    self.level_overlay.hide()
                 return
 
             duration = self.audio_recorder.get_audio_duration(audio_data)
@@ -309,10 +322,17 @@ class StateManager:
 
             if not transcribed_text:
                 self.system_tray.notify("Transcription was empty (silence or noise only).")
+                if self.level_overlay:
+                    self.level_overlay.hide()
                 return
 
             if command_mode:
-                self._handle_command_transcription(transcribed_text, use_auto_enter)
+                matched = self._handle_command_transcription(transcribed_text, use_auto_enter)
+                if self.level_overlay:
+                    if matched:
+                        self.level_overlay.flash_success()
+                    else:
+                        self.level_overlay.flash_failure()
                 return
 
             if rephrase_mode and rephrase_selection:
@@ -322,24 +342,28 @@ class StateManager:
             postprocess_cfg = self.config_manager.get_postprocess_config()
             transcribed_text = postprocess(transcribed_text, postprocess_cfg)
 
-            self.clipboard_manager.copy_text(transcribed_text)
-
             rule = self.app_rules.match_for_foreground()
             if rule and rule.get('suppress'):
                 self.logger.info(f"Delivery suppressed by app rule: {rule.get('match')}")
+                self.clipboard_manager.copy_text(transcribed_text)
                 self.last_transcription = transcribed_text
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.system_tray.notify("Delivery suppressed for this app — text on clipboard.")
+                if self.level_overlay:
+                    self.level_overlay.flash_success()
                 return
 
             if not self._foreground_is_textable():
                 self.logger.info("No textable foreground window; falling back to Notepad")
+                self.clipboard_manager.copy_text(transcribed_text)
                 self._notepad_fallback(transcribed_text)
                 self.last_transcription = transcribed_text
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.system_tray.notify("Opened transcript in Notepad — no text field was focused.")
+                if self.level_overlay:
+                    self.level_overlay.flash_success()
                 return
 
             effective_auto_enter = use_auto_enter
@@ -387,7 +411,9 @@ class StateManager:
         except Exception as e:
             self.logger.error(f"Error in processing workflow: {e}")
             print(f"❌ Error processing recording: {e}")
-        
+            if self.level_overlay:
+                self.level_overlay.flash_failure()
+
         finally:
             with self._state_lock:
                 self.is_processing = False
@@ -409,7 +435,7 @@ class StateManager:
             if not (pending_device or pending_model):
                 self.system_tray.update_state("idle")
 
-    def _handle_command_transcription(self, text: str, use_auto_enter: bool = False):
+    def _handle_command_transcription(self, text: str, use_auto_enter: bool = False) -> bool:
         log_config = self.config_manager.get_logging_config()
         if log_config.get('log_transcriptions', False):
             self.logger.info(f"Command mode transcription: '{text}'")
@@ -418,13 +444,14 @@ class StateManager:
 
         if not self.voice_command_manager.enabled:
             self.logger.warning("Voice commands disabled")
-            return
+            return False
 
         matched = self.voice_command_manager.match_command(text)
         if matched:
             self.voice_command_manager.execute_command(matched, use_auto_enter)
-        else:
-            print("   ✗ No matching command found")
+            return True
+        print(f"   ✗ No matching command for: \"{text[:60]}\"")
+        return False
 
     def get_application_state(self) -> dict:
         status = {
@@ -555,15 +582,16 @@ class StateManager:
 
         print(f"\n   🤖 Rephrasing ({len(selection)} chars) with instruction: '{instruction[:60]}'")
 
-        ollama_cfg = dict(self.config_manager.get_postprocess_config().get('ollama') or {})
-        ollama_cfg['enabled'] = True
-        ollama_cfg['prompt'] = (
+        full_prompt = (
             f"{instruction}\n\n"
             "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
-            "Input:\n{text}"
+            f"Input:\n{selection}"
         )
+        ollama_cfg = dict(self.config_manager.get_postprocess_config().get('ollama') or {})
+        ollama_cfg['enabled'] = True
+        ollama_cfg['prompt'] = '{text}'
 
-        polished = _ollama_polish(selection, ollama_cfg)
+        polished = _ollama_polish(full_prompt, ollama_cfg)
         if not polished:
             print("   ✗ Rephrase failed — Ollama unreachable or returned nothing")
             self.system_tray.notify("Rephrase failed — is Ollama running?")
@@ -657,8 +685,40 @@ class StateManager:
         return self.profile_manager.get_active()
 
     def activate_profile(self, name: str) -> bool:
+        old_whisper = dict(self.config_manager.get_whisper_config())
+
         if not self.profile_manager.apply(name):
             return False
+
+        new_whisper = self.config_manager.get_whisper_config()
+
+        if new_whisper.get('language') != old_whisper.get('language'):
+            lang = new_whisper.get('language', 'auto')
+            try:
+                self.whisper_engine.language = None if lang == 'auto' else lang
+            except Exception:
+                pass
+
+        if new_whisper.get('task') != old_whisper.get('task'):
+            task = new_whisper.get('task') or 'transcribe'
+            try:
+                self.whisper_engine.task = task if task in ('transcribe', 'translate') else 'transcribe'
+            except Exception:
+                pass
+
+        new_prompt = new_whisper.get('initial_prompt') or ''
+        if new_prompt != (old_whisper.get('initial_prompt') or ''):
+            try:
+                self.whisper_engine.initial_prompt = new_prompt or None
+            except Exception:
+                pass
+
+        if new_whisper.get('model') and new_whisper.get('model') != old_whisper.get('model'):
+            try:
+                self._execute_model_change(new_whisper['model'])
+            except Exception as e:
+                self.logger.error(f"Profile model change failed: {e}")
+
         self.logger.info(f"Activated profile: {name}")
         print(f"   ✓ Profile activated: {name}")
         self.system_tray.notify(f"Profile: {name}")

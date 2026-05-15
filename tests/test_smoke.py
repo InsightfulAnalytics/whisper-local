@@ -88,6 +88,20 @@ class TextPostprocessTests(unittest.TestCase):
         self.assertEqual(postprocess("hello comma world period", cfg), "hello, world.")
         self.assertEqual(postprocess("what time is it question mark", cfg), "what time is it?")
 
+    def test_ollama_polish_handles_curly_braces_in_text(self):
+        from whisper_key.text_postprocess import _ollama_polish
+        cfg = {'enabled': True, 'endpoint': 'http://127.0.0.1:0', 'timeout': 0.1,
+               'prompt': 'Polish:\n\n{text}'}
+        result = _ollama_polish("config = {a: 1, b: 2}", cfg)
+        self.assertEqual(result, '')
+
+    def test_ollama_polish_handles_curly_braces_in_prompt(self):
+        from whisper_key.text_postprocess import _ollama_polish
+        cfg = {'enabled': True, 'endpoint': 'http://127.0.0.1:0', 'timeout': 0.1,
+               'prompt': 'Format: {format_var} not a placeholder. {text}'}
+        result = _ollama_polish("hi", cfg)
+        self.assertEqual(result, '')
+
 
 class AppRulesShapeTests(unittest.TestCase):
     def test_defaults_yaml_is_valid(self):

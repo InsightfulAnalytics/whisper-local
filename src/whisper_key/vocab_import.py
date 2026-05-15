@@ -80,20 +80,30 @@ def import_vocab(source: str, top_n: int = 50, write: bool = True) -> int:
     return 0
 
 
+SKIP_DIRS = {'node_modules', 'venv', '.venv', '__pycache__', 'dist', 'build',
+             '.git', '.idea', '.vscode', 'target', '.next', '.cache', 'site-packages'}
+MAX_FILE_SIZE = 2_000_000
+
+
 def _iter_files(root: Path) -> Iterable[Path]:
     if root.is_file():
         yield root
         return
     for path in root.rglob('*'):
-        if not path.is_file():
+        try:
+            if not path.is_file():
+                continue
+            if path.suffix.lower() not in TEXT_EXTENSIONS:
+                continue
+            if any(part.startswith('.') for part in path.parts):
+                continue
+            if any(part in SKIP_DIRS for part in path.parts):
+                continue
+            if path.stat().st_size > MAX_FILE_SIZE:
+                continue
+            yield path
+        except OSError:
             continue
-        if path.suffix.lower() not in TEXT_EXTENSIONS:
-            continue
-        if any(part.startswith('.') for part in path.parts):
-            continue
-        if 'node_modules' in path.parts or 'venv' in path.parts or '__pycache__' in path.parts:
-            continue
-        yield path
 
 
 def _merge_hotwords(words):

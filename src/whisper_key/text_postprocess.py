@@ -100,9 +100,14 @@ def _ollama_polish(text: str, cfg: dict) -> str:
     )
     timeout = float(cfg.get('timeout', 5))
 
+    if '{text}' in prompt_template:
+        final_prompt = prompt_template.replace('{text}', text)
+    else:
+        final_prompt = f"{prompt_template}\n\n{text}"
+
     payload = {
         'model': model,
-        'prompt': prompt_template.format(text=text),
+        'prompt': final_prompt,
         'stream': False,
     }
 

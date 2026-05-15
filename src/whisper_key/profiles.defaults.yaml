@@ -17,6 +17,7 @@ profiles:
         delivery_method: paste
       whisper:
         model: tiny
+        task: transcribe
         initial_prompt: ""
       voice_commands:
         enabled: true
@@ -30,6 +31,7 @@ profiles:
         auto_paste: true
         delivery_method: paste
       whisper:
+        task: transcribe
         initial_prompt: "Casual chat message. Friendly tone."
 
   code:
@@ -39,6 +41,7 @@ profiles:
         auto_paste: false
         delivery_method: paste
       whisper:
+        task: transcribe
         initial_prompt: "Programming context. Identifiers, snake_case, camelCase, file paths, regex. Keep verbatim."
       voice_commands:
         enabled: true
@@ -50,6 +53,7 @@ profiles:
         auto_paste: false
       whisper:
         model: tiny
+        task: transcribe
         initial_prompt: "Note-taking. Markdown formatting. Bullet points."
       voice_commands:
         enabled: false

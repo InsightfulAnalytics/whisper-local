@@ -98,8 +98,25 @@ class VoiceCommandManager:
             clipboard_text = pyperclip.paste() or ''
         except Exception:
             clipboard_text = ''
-        value = value.replace('${clipboard}', clipboard_text)
-        value = value.replace('${selection}', clipboard_text)
+
+        if '${selection}' in value:
+            import time
+            original = clipboard_text
+            try:
+                keyboard.send_hotkey('ctrl', 'c')
+                time.sleep(0.1)
+                selection_text = pyperclip.paste() or ''
+            except Exception:
+                selection_text = ''
+            if selection_text and selection_text != original:
+                value = value.replace('${selection}', selection_text)
+                try: pyperclip.copy(original)
+                except Exception: pass
+            else:
+                value = value.replace('${selection}', '')
+
+        if '${clipboard}' in value:
+            value = value.replace('${clipboard}', clipboard_text)
         return value
 
     def _read_mtime(self) -> float:
@@ -151,9 +168,11 @@ class VoiceCommandManager:
         elif 'delay' in command:
             import time
             try:
-                time.sleep(float(command['delay']))
+                seconds = float(command['delay'])
             except (TypeError, ValueError):
-                pass
+                seconds = 0.0
+            seconds = max(0.0, min(60.0, seconds))
+            time.sleep(seconds)
 
     def _execute_rephrase(self, instruction: str, trigger: str):
         import time
@@ -181,16 +200,16 @@ class VoiceCommandManager:
             except Exception: pass
             return
 
-        ollama_cfg = dict(self.ollama_config_provider() or {})
-        ollama_cfg['enabled'] = True
-        prompt = (
+        full_prompt = (
             f"{instruction}\n\n"
             "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
-            "Input:\n{text}"
+            f"Input:\n{selection}"
         )
-        ollama_cfg['prompt'] = prompt
+        ollama_cfg = dict(self.ollama_config_provider() or {})
+        ollama_cfg['enabled'] = True
+        ollama_cfg['prompt'] = '{text}'
 
-        polished = _ollama_polish(selection, ollama_cfg)
+        polished = _ollama_polish(full_prompt, ollama_cfg)
         if not polished:
             print(f"   ✗ Rephrase failed — Ollama unreachable or returned nothing")
             try: pyperclip.copy(original_clipboard)

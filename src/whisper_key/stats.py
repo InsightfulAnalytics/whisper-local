@@ -105,6 +105,11 @@ def export_transcripts(dest: str) -> int:
     if fmt not in ('.txt', '.md', '.csv'):
         print(f"Unknown extension '{fmt}'. Use .txt, .md, or .csv")
         return 1
+    try:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"Could not create destination directory: {e}")
+        return 1
 
     entries = []
     with open(path, encoding='utf-8') as f:
@@ -114,6 +119,18 @@ def export_transcripts(dest: str) -> int:
             except json.JSONDecodeError:
                 continue
 
+    def _seconds(entry):
+        try:
+            return float(entry.get('duration_s', 0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _chars(entry):
+        try:
+            return int(entry.get('chars', 0))
+        except (TypeError, ValueError):
+            return 0
+
     try:
         if fmt == '.csv':
             import csv
@@ -122,17 +139,17 @@ def export_transcripts(dest: str) -> int:
                 writer.writerow(['timestamp', 'app', 'duration_seconds', 'characters'])
                 for e in entries:
                     writer.writerow([e.get('ts', ''), e.get('app', ''),
-                                     e.get('duration_s', ''), e.get('chars', '')])
+                                     _seconds(e), _chars(e)])
         elif fmt == '.md':
             with open(dest_path, 'w', encoding='utf-8') as f:
                 f.write(f"# Whisper Local — Transcription Log\n\n")
                 f.write(f"| Time | App | Seconds | Chars |\n|---|---|---|---|\n")
                 for e in entries:
-                    f.write(f"| {e.get('ts','')} | {e.get('app','')} | {e.get('duration_s',''):.1f} | {e.get('chars',0)} |\n")
+                    f.write(f"| {e.get('ts','')} | {e.get('app','')} | {_seconds(e):.1f} | {_chars(e)} |\n")
         else:
             with open(dest_path, 'w', encoding='utf-8') as f:
                 for e in entries:
-                    f.write(f"{e.get('ts','')}\t{e.get('app','')}\t{e.get('duration_s',0)}s\t{e.get('chars',0)} chars\n")
+                    f.write(f"{e.get('ts','')}\t{e.get('app','')}\t{_seconds(e):.1f}s\t{_chars(e)} chars\n")
     except OSError as e:
         print(f"Write failed: {e}")
         return 1

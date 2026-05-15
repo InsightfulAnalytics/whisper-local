@@ -132,6 +132,9 @@ class LevelOverlay:
             self._text_var.set('Listening…')
 
     def _flash(self, color: str):
+        if not self._available:
+            return
+
         def do():
             if not self.root:
                 return
@@ -140,7 +143,10 @@ class LevelOverlay:
             try: self.root.deiconify()
             except Exception: pass
             self._draw(1.0, override_color=color)
-            self.root.after(self.FLASH_MS, lambda: self._call(lambda: self._set_mode('hidden')))
+            try:
+                self.root.after(self.FLASH_MS, lambda: self._set_mode('hidden'))
+            except Exception:
+                pass
         self._call(do)
 
     def _run(self):
