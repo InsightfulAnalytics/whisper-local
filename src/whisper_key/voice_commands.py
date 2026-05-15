@@ -133,7 +133,12 @@ class VoiceCommandManager:
 
     def execute_command(self, command: dict, use_auto_enter: bool = False):
         trigger = command.get('trigger', '')
+        self._execute_action(command, trigger, use_auto_enter)
+        for step in command.get('then', []) or []:
+            if isinstance(step, dict):
+                self._execute_action(step, trigger + " · then", use_auto_enter=False)
 
+    def _execute_action(self, command: dict, trigger: str, use_auto_enter: bool = False):
         if 'run' in command:
             self._execute_shell(self._expand_template(command['run']), trigger,
                                  require_confirm=command.get('confirm', None))
@@ -143,6 +148,12 @@ class VoiceCommandManager:
             self._deliver_text(self._expand_template(command['type']), trigger, use_auto_enter)
         elif 'rephrase' in command:
             self._execute_rephrase(command['rephrase'], trigger)
+        elif 'delay' in command:
+            import time
+            try:
+                time.sleep(float(command['delay']))
+            except (TypeError, ValueError):
+                pass
 
     def _execute_rephrase(self, instruction: str, trigger: str):
         import time

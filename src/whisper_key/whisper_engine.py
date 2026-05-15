@@ -16,6 +16,7 @@ class WhisperEngine:
                  beam_size: int = 5,
                  initial_prompt: str = "",
                  hotwords: list = None,
+                 task: str = "transcribe",
                  vad_manager = None,
                  model_registry = None,
                  log_transcriptions: bool = False):
@@ -27,6 +28,7 @@ class WhisperEngine:
         self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
         self.hotwords = ", ".join(hotwords) if hotwords else None
+        self.task = task if task in ('transcribe', 'translate') else 'transcribe'
         self.model = None
         self.logger = logging.getLogger(__name__)
         self.registry = model_registry
@@ -175,6 +177,7 @@ class WhisperEngine:
             transcribe_kwargs = dict(
                 beam_size=self.beam_size,
                 language=self.language,
+                task=self.task,
                 condition_on_previous_text=False,
             )
             if self.initial_prompt:

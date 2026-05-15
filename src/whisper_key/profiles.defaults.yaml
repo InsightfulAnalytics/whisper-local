@@ -53,3 +53,12 @@ profiles:
         initial_prompt: "Note-taking. Markdown formatting. Bullet points."
       voice_commands:
         enabled: false
+
+  translate:
+    description: Translate any spoken language into English
+    overrides:
+      whisper:
+        task: translate
+        language: auto
+      clipboard:
+        auto_paste: true

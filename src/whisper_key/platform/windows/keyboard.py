@@ -71,6 +71,8 @@ VK_MAP = {
     "f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73,
     "f5": 0x74, "f6": 0x75, "f7": 0x76, "f8": 0x77,
     "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B,
+    "media_play_pause": 0xB3, "media_next": 0xB0, "media_prev": 0xB1, "media_stop": 0xB2,
+    "volume_up": 0xAF, "volume_down": 0xAE, "volume_mute": 0xAD,
 }
 
 for c in "abcdefghijklmnopqrstuvwxyz":

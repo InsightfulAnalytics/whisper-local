@@ -220,6 +220,7 @@ class StateManager:
 
     def _begin_recording(self):
         self._maybe_seed_whisper_prompt_from_selection()
+        self._maybe_pause_media()
         success = self.audio_recorder.start_recording()
 
         if success:
@@ -229,6 +230,17 @@ class StateManager:
             self.system_tray.update_state("recording")
             if self.level_overlay:
                 self.level_overlay.show_recording()
+
+    def _maybe_pause_media(self):
+        audio_cfg = self.config_manager.config.get('audio', {})
+        if not audio_cfg.get('pause_media_on_record', False):
+            return
+        try:
+            from .platform import keyboard as kb
+            kb.send_key('media_play_pause')
+            self.logger.debug("Sent media play/pause on recording start")
+        except Exception as e:
+            self.logger.debug(f"Media pause skipped: {e}")
 
     def _maybe_seed_whisper_prompt_from_selection(self):
         whisper_cfg = self.config_manager.get_whisper_config()

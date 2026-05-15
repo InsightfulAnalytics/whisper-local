@@ -61,3 +61,12 @@ commands:
     rephrase: "Rewrite this text in a polished, professional tone"
   - trigger: "fix grammar"
     rephrase: "Fix grammar, spelling, and punctuation in this text. Do not change wording otherwise"
+
+  # Voice macros — chain multiple actions with `then:`. Use `delay: N`
+  # between steps if the target app needs time to react. Example: save
+  # the file then commit (won't actually run without your VCS setup).
+  - trigger: "save and format"
+    hotkey: "ctrl+s"
+    then:
+      - delay: 0.2
+      - hotkey: "shift+alt+f"
