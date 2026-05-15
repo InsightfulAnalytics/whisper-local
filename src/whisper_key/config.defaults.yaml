@@ -320,9 +320,16 @@ voice_commands: # Voice Command Settings
     enabled: true
 
 overlay: # Floating speech-level overlay (Wispr-style bottom-center bar)
-    # Show a thin pill at bottom-center of the screen while recording so you
-    # can see Whisper Local is listening and reacting to your voice.
+    # Show a thin pill at the screen edge while recording so you can see
+    # Whisper Local is listening and reacting to your voice.
     enabled: true
+    # Screen position: bottom-center | bottom-right | bottom-left
+    #                  top-center | top-right | top-left
+    position: bottom-center
+    # When true, the overlay is transparent to mouse clicks (you can click
+    # through it to apps below). Set to false if you want to interact with
+    # the overlay itself.
+    click_through: true
 
 postprocess: # Transcription post-processing pipeline
     # Inline voice formatting: say "comma", "period", "new line", "new paragraph",

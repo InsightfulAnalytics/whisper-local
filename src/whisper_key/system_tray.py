@@ -138,6 +138,32 @@ class SystemTray:
             for code, label in self.LANGUAGES
         ]
 
+    OVERLAY_POSITIONS = [
+        ('bottom-center', 'Bottom Center'),
+        ('bottom-right', 'Bottom Right'),
+        ('bottom-left', 'Bottom Left'),
+        ('top-center', 'Top Center'),
+        ('top-right', 'Top Right'),
+        ('top-left', 'Top Left'),
+    ]
+
+    def _build_overlay_menu(self):
+        try:
+            current = self.state_manager.get_overlay_position()
+        except Exception:
+            current = 'bottom-center'
+
+        def make_setter(pos):
+            return lambda icon, item: self.state_manager.set_overlay_position(pos)
+
+        def make_is_current(pos):
+            return lambda item: current == pos
+
+        return [
+            pystray.MenuItem(label, make_setter(pos), radio=True, checked=make_is_current(pos))
+            for pos, label in self.OVERLAY_POSITIONS
+        ]
+
     def _build_profile_menu(self):
         try:
             profiles = self.state_manager.list_profiles()
@@ -278,6 +304,11 @@ class SystemTray:
                     f"Profile: {active_profile.title()}",
                     pystray.Menu(*profile_items)
                 ))
+
+            menu_items.append(pystray.MenuItem(
+                "Overlay position",
+                pystray.Menu(*self._build_overlay_menu())
+            ))
 
             recent_items = self._build_recent_transcriptions_menu()
             if recent_items:

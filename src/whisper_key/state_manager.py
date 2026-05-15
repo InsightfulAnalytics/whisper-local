@@ -70,7 +70,11 @@ class StateManager:
         overlay_cfg = self.config_manager.config.get('overlay', {}) or {}
         if overlay_cfg.get('enabled', True):
             try:
-                self.level_overlay = LevelOverlay(level_provider=self.audio_recorder.get_current_level)
+                self.level_overlay = LevelOverlay(
+                    level_provider=self.audio_recorder.get_current_level,
+                    click_through=overlay_cfg.get('click_through', True),
+                    position=overlay_cfg.get('position', 'bottom-center'),
+                )
                 self.level_overlay.start()
             except Exception as e:
                 self.logger.warning(f"Level overlay disabled: {e}")
@@ -98,6 +102,8 @@ class StateManager:
             display_text = text if len(text) < 67 else "..." + text[-64:]
             print(f"\r   {display_text:<70}", end="", flush=True)
             self._streaming_display_active = True
+        if self.level_overlay and text:
+            self.level_overlay.set_streaming_text(text)
 
     def _clear_streaming_display(self):
         if self._streaming_display_active:
@@ -162,7 +168,7 @@ class StateManager:
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
             if self.level_overlay:
-                self.level_overlay.show()
+                self.level_overlay.show_recording()
 
     def _begin_recording(self):
         success = self.audio_recorder.start_recording()
@@ -173,7 +179,7 @@ class StateManager:
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
             if self.level_overlay:
-                self.level_overlay.show()
+                self.level_overlay.show_recording()
     
     def _transcription_pipeline(self, audio_data, use_auto_enter: bool = False):
         try:
@@ -193,7 +199,7 @@ class StateManager:
 
             self.system_tray.update_state("processing")
             if self.level_overlay:
-                self.level_overlay.hide()
+                self.level_overlay.show_processing()
 
             transcribed_text = self.whisper_engine.transcribe_audio(audio_data)
 
@@ -256,12 +262,16 @@ class StateManager:
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.audio_feedback.play_transcription_complete_sound()
+                if self.level_overlay:
+                    self.level_overlay.flash_success()
                 fg = foreground.get_foreground_app() or {}
                 record_transcription(
                     char_count=len(transcribed_text),
                     duration_seconds=duration,
                     app=fg.get('exe', ''),
                 )
+            elif self.level_overlay:
+                self.level_overlay.flash_failure()
             
         except Exception as e:
             self.logger.error(f"Error in processing workflow: {e}")
@@ -454,6 +464,17 @@ class StateManager:
         except Exception as e:
             self.logger.error(f"Notepad fallback failed: {e}")
             print(f"   ⚠ Notepad fallback failed: {e}")
+
+    def set_overlay_position(self, name: str) -> bool:
+        if not self.level_overlay:
+            return False
+        self.level_overlay.set_position(name)
+        self.config_manager.update_user_setting('overlay', 'position', name)
+        self.logger.info(f"Overlay position set to {name}")
+        return True
+
+    def get_overlay_position(self) -> str:
+        return self.config_manager.config.get('overlay', {}).get('position', 'bottom-center')
 
     def get_current_language(self) -> str:
         return self.config_manager.config.get('whisper', {}).get('language', 'auto')
