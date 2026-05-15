@@ -38,6 +38,12 @@ whisper: # Whisper AI Model Settings
     # Example: ["CTranslate2", "PyInstaller", "Whisper Local"]
     hotwords: []
 
+    # Smart prompt from selection: when true, the currently-selected text in
+    # the active app (if any) is grabbed via Ctrl+C at recording start and
+    # used as Whisper's initial_prompt for that single recording. Improves
+    # accuracy when dictating edits to existing text (code, docs).
+    prompt_from_selection: false
+
     # Available models (set enabled: false to hide from menu)
     # To add custom models (CTranslate2 format), add entry with source (HuggingFace or local path)
     # Example: my-model: {source: "username/repo-ct2", label: "My Model", group: custom}
@@ -157,6 +163,17 @@ hotkey: # Hotkey Configuration
     # Key combination for voice command mode
     # Records speech and matches against user-defined commands
     command_hotkey: "alt+win | macos: fn+command"
+
+    # Key combination for AI rephrase mode
+    # Select text first, hold this key, speak instructions like "make this concise".
+    # Selection is sent to local Ollama with your instruction; result pastes back.
+    # Leave empty to disable.
+    rephrase_hotkey: "ctrl+shift+win | macos: ctrl+option+command"
+
+    # Key combination to pause/resume all Whisper Local hotkeys
+    # Press once to disable hotkey processing (so you can use the same keys
+    # in another app); press again to resume. Leave empty to disable.
+    pause_hotkey: "ctrl+alt+win | macos: ctrl+option+command+space"
 
 vad: # Voice Activity Detection (VAD)
     # Voice Activity Detection (VAD) Pre-check

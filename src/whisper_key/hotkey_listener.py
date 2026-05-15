@@ -6,16 +6,20 @@ from .state_manager import StateManager
 class HotkeyListener:
     def __init__(self, state_manager: StateManager, recording_hotkey: str, stop_key: str,
                  auto_send_key: str = None, cancel_combination: str = None,
-                 command_hotkey: str = None, recording_mode: str = "toggle"):
+                 command_hotkey: str = None, rephrase_hotkey: str = None,
+                 pause_hotkey: str = None, recording_mode: str = "toggle"):
         self.state_manager = state_manager
         self.recording_hotkey = recording_hotkey
         self.stop_key = stop_key
         self.auto_send_key = auto_send_key
         self.cancel_combination = cancel_combination
         self.command_hotkey = command_hotkey
+        self.rephrase_hotkey = rephrase_hotkey
+        self.pause_hotkey = pause_hotkey
         self.recording_mode = recording_mode
         self.keys_armed = True
         self.is_listening = False
+        self.is_paused = False
         self.logger = logging.getLogger(__name__)
 
         self._setup_hotkeys()
@@ -67,6 +71,21 @@ class HotkeyListener:
                 'combination': self.command_hotkey,
                 'callback': self._command_hotkey_pressed,
                 'name': 'command'
+            })
+
+        if self.rephrase_hotkey:
+            hotkey_configs.append({
+                'combination': self.rephrase_hotkey,
+                'callback': self._rephrase_hotkey_pressed,
+                'release_callback': self._rephrase_hotkey_released if self.recording_mode == "push_to_talk" else self._arm_keys_on_release,
+                'name': 'rephrase'
+            })
+
+        if self.pause_hotkey:
+            hotkey_configs.append({
+                'combination': self.pause_hotkey,
+                'callback': self._pause_hotkey_pressed,
+                'name': 'pause'
             })
 
         hotkey_configs.sort(key=self._get_hotkey_combination_specificity, reverse=True)
@@ -130,6 +149,40 @@ class HotkeyListener:
         self.keys_armed = False
         self.state_manager.start_command_recording()
 
+    def _rephrase_hotkey_pressed(self):
+        self.logger.info(f"Rephrase hotkey pressed: {self.rephrase_hotkey}")
+        self.keys_armed = False
+        self.state_manager.start_rephrase_recording()
+
+    def _rephrase_hotkey_released(self):
+        self.logger.info("Rephrase hotkey released")
+        self.state_manager.stop_recording()
+
+    def _pause_hotkey_pressed(self):
+        self.is_paused = not self.is_paused
+        if self.is_paused:
+            self.logger.info("Hotkeys paused")
+            print("\n⏸  Whisper Local hotkeys PAUSED. Press again to resume.")
+            self.state_manager.set_paused(True)
+            try:
+                hotkeys.stop()
+                bindings_only_pause = [b for b in self.hotkey_bindings if b[0] == self.pause_hotkey.lower().strip()]
+                if bindings_only_pause:
+                    hotkeys.register(bindings_only_pause)
+                    hotkeys.start()
+            except Exception as e:
+                self.logger.error(f"Failed to reduce to pause-only: {e}")
+        else:
+            self.logger.info("Hotkeys resumed")
+            print("\n▶  Whisper Local hotkeys RESUMED.")
+            self.state_manager.set_paused(False)
+            try:
+                hotkeys.stop()
+                hotkeys.register(self.hotkey_bindings)
+                hotkeys.start()
+            except Exception as e:
+                self.logger.error(f"Failed to restore hotkeys: {e}")
+
     def _arm_keys_on_release(self):
         self.logger.debug("Key released - arming stop/auto-send keys")
         self.keys_armed = True
@@ -160,7 +213,7 @@ class HotkeyListener:
             self.logger.error(f"Error stopping hotkey listener: {e}")
 
     def change_hotkey_config(self, setting: str, value):
-        valid_settings = ['recording_hotkey', 'stop_key', 'auto_send_key', 'cancel_combination', 'command_hotkey', 'recording_mode']
+        valid_settings = ['recording_hotkey', 'stop_key', 'auto_send_key', 'cancel_combination', 'command_hotkey', 'rephrase_hotkey', 'pause_hotkey', 'recording_mode']
 
         if setting not in valid_settings:
             raise ValueError(f"Invalid setting '{setting}'. Valid options: {valid_settings}")

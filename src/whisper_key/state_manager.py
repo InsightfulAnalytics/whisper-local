@@ -45,8 +45,12 @@ class StateManager:
 
         self.is_processing = False
         self.is_model_loading = False
+        self.is_paused = False
         self.last_transcription = None
         self.recent_transcriptions = collections.deque(maxlen=10)
+        self._rephrase_mode = False
+        self._rephrase_selection = ''
+        self._rephrase_original_clipboard = ''
         self._pending_model_change = None
         self._pending_device_change = None
         self._command_mode = False
@@ -153,6 +157,50 @@ class StateManager:
 
         self._begin_recording()
 
+    def set_paused(self, paused: bool):
+        self.is_paused = paused
+        if paused and self.audio_recorder.get_recording_status():
+            self.cancel_active_recording()
+        self.system_tray.notify("Hotkeys paused" if paused else "Hotkeys resumed")
+
+    def start_rephrase_recording(self):
+        if not self.can_start_recording():
+            return
+        import time
+        import pyperclip
+        from .platform import keyboard as kb
+
+        try:
+            self._rephrase_original_clipboard = pyperclip.paste()
+        except Exception:
+            self._rephrase_original_clipboard = ''
+
+        kb.send_hotkey('ctrl', 'c')
+        time.sleep(0.12)
+        try:
+            selection = pyperclip.paste()
+        except Exception:
+            selection = ''
+        try:
+            pyperclip.copy(self._rephrase_original_clipboard)
+        except Exception:
+            pass
+
+        if not selection or selection == self._rephrase_original_clipboard:
+            print("\n   ✗ Nothing selected — rephrase needs selected text. Recording dictation instead.")
+            self._rephrase_selection = ''
+        else:
+            self._rephrase_selection = selection
+            print(f"\n🎙  Rephrase mode: selection captured ({len(selection)} chars)")
+            print("   Speak instructions, then release to apply.")
+
+        self._rephrase_mode = True
+        if self.audio_recorder.start_recording():
+            self.audio_feedback.play_start_sound()
+            self.system_tray.update_state("recording")
+            if self.level_overlay:
+                self.level_overlay.show_recording()
+
     def start_command_recording(self):
         if not self.can_start_recording():
             return
@@ -171,6 +219,7 @@ class StateManager:
                 self.level_overlay.show_recording()
 
     def _begin_recording(self):
+        self._maybe_seed_whisper_prompt_from_selection()
         success = self.audio_recorder.start_recording()
 
         if success:
@@ -180,6 +229,29 @@ class StateManager:
             self.system_tray.update_state("recording")
             if self.level_overlay:
                 self.level_overlay.show_recording()
+
+    def _maybe_seed_whisper_prompt_from_selection(self):
+        whisper_cfg = self.config_manager.get_whisper_config()
+        if not whisper_cfg.get('prompt_from_selection', False):
+            return
+        try:
+            import time
+            import pyperclip
+            from .platform import keyboard as kb
+            original = pyperclip.paste()
+            kb.send_hotkey('ctrl', 'c')
+            time.sleep(0.08)
+            selection = pyperclip.paste()
+            try:
+                pyperclip.copy(original)
+            except Exception:
+                pass
+            if selection and selection != original:
+                preview = selection[-200:].replace('\n', ' ')
+                self.whisper_engine.initial_prompt = preview
+                self.logger.info(f"Seeded Whisper prompt from selection ({len(selection)} chars)")
+        except Exception as e:
+            self.logger.debug(f"Prompt-from-selection skipped: {e}")
     
     def _transcription_pipeline(self, audio_data, use_auto_enter: bool = False):
         try:
@@ -187,6 +259,10 @@ class StateManager:
                 self.is_processing = True
                 command_mode = self._command_mode
                 self._command_mode = False
+                rephrase_mode = self._rephrase_mode
+                rephrase_selection = self._rephrase_selection
+                self._rephrase_mode = False
+                self._rephrase_selection = ''
 
             self.audio_feedback.play_stop_sound()
 
@@ -209,6 +285,10 @@ class StateManager:
 
             if command_mode:
                 self._handle_command_transcription(transcribed_text, use_auto_enter)
+                return
+
+            if rephrase_mode and rephrase_selection:
+                self._handle_rephrase(rephrase_selection, transcribed_text)
                 return
 
             postprocess_cfg = self.config_manager.get_postprocess_config()
@@ -435,6 +515,51 @@ class StateManager:
             self.logger.error(f"Failed to initiate model change: {e}")
             print(f"❌ Failed to change model: {e}")
             self.set_model_loading(False)
+
+    def _handle_rephrase(self, selection: str, instruction: str):
+        import time
+        import pyperclip
+        from .text_postprocess import _ollama_polish
+        from .platform import keyboard as kb
+
+        print(f"\n   🤖 Rephrasing ({len(selection)} chars) with instruction: '{instruction[:60]}'")
+
+        ollama_cfg = dict(self.config_manager.get_postprocess_config().get('ollama') or {})
+        ollama_cfg['enabled'] = True
+        ollama_cfg['prompt'] = (
+            f"{instruction}\n\n"
+            "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
+            "Input:\n{text}"
+        )
+
+        polished = _ollama_polish(selection, ollama_cfg)
+        if not polished:
+            print("   ✗ Rephrase failed — Ollama unreachable or returned nothing")
+            self.system_tray.notify("Rephrase failed — is Ollama running?")
+            if self.level_overlay:
+                self.level_overlay.flash_failure()
+            return
+
+        try:
+            pyperclip.copy(polished)
+            time.sleep(0.05)
+            kb.send_hotkey('ctrl', 'v')
+            time.sleep(0.2)
+        finally:
+            try:
+                if self._rephrase_original_clipboard:
+                    pyperclip.copy(self._rephrase_original_clipboard)
+            except Exception:
+                pass
+
+        self.last_transcription = polished
+        self.recent_transcriptions.appendleft(polished)
+        self.system_tray.refresh_menu()
+        self.system_tray.notify("Rephrased and pasted")
+        if self.level_overlay:
+            self.level_overlay.flash_success()
+        self.logger.info(f"Rephrase complete: {len(selection)} -> {len(polished)} chars")
+        print(f"   ✓ Rephrased and pasted")
 
     NON_TEXT_EXES = {'progman.exe', 'workerw.exe', 'dwm.exe', 'searchhost.exe',
                      'shellexperiencehost.exe', 'startmenuexperiencehost.exe',

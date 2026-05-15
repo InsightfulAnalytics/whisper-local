@@ -242,6 +242,8 @@ def setup_hotkey_listener(hotkey_config, state_manager, voice_commands_enabled=T
         auto_send_key=hotkey_config.get('auto_send_key'),
         cancel_combination=hotkey_config.get('cancel_combination'),
         command_hotkey=hotkey_config.get('command_hotkey') if voice_commands_enabled else None,
+        rephrase_hotkey=hotkey_config.get('rephrase_hotkey'),
+        pause_hotkey=hotkey_config.get('pause_hotkey'),
         recording_mode=hotkey_config.get('recording_mode', 'toggle')
     )
 
