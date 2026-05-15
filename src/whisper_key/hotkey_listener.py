@@ -77,8 +77,8 @@ class HotkeyListener:
             hotkey_configs.append({
                 'combination': self.rephrase_hotkey,
                 'callback': self._rephrase_hotkey_pressed,
-                'release_callback': self._rephrase_hotkey_released if self.recording_mode == "push_to_talk" else self._arm_keys_on_release,
-                'name': 'rephrase'
+                'release_callback': self._rephrase_hotkey_released,
+                'name': 'rephrase (push-to-talk)'
             })
 
         if self.pause_hotkey:
@@ -156,6 +156,7 @@ class HotkeyListener:
 
     def _rephrase_hotkey_released(self):
         self.logger.info("Rephrase hotkey released")
+        self.keys_armed = True
         self.state_manager.stop_recording()
 
     def _pause_hotkey_pressed(self):

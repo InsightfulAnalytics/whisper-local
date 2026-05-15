@@ -220,7 +220,7 @@ def _section_model() -> int:
     try:
         from .config_manager import ConfigManager
         from .model_registry import ModelRegistry
-        cfg = ConfigManager()
+        cfg = ConfigManager(quiet=True)
         whisper_cfg = cfg.get_whisper_config()
         streaming_cfg = cfg.get_streaming_config()
         registry = ModelRegistry(
