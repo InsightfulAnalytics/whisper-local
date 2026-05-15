@@ -37,8 +37,13 @@ Whisper Local is a free, open-source **voice-to-text dictation tool** for power 
 
 - 🎙️ **Global push-to-talk hotkey** — start recording from any app with `Ctrl+Win` (Windows) or `Fn+Ctrl` (macOS)
 - ⚡ **Pre-roll buffer + warmup** — captures the 500 ms before you press the key *and* pre-loads Whisper at boot, so the first word is never clipped and the first recording feels instant
+- 🔵 **Floating level overlay** — a small pill at the screen edge shows you're being heard, with the live streaming transcript appearing next to the level bar (Wispr Flow–style)
 - 📝 **Inline voice formatting** — say "comma", "period", "question mark", "new paragraph", "open quote", etc. mid-sentence
-- 🤖 **AI rephrase** — select text, say "make this concise" or "fix grammar"; your local Ollama rewrites it in place
+- 🤖 **AI rephrase** — dedicated `Ctrl+Shift+Win` hotkey: select text, hold, speak your instruction, release — local Ollama rewrites it in place
+- 🌐 **Translation mode** — speak any language, get English; tray → Profile → Translate
+- 🔁 **Continuous dictation mode** — for long-form notes, the app auto-restarts recording after each delivery
+- 📋 **Notepad fallback** — if no text field is focused, the transcript opens in Notepad instead of disappearing
+- ⏸ **Pause-all hotkey** — `Ctrl+Alt+Win` disables every Whisper Local hotkey until you press it again
 - 📋 **Auto-paste at cursor** — transcript lands wherever you're typing, optionally followed by Enter (auto-send)
 - 🔒 **100 % local & private** — no network calls during use; Whisper models cached on disk
 - 🚀 **GPU acceleration** — NVIDIA CUDA and AMD ROCm supported, CPU works out of the box
@@ -226,8 +231,10 @@ whisper-local --doctor             # Run diagnostics
 whisper-local --stats              # Transcription history & time saved
 whisper-local --version            # Print version
 whisper-local --quit               # Stop the running instance
-whisper-local --export-settings DIR
-whisper-local --import-settings DIR
+whisper-local --export-settings DIR        # Back up user_settings + commands
+whisper-local --import-settings DIR        # Restore from a backup
+whisper-local --export-transcripts FILE    # Dump history (.txt/.md/.csv)
+whisper-local --import-vocab FOLDER        # Mine a folder for hotwords
 whisper-local --test               # Run a separate test instance (own mutex)
 ```
 

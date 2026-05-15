@@ -20,6 +20,7 @@ from .profiles import ProfileManager
 from .app_rules import AppRules
 from .text_postprocess import postprocess
 from .stats import record_transcription
+from .audit_log import record as audit_record
 from .platform import foreground
 from .level_overlay import LevelOverlay
 
@@ -377,6 +378,8 @@ class StateManager:
                     duration_seconds=duration,
                     app=fg.get('exe', ''),
                 )
+                audit_enabled = (self.config_manager.config.get('audit') or {}).get('enabled', False)
+                audit_record('delivered', transcribed_text, fg.get('exe', ''), audit_enabled)
                 self._maybe_restart_continuous()
             elif self.level_overlay:
                 self.level_overlay.flash_failure()

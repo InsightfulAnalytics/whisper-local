@@ -5,6 +5,20 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 ## [0.9.0] - 2026-05-11 (drajb/whisper-local fork)
 
 ### Added
+- **Floating level overlay** — Wispr Flow–style pill at the screen edge that vibrates with your voice, shows the live streaming transcript, morphs to "Transcribing…" during processing, and flashes green/red on success/failure. Configurable position (6 presets), click-through by default.
+- **Notepad fallback** — if the foreground window is the desktop / Start Menu / no text field, the transcript opens in Notepad instead of disappearing.
+- **Always-clipboard safety net** — every transcript is copied to the clipboard *before* any paste routing; you can always `Ctrl+V` anywhere as a recovery.
+- **Dedicated rephrase hotkey** — `Ctrl+Shift+Win` selects, records instruction, sends to Ollama, pastes the rewrite back. No voice-command-mode detour.
+- **Pause-all hotkey** — `Ctrl+Alt+Win` disables all Whisper Local hotkeys (except itself) until pressed again.
+- **Smart Whisper prompt from selection** — opt-in `whisper.prompt_from_selection`: at recording start, the active selection seeds Whisper's `initial_prompt` for that recording.
+- **Translation profile** — Whisper `task=translate`: speak any language, get English.
+- **Continuous mode** — `audio.continuous_mode`: auto-restart recording after each delivery (Esc exits).
+- **Auto-pause media** — `audio.pause_media_on_record`: sends system play/pause on recording start so Spotify/YouTube go quiet.
+- **Voice command macros** — `then:` chain in `commands.yaml`, with a `delay: <seconds>` step for pacing.
+- **Vocab import** — `whisper-local --import-vocab FOLDER` scans text files, ranks proper nouns / jargon by frequency, merges top 50 into `whisper.hotwords`.
+- **Transcript export** — `whisper-local --export-transcripts FILE.{txt,md,csv}`.
+- **Daily summary toast** — first launch of the day shows yesterday's word count and minutes saved.
+- **Audit log** — opt-in `audit.enabled`: append-only `audit.log` of timestamp + event + app + char-count (no transcript text).
 - **AI rephrase voice commands** — select text, say "make this concise" / "make this professional" / "fix grammar"; the selection is sent to local Ollama and the response replaces it.
 - **Inline voice formatting** — say "comma", "period", "new line", "new paragraph", "question mark", "open quote", "dash" etc. mid-sentence to insert punctuation/structure.
 - **Voice command DSL upgrade** — `match_regex:` patterns, `${selection}` / `${clipboard}` template vars, per-command `confirm:` flag.

@@ -8,6 +8,7 @@ from typing import Optional
 from .utils import get_user_app_data_path
 
 STATS_FILE = "stats.jsonl"
+DAILY_NOTIFY_MARKER = "stats-last-notify.txt"
 
 GREEN = "\033[32m"
 DIM = "\033[2m"
@@ -35,6 +36,62 @@ def record_transcription(char_count: int, duration_seconds: float, app: Optional
             f.write(json.dumps(entry) + '\n')
     except Exception as e:
         logger.debug(f"Stats record failed: {e}")
+
+
+def maybe_show_daily_summary(notify_callback) -> Optional[str]:
+    today = datetime.date.today().isoformat()
+    marker = Path(get_user_app_data_path()) / DAILY_NOTIFY_MARKER
+
+    try:
+        last = marker.read_text(encoding='utf-8').strip()
+    except OSError:
+        last = ''
+
+    if last == today:
+        return None
+
+    path = Path(get_user_app_data_path()) / STATS_FILE
+    if not path.exists():
+        try:
+            marker.write_text(today, encoding='utf-8')
+        except OSError:
+            pass
+        return None
+
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    chars = 0
+    count = 0
+    seconds = 0.0
+    try:
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get('ts', '').startswith(yesterday):
+                    count += 1
+                    chars += int(entry.get('chars', 0))
+                    seconds += float(entry.get('duration_s', 0))
+    except OSError:
+        return None
+
+    try:
+        marker.write_text(today, encoding='utf-8')
+    except OSError:
+        pass
+
+    if count == 0:
+        return None
+
+    words = chars // CHARS_PER_WORD
+    minutes_saved = max(0.0, (words / WPM_TYPING_BASELINE) - (seconds / 60))
+    msg = f"Yesterday: {count} dictations, {words:,} words, ~{minutes_saved:.0f} min saved"
+    try:
+        notify_callback(msg)
+    except Exception:
+        pass
+    return msg
 
 
 def export_transcripts(dest: str) -> int:

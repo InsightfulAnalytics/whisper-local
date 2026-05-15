@@ -338,6 +338,13 @@ onboarding: # First-run setup state (managed automatically)
     # nvidia | amd_rdna2+ | amd_rdna1 | null
     gpu_class: null
 
+audit: # Append-only audit log (off by default)
+    # When enabled, every successful delivery appends a line to
+    # %APPDATA%/whisperkey/audit.log: timestamp + event + app +
+    # char count. The transcript text itself is NOT logged.
+    # Useful for compliance / journalists / accountability.
+    enabled: false
+
 voice_commands: # Voice Command Settings
     # Enable/disable voice commands feature
     # true = register command hotkey and load commands file

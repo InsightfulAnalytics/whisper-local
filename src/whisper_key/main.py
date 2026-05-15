@@ -397,6 +397,14 @@ def main():
         config_manager.print_startup_hotkey_instructions()
         print("   [CTRL+C] to quit", flush=True)
 
+        try:
+            from .stats import maybe_show_daily_summary
+            summary = maybe_show_daily_summary(lambda msg: system_tray.notify(msg))
+            if summary:
+                print(f"\n📈 {summary}")
+        except Exception as e:
+            logger.debug(f"Daily summary skipped: {e}")
+
         system_tray.apply_console_settings()
 
         app.run_event_loop(shutdown_event)
