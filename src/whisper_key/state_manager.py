@@ -23,6 +23,7 @@ from .stats import record_transcription
 from .audit_log import record as audit_record
 from .platform import foreground
 from .level_overlay import LevelOverlay
+from .fallback_window import FallbackWindow
 
 class StateManager:
     def __init__(self,
@@ -65,6 +66,7 @@ class StateManager:
         self.profile_manager = ProfileManager(config_manager)
         self.app_rules = AppRules()
         self.level_overlay = None
+        self.fallback_window = FallbackWindow()
 
     def attach_components(self,
                           audio_recorder: AudioRecorder,
@@ -380,13 +382,16 @@ class StateManager:
                 return
 
             if not self._foreground_is_textable():
-                self.logger.info("No textable foreground window; falling back to Notepad")
+                self.logger.info("No textable foreground window; opening fallback window")
                 self.clipboard_manager.copy_text(transcribed_text)
-                self._notepad_fallback(transcribed_text)
+                self.fallback_window.show(
+                    transcribed_text,
+                    reason="No text field was focused — your dictation is safe here. Already on your clipboard.",
+                )
                 self.last_transcription = transcribed_text
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
-                self.system_tray.notify("Opened transcript in Notepad — no text field was focused.")
+                self.system_tray.notify("Captured your dictation — see the popup.")
                 if self.level_overlay:
                     self.level_overlay.flash_success()
                 return
@@ -659,20 +664,6 @@ class StateManager:
             return False
         return exe not in self.NON_TEXT_EXES
 
-    def _notepad_fallback(self, text: str):
-        import os
-        import subprocess
-        import tempfile
-        try:
-            fd, path = tempfile.mkstemp(prefix='whisper-local-', suffix='.txt', text=True)
-            os.close(fd)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(text)
-            subprocess.Popen(['notepad.exe', path])
-            print(f"   ✓ Opened transcript in Notepad: {path}")
-        except Exception as e:
-            self.logger.error(f"Notepad fallback failed: {e}")
-            print(f"   ⚠ Notepad fallback failed: {e}")
 
     def set_overlay_position(self, name: str) -> bool:
         if not self.level_overlay:

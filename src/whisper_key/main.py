@@ -398,6 +398,13 @@ def main():
         print("   [CTRL+C] to quit", flush=True)
 
         try:
+            from .onboarding_tutorial import needs_tutorial, show_console_welcome
+            if needs_tutorial():
+                show_console_welcome(notify=lambda msg: system_tray.notify(msg))
+        except Exception as e:
+            logger.debug(f"Onboarding skipped: {e}")
+
+        try:
             from .stats import maybe_show_daily_summary
             summary = maybe_show_daily_summary(lambda msg: system_tray.notify(msg))
             if summary:
