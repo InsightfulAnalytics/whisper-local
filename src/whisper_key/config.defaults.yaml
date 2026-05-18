@@ -378,6 +378,10 @@ postprocess: # Transcription post-processing pipeline
     # Strip "um", "uh", "like", "you know" filler words
     strip_filler_words: false
 
+    # Whisper often appends a period to the final segment even when you
+    # didn't actually end with a full stop. Toggle to remove it.
+    strip_trailing_period: false
+
     # Force first letter uppercase
     capitalize_first: false
 

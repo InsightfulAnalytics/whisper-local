@@ -45,6 +45,7 @@ class LevelOverlay:
         self._mode = 'hidden'
         self._smoothed = 0.0
         self._streaming_text = ''
+        self._displayed_chars = 0
         self._flash_color = None
         self._available = self._check_tk()
 
@@ -79,8 +80,32 @@ class LevelOverlay:
         self._flash(self.BAR_ERROR)
 
     def set_streaming_text(self, text: str):
-        self._streaming_text = (text or '').strip()
-        self._call(self._refresh_text)
+        new_text = (text or '').strip()
+        if new_text == self._streaming_text:
+            return
+        if not new_text.startswith(self._streaming_text):
+            self._displayed_chars = 0
+        self._streaming_text = new_text
+        self._call(self._tick_typewriter)
+
+    def _tick_typewriter(self):
+        if not self._text_var or self._mode not in ('recording', 'processing'):
+            return
+        target = self._streaming_text
+        if self._displayed_chars >= len(target):
+            return
+        self._displayed_chars = min(len(target), self._displayed_chars + 3)
+        visible = target[:self._displayed_chars]
+        display = '…' + visible[-31:] if len(visible) > 32 else visible
+        try:
+            self._text_var.set(display)
+        except Exception:
+            return
+        if self._displayed_chars < len(target):
+            try:
+                self.root.after(30, self._tick_typewriter)
+            except Exception:
+                pass
 
     def set_position(self, name: str):
         if name not in self.POSITIONS:
@@ -108,6 +133,7 @@ class LevelOverlay:
         self._mode = mode
         if mode == 'hidden':
             self._streaming_text = ''
+            self._displayed_chars = 0
             self._refresh_text()
             try: self.root.withdraw()
             except Exception: pass
@@ -115,6 +141,8 @@ class LevelOverlay:
             try: self.root.deiconify()
             except Exception: pass
             self._smoothed = 0.0
+            if mode == 'recording':
+                self._displayed_chars = 0
             self._update_loop()
             self._refresh_text()
 

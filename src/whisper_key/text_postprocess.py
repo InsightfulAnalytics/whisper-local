@@ -38,6 +38,9 @@ def postprocess(text: str, config: dict) -> str:
     if config.get('strip_filler_words', False):
         text = _strip_fillers(text)
 
+    if config.get('strip_trailing_period', False):
+        text = _strip_trailing_period(text)
+
     if config.get('capitalize_first', False):
         text = _capitalize_first(text)
 
@@ -50,6 +53,16 @@ def postprocess(text: str, config: dict) -> str:
         if polished:
             text = polished
 
+    return text
+
+
+def _strip_trailing_period(text: str) -> str:
+    stripped = text.rstrip()
+    if not stripped:
+        return text
+    trailing = text[len(stripped):]
+    if stripped.endswith('.') and not stripped.endswith('..'):
+        return stripped[:-1] + trailing
     return text
 
 

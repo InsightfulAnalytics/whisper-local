@@ -225,7 +225,7 @@ class StateManager:
                 self.level_overlay.show_recording()
 
     def _begin_recording(self):
-        self._maybe_seed_whisper_prompt_from_selection()
+        self._apply_recording_context()
         self._maybe_pause_media()
         success = self.audio_recorder.start_recording()
 
@@ -265,13 +265,42 @@ class StateManager:
         except Exception as e:
             self.logger.debug(f"Media pause skipped: {e}")
 
-    def _maybe_seed_whisper_prompt_from_selection(self):
+    def _apply_recording_context(self):
         whisper_cfg = self.config_manager.get_whisper_config()
-        baseline_prompt = whisper_cfg.get('initial_prompt') or None
-        self.whisper_engine.initial_prompt = baseline_prompt
+        prompt_parts = []
+        base_prompt = whisper_cfg.get('initial_prompt') or ''
+        if base_prompt:
+            prompt_parts.append(base_prompt)
+        language = whisper_cfg.get('language') or 'auto'
+        task = whisper_cfg.get('task') or 'transcribe'
 
-        if not whisper_cfg.get('prompt_from_selection', False):
-            return
+        try:
+            rule = self.app_rules.match_for_foreground() or {}
+        except Exception:
+            rule = {}
+        if rule.get('initial_prompt'):
+            prompt_parts.append(str(rule['initial_prompt']))
+            self.logger.debug(f"App rule {rule.get('match')} → initial_prompt applied")
+        if rule.get('language'):
+            language = rule['language']
+        if rule.get('task'):
+            task = rule['task']
+
+        if whisper_cfg.get('prompt_from_selection', False):
+            sel = self._grab_selection_text()
+            if sel:
+                prompt_parts.append(sel)
+                self.logger.info(f"Selection seed applied ({len(sel)} chars)")
+
+        combined_prompt = ' '.join(prompt_parts).strip()
+        try:
+            self.whisper_engine.initial_prompt = combined_prompt or None
+            self.whisper_engine.language = None if language == 'auto' else language
+            self.whisper_engine.task = task if task in ('transcribe', 'translate') else 'transcribe'
+        except Exception as e:
+            self.logger.debug(f"Engine context update failed: {e}")
+
+    def _grab_selection_text(self) -> str:
         try:
             import time
             import pyperclip
@@ -280,17 +309,13 @@ class StateManager:
             kb.send_hotkey('ctrl', 'c')
             time.sleep(0.08)
             selection = pyperclip.paste()
-            try:
-                pyperclip.copy(original)
-            except Exception:
-                pass
+            try: pyperclip.copy(original)
+            except Exception: pass
             if selection and selection != original:
-                preview = selection[-200:].replace('\n', ' ')
-                combined = f"{baseline_prompt} {preview}".strip() if baseline_prompt else preview
-                self.whisper_engine.initial_prompt = combined
-                self.logger.info(f"Seeded Whisper prompt from selection ({len(selection)} chars)")
+                return selection[-200:].replace('\n', ' ')
         except Exception as e:
-            self.logger.debug(f"Prompt-from-selection skipped: {e}")
+            self.logger.debug(f"Selection grab failed: {e}")
+        return ''
     
     def _transcription_pipeline(self, audio_data, use_auto_enter: bool = False):
         try:

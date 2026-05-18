@@ -82,6 +82,14 @@ class TextPostprocessTests(unittest.TestCase):
         self.assertEqual(postprocess("hello", {}), "hello")
         self.assertEqual(postprocess("", {'capitalize_first': True}), "")
 
+    def test_strip_trailing_period(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'strip_trailing_period': True}
+        self.assertEqual(postprocess("hello world.", cfg), "hello world")
+        self.assertEqual(postprocess("done.\n", cfg), "done\n")
+        self.assertEqual(postprocess("e.g..", cfg), "e.g..")  # don't touch ellipsis-like
+        self.assertEqual(postprocess("no period here", cfg), "no period here")
+
     def test_inline_formatting_basics(self):
         from whisper_key.text_postprocess import postprocess
         cfg = {'inline_formatting': True}

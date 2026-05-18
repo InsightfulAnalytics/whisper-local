@@ -19,6 +19,8 @@ class AudioRecorder:
     PREROLL_SECONDS = 0.5
     TRAILING_SILENCE_TRIM_SECONDS = 0.4
     SILENCE_RMS_THRESHOLD = 0.005
+    LONG_PAUSE_SECONDS = 2.0
+    LONG_PAUSE_REPLACEMENT_SECONDS = 0.4
 
     def __init__(self,
                  on_vad_event: Callable[[VadEvent], None],
@@ -237,11 +239,59 @@ class AudioRecorder:
             self.logger.info(f"Resampling from {self._recording_rate} Hz to {self.WHISPER_SAMPLE_RATE} Hz")
             audio_array = self._resample_audio(audio_array, self._recording_rate, self.WHISPER_SAMPLE_RATE)
 
+        audio_array = self._trim_long_pauses(audio_array)
         audio_array = self._trim_trailing_silence(audio_array)
 
         duration = self.get_audio_duration(audio_array)
-        self.logger.info(f"Recorded {duration:.2f} seconds of audio (incl. preroll, trailing silence trimmed)")
+        self.logger.info(f"Recorded {duration:.2f}s (incl. preroll, mid-pauses + trailing silence trimmed)")
         return audio_array
+
+    def _trim_long_pauses(self, audio: np.ndarray) -> np.ndarray:
+        if audio.ndim > 1:
+            mono = audio.mean(axis=1)
+        else:
+            mono = audio
+        win = int(0.05 * self.WHISPER_SAMPLE_RATE)
+        if win < 1:
+            return audio
+        long_silence = int(self.LONG_PAUSE_SECONDS / 0.05)
+        keep_windows = max(1, int(self.LONG_PAUSE_REPLACEMENT_SECONDS / 0.05))
+        n = len(mono) // win
+        if n < long_silence * 2:
+            return audio
+
+        voiced = np.empty(n, dtype=bool)
+        for i in range(n):
+            block = mono[i * win:(i + 1) * win]
+            voiced[i] = float(np.sqrt(np.mean(block ** 2))) > self.SILENCE_RMS_THRESHOLD
+
+        pieces = []
+        i = 0
+        modified = False
+        while i < n:
+            if voiced[i]:
+                j = i
+                while j < n and voiced[j]:
+                    j += 1
+                pieces.append(audio[i * win:j * win])
+                i = j
+            else:
+                j = i
+                while j < n and not voiced[j]:
+                    j += 1
+                run_windows = j - i
+                if run_windows > long_silence:
+                    pieces.append(audio[i * win:(i + keep_windows) * win])
+                    modified = True
+                else:
+                    pieces.append(audio[i * win:j * win])
+                i = j
+
+        if not modified:
+            return audio
+        if (len(mono) % win) > 0:
+            pieces.append(audio[n * win:])
+        return np.concatenate(pieces, axis=0) if pieces else audio
 
     def _trim_trailing_silence(self, audio: np.ndarray) -> np.ndarray:
         if audio.ndim > 1:

@@ -8,19 +8,29 @@
 #   auto_send:   true | false   - force ENTER after paste (auto-send)
 #   auto_paste:  true | false   - force or suppress paste-to-cursor
 #   suppress:    true           - skip delivery entirely (only log + recent)
+#   initial_prompt: <string>    - prime Whisper with context for this app
+#                                 (concatenated after your global initial_prompt)
+#   language:    "en"|"es"|...  - force a transcription language for this app
+#   task:        "transcribe"   - or "translate" (Whisper outputs English)
 #
 # Rules are matched top-down; first match wins. Edit this file freely;
 # it hot-reloads on the next transcription.
 
 rules:
-  # Chat apps: send the message immediately
+  # Chat apps: send the message immediately, casual tone bias
   - match: ["slack.exe", "discord.exe", "telegram.exe", "whatsapp.exe", "Slack", "Discord"]
     auto_send: true
+    initial_prompt: "Casual chat message. Conversational tone."
+
+  # Email clients: professional bias, no auto-send
+  - match: ["outlook.exe", "thunderbird.exe", "Mail"]
+    initial_prompt: "Professional email body. Polite, clear sentences."
 
   # Code editors: never auto-send, never paste — copy only so the user
-  # decides where it lands
+  # decides where it lands; identifier/path bias
   - match: ["code.exe", "cursor.exe", "windsurf.exe", "rider64.exe", "pycharm64.exe", "idea64.exe"]
     auto_paste: false
+    initial_prompt: "Programming context. Identifiers, snake_case, camelCase, file paths, regex."
 
   # Password managers: never deliver dictation into a password field
   - match: ["1password.exe", "1password-7.exe", "lastpass.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe"]
