@@ -164,6 +164,27 @@ class SystemTray:
             for pos, label in self.OVERLAY_POSITIONS
         ]
 
+    def _build_transforms_menu(self):
+        try:
+            transforms = self.state_manager.list_transforms()
+        except Exception:
+            return []
+        if not transforms:
+            return []
+
+        def make_activator(name):
+            return lambda icon, item: self.state_manager.apply_transform(name)
+
+        items = []
+        for t in transforms:
+            name = t.get('name') or '?'
+            hotkey = t.get('hotkey')
+            label = name.title()
+            if hotkey:
+                label = f"{label}  ({hotkey.upper()})"
+            items.append(pystray.MenuItem(label, make_activator(name)))
+        return items
+
     def _build_profile_menu(self):
         try:
             profiles = self.state_manager.list_profiles()
@@ -272,6 +293,7 @@ class SystemTray:
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
                 pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
                 pystray.MenuItem("View stats...", self._run_stats_in_window),
+                pystray.MenuItem("Add word to dictionary...", self._open_add_word_dialog),
                 pystray.MenuItem("Edit hotwords / settings...", self._open_config_file),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open config folder...", self._open_config_folder),
@@ -309,6 +331,13 @@ class SystemTray:
                 "Overlay position",
                 pystray.Menu(*self._build_overlay_menu())
             ))
+
+            transform_items = self._build_transforms_menu()
+            if transform_items:
+                menu_items.append(pystray.MenuItem(
+                    "Transforms",
+                    pystray.Menu(*transform_items)
+                ))
 
             recent_items = self._build_recent_transcriptions_menu()
             if recent_items:
@@ -426,6 +455,13 @@ class SystemTray:
 
     def _run_stats_in_window(self, icon=None, item=None):
         self._run_module_in_window('--stats')
+
+    def _open_add_word_dialog(self, icon=None, item=None):
+        try:
+            from .dictionary import show_add_word_dialog
+            show_add_word_dialog()
+        except Exception as e:
+            self.logger.error(f"Failed to show add-word dialog: {e}")
 
     def _run_module_in_window(self, flag: str):
         import subprocess

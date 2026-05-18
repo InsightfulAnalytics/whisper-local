@@ -7,7 +7,8 @@ class HotkeyListener:
     def __init__(self, state_manager: StateManager, recording_hotkey: str, stop_key: str,
                  auto_send_key: str = None, cancel_combination: str = None,
                  command_hotkey: str = None, rephrase_hotkey: str = None,
-                 pause_hotkey: str = None, recording_mode: str = "toggle"):
+                 pause_hotkey: str = None, transforms_manager=None,
+                 recording_mode: str = "toggle"):
         self.state_manager = state_manager
         self.recording_hotkey = recording_hotkey
         self.stop_key = stop_key
@@ -16,6 +17,7 @@ class HotkeyListener:
         self.command_hotkey = command_hotkey
         self.rephrase_hotkey = rephrase_hotkey
         self.pause_hotkey = pause_hotkey
+        self.transforms_manager = transforms_manager
         self.recording_mode = recording_mode
         self.keys_armed = True
         self.is_listening = False
@@ -95,6 +97,16 @@ class HotkeyListener:
                 'callback': self._pause_hotkey_pressed,
                 'name': 'pause'
             })
+
+        if self.transforms_manager:
+            def make_transform_callback(transform_name):
+                return lambda: self.state_manager.apply_transform(transform_name)
+            for transform in self.transforms_manager.transforms_with_hotkeys():
+                hotkey_configs.append({
+                    'combination': transform['hotkey'],
+                    'callback': make_transform_callback(transform.get('name', '?')),
+                    'name': f"transform:{transform.get('name', '?')}"
+                })
 
         hotkey_configs.sort(key=self._get_hotkey_combination_specificity, reverse=True)
 

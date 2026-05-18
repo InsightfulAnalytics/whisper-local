@@ -1,0 +1,65 @@
+# Whisper Local — Transforms
+#
+# Hotkey-triggered text rewrites via your local Ollama. Workflow:
+#   1. Select text in any app
+#   2. Press the transform's hotkey (or pick from tray > Transforms)
+#   3. Selection is sent to local Ollama with the transform's prompt
+#   4. The polished result replaces your selection
+#
+# Each transform is a dict with:
+#   name:         short identifier (shown in tray menu)
+#   description:  one-line summary (shown as tooltip)
+#   hotkey:       OPTIONAL key combo to trigger directly. Leave empty
+#                 to make the transform only available from the tray.
+#   prompt:       the instruction sent to Ollama (your selection is
+#                 concatenated below)
+#   model:        OPTIONAL — override the default Ollama model just
+#                 for this transform
+#   timeout:      OPTIONAL — override the default Ollama timeout
+#
+# Requires Ollama running locally (`ollama serve`). Hot-reloads on
+# file save — no app restart needed.
+
+transforms:
+  - name: polish
+    description: Improve clarity and conciseness
+    hotkey: "win+alt+1"
+    prompt: |-
+      Polish the following text. Improve clarity, fix grammar, tighten
+      sentences. Preserve the original meaning and voice. Output ONLY
+      the polished text with no preamble:
+
+  - name: prompt-engineer
+    description: Restructure dictation as a well-formed AI prompt
+    hotkey: "win+alt+2"
+    prompt: |-
+      Restructure the following dictation as a clear, specific prompt
+      for an AI assistant. Add structure (numbered steps, context,
+      constraints) but do not change the underlying request. Output
+      ONLY the restructured prompt:
+
+  - name: professional
+    description: Rewrite in a polished, professional tone
+    prompt: |-
+      Rewrite the following text in a polished, professional tone
+      suitable for business email. Keep it concise. Output ONLY the
+      rewritten text:
+
+  - name: casual
+    description: Rewrite in a casual, friendly tone
+    prompt: |-
+      Rewrite the following text in a casual, conversational tone.
+      Keep it warm and natural. Output ONLY the rewritten text:
+
+  - name: bullets
+    description: Convert prose to a bullet list
+    prompt: |-
+      Convert the following text into a clean bulleted list. One
+      idea per bullet. Output ONLY the bulleted list, nothing else:
+
+  - name: expand
+    description: Expand a short note into a clear paragraph
+    prompt: |-
+      Expand the following short notes into a clear, well-formed
+      paragraph. Add transitions but no new facts. Output ONLY the
+      paragraph:

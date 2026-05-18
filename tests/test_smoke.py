@@ -146,6 +146,49 @@ class AppRulesShapeTests(unittest.TestCase):
             self.assertIn('match', rule)
 
 
+class TransformsShapeTests(unittest.TestCase):
+    def test_defaults_yaml_is_valid(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "transforms.defaults.yaml"
+        self.assertTrue(path.exists())
+        with open(path, encoding="utf-8") as f:
+            data = YAML().load(f)
+        self.assertIn('transforms', data)
+        for t in data['transforms']:
+            self.assertIn('name', t)
+            self.assertIn('prompt', t)
+
+    def test_transforms_manager_loads(self):
+        from whisper_key.transforms import TransformsManager
+        tm = TransformsManager()
+        names = [t.get('name') for t in tm.list_transforms()]
+        self.assertIn('polish', names)
+        self.assertIn('prompt-engineer', names)
+
+
+class StreakComputationTests(unittest.TestCase):
+    def test_streak_basic(self):
+        import datetime
+        from whisper_key.stats import _compute_streaks
+        today = datetime.date(2026, 5, 18)
+        active = {
+            '2026-05-18', '2026-05-17', '2026-05-16',
+            '2026-05-10', '2026-05-09',
+        }
+        current, longest = _compute_streaks(active, today)
+        self.assertEqual(current, 3)
+        self.assertEqual(longest, 3)
+
+    def test_streak_breaks_yesterday(self):
+        import datetime
+        from whisper_key.stats import _compute_streaks
+        today = datetime.date(2026, 5, 18)
+        active = {'2026-05-10'}
+        current, longest = _compute_streaks(active, today)
+        self.assertEqual(current, 0)
+        self.assertEqual(longest, 1)
+
+
 class ProfilesShapeTests(unittest.TestCase):
     def test_defaults_yaml_is_valid(self):
         from ruamel.yaml import YAML

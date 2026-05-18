@@ -1,0 +1,151 @@
+import logging
+import shutil
+import time
+from pathlib import Path
+from typing import List, Optional
+
+import pyperclip
+from ruamel.yaml import YAML
+
+from .platform import keyboard as kb
+from .text_postprocess import _ollama_polish
+from .utils import get_user_app_data_path, resolve_asset_path
+
+USER_FILE = "transforms.yaml"
+DEFAULTS_FILE = "transforms.defaults.yaml"
+
+
+class TransformsManager:
+    def __init__(self, ollama_config_provider=None, system_tray=None):
+        self.logger = logging.getLogger(__name__)
+        self.transforms: list = []
+        self._mtime = 0.0
+        self._path: Optional[Path] = None
+        self.ollama_config_provider = ollama_config_provider
+        self.system_tray = system_tray
+        self._load()
+
+    def _load(self):
+        user_path = Path(get_user_app_data_path()) / USER_FILE
+        if not user_path.exists():
+            defaults = Path(resolve_asset_path(DEFAULTS_FILE))
+            if defaults.exists():
+                shutil.copy2(defaults, user_path)
+        if not user_path.exists():
+            return
+        self._path = user_path
+        self._reload_from_disk()
+
+    def _reload_from_disk(self):
+        if not self._path:
+            return
+        try:
+            with open(self._path, encoding="utf-8") as f:
+                data = YAML().load(f) or {}
+            self.transforms = data.get("transforms", []) or []
+            self._mtime = self._path.stat().st_mtime
+            self.logger.info(f"Loaded {len(self.transforms)} transforms")
+        except Exception as e:
+            self.logger.error(f"Failed to load transforms: {e}")
+
+    def reload_if_changed(self):
+        if not self._path:
+            return
+        try:
+            mtime = self._path.stat().st_mtime
+        except OSError:
+            return
+        if mtime > self._mtime:
+            self.logger.info("Transforms file changed; reloading")
+            self._reload_from_disk()
+
+    def list_transforms(self) -> list:
+        return list(self.transforms)
+
+    def transforms_with_hotkeys(self) -> list:
+        return [t for t in self.transforms if t.get('hotkey')]
+
+    def find(self, name: str) -> Optional[dict]:
+        if not name:
+            return None
+        for t in self.transforms:
+            if t.get('name', '').lower() == name.lower():
+                return t
+        return None
+
+    def apply(self, name: str) -> bool:
+        self.reload_if_changed()
+        transform = self.find(name)
+        if not transform:
+            self.logger.warning(f"Unknown transform: {name}")
+            self._notify(f"Transform '{name}' not found")
+            return False
+
+        prompt = transform.get('prompt')
+        if not prompt:
+            self._notify(f"Transform '{name}' has no prompt")
+            return False
+
+        try:
+            original_clipboard = pyperclip.paste()
+        except Exception:
+            original_clipboard = ''
+
+        try:
+            kb.send_hotkey('ctrl', 'c')
+            time.sleep(0.12)
+            selection = pyperclip.paste()
+        except Exception as e:
+            self.logger.error(f"Selection capture failed: {e}")
+            return False
+
+        if not selection or selection == original_clipboard:
+            self.logger.info(f"Transform '{name}': no selection")
+            self._notify(f"Select text first, then apply '{transform.get('name', name)}'")
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+            return False
+
+        if not self.ollama_config_provider:
+            self._notify("Transforms require Ollama config (postprocess.ollama)")
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+            return False
+
+        full_prompt = f"{prompt}\n\n{selection}"
+        ollama_cfg = dict(self.ollama_config_provider() or {})
+        ollama_cfg['enabled'] = True
+        ollama_cfg['prompt'] = '{text}'
+        if transform.get('model'):
+            ollama_cfg['model'] = transform['model']
+        if transform.get('timeout') is not None:
+            ollama_cfg['timeout'] = transform['timeout']
+
+        result = _ollama_polish(full_prompt, ollama_cfg)
+        if not result:
+            self.logger.warning(f"Transform '{name}' returned empty from Ollama")
+            self._notify(f"Transform '{name}' failed — Ollama unreachable?")
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+            return False
+
+        try:
+            pyperclip.copy(result)
+            time.sleep(0.05)
+            kb.send_hotkey('ctrl', 'v')
+            time.sleep(0.2)
+        finally:
+            try: pyperclip.copy(original_clipboard)
+            except Exception: pass
+
+        self.logger.info(f"Transform '{name}' applied: {len(selection)} → {len(result)} chars")
+        print(f"   ✓ Transform '{transform.get('name', name)}' applied")
+        return True
+
+    def _notify(self, msg: str):
+        if self.system_tray:
+            try:
+                self.system_tray.notify(msg)
+            except Exception:
+                pass
+        print(f"   ⚠ {msg}")

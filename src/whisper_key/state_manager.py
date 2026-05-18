@@ -18,6 +18,7 @@ from .voice_activity_detection import VadEvent, VadManager
 from .voice_commands import VoiceCommandManager
 from .profiles import ProfileManager
 from .app_rules import AppRules
+from .transforms import TransformsManager
 from .text_postprocess import postprocess
 from .stats import record_transcription
 from .audit_log import record as audit_record
@@ -65,6 +66,9 @@ class StateManager:
         self._initialize_audio_host()
         self.profile_manager = ProfileManager(config_manager)
         self.app_rules = AppRules()
+        self.transforms_manager = TransformsManager(
+            ollama_config_provider=lambda: (config_manager.get_postprocess_config().get('ollama') or {}),
+        )
         self.level_overlay = None
         self.fallback_window = FallbackWindow()
 
@@ -74,6 +78,11 @@ class StateManager:
         self.audio_recorder = audio_recorder
         self.system_tray = OptionalComponent(system_tray)
         self._ensure_audio_device_for_host(self._current_audio_host)
+
+        try:
+            self.transforms_manager.system_tray = system_tray
+        except Exception:
+            pass
 
         overlay_cfg = self.config_manager.config.get('overlay', {}) or {}
         if overlay_cfg.get('enabled', True):
@@ -693,6 +702,18 @@ class StateManager:
         self.system_tray.notify(f"Language: {code}")
         self.system_tray.refresh_menu()
         return True
+
+    def apply_transform(self, name: str) -> bool:
+        success = self.transforms_manager.apply(name)
+        if self.level_overlay:
+            if success:
+                self.level_overlay.flash_success()
+            else:
+                self.level_overlay.flash_failure()
+        return success
+
+    def list_transforms(self) -> list:
+        return self.transforms_manager.list_transforms()
 
     def list_profiles(self) -> list:
         return self.profile_manager.list_profiles()

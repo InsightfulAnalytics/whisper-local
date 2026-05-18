@@ -198,26 +198,55 @@ def show_stats() -> int:
     minutes_typing = words / WPM_TYPING_BASELINE
     minutes_speaking = total_seconds / 60
     saved_minutes = max(0.0, minutes_typing - minutes_speaking)
+    avg_wpm = (words / minutes_speaking) if minutes_speaking > 0 else 0
 
-    by_app = Counter(e.get('app') or '<unknown>' for e in entries)
-    last_week_cutoff = (datetime.datetime.now() - datetime.timedelta(days=7)).isoformat()
-    last_week = [e for e in entries if e.get('ts', '') >= last_week_cutoff]
+    today = datetime.date.today()
+    week_ago = (today - datetime.timedelta(days=7)).isoformat()
+    two_weeks_ago = (today - datetime.timedelta(days=14)).isoformat()
+    last_week = [e for e in entries if e.get('ts', '') >= week_ago]
+    prior_week = [e for e in entries if two_weeks_ago <= e.get('ts', '') < week_ago]
+    by_app = Counter(e.get('app') or '<unknown>' for e in last_week or entries)
 
-    print(f"\n{BOLD}Whisper Local — Stats{RESET}\n{'=' * 23}\n")
-    print(f"{GREEN}{BOLD}{total:>7}{RESET}  transcriptions")
-    print(f"{GREEN}{BOLD}{total_chars:>7,}{RESET}  characters delivered")
-    print(f"{GREEN}{BOLD}{words:>7,}{RESET}  words (≈ {CHARS_PER_WORD} chars/word)")
-    print(f"{GREEN}{BOLD}{minutes_speaking:>7.1f}{RESET}  minutes spoken")
-    print(f"{GREEN}{BOLD}{minutes_typing:>7.1f}{RESET}  minutes you would have typed at {WPM_TYPING_BASELINE} wpm")
-    print(f"{GREEN}{BOLD}{saved_minutes:>7.1f}{RESET}  minutes saved")
+    active_days = set()
+    for e in entries:
+        ts = e.get('ts', '')
+        if ts:
+            active_days.add(ts[:10])
+    streak, longest_streak = _compute_streaks(active_days, today)
 
-    print(f"\n{BOLD}Last 7 days:{RESET} {len(last_week)} transcriptions")
+    print(f"\n{BOLD}Whisper Local — Insights{RESET}\n{'=' * 26}\n")
+    print(f"{BOLD}Lifetime{RESET}")
+    print(f"  {GREEN}{BOLD}{total:>7,}{RESET}  transcriptions")
+    print(f"  {GREEN}{BOLD}{total_chars:>7,}{RESET}  characters delivered")
+    print(f"  {GREEN}{BOLD}{words:>7,}{RESET}  words")
+    print(f"  {GREEN}{BOLD}{avg_wpm:>7.0f}{RESET}  average WPM ({DIM}{minutes_speaking:.1f} min spoken{RESET})")
+    print(f"  {GREEN}{BOLD}{saved_minutes:>7.1f}{RESET}  minutes saved vs typing at {WPM_TYPING_BASELINE} wpm")
+
+    print(f"\n{BOLD}Streaks{RESET}")
+    print(f"  {GREEN}{BOLD}{streak:>7}{RESET}  current day streak")
+    print(f"  {GREEN}{BOLD}{longest_streak:>7}{RESET}  longest day streak")
+    print(f"  {GREEN}{BOLD}{len(active_days):>7}{RESET}  total active days")
+
+    print(f"\n{BOLD}This week vs last week{RESET}")
+    this_words = sum(_safe_int(e.get('chars')) for e in last_week) // CHARS_PER_WORD
+    prior_words = sum(_safe_int(e.get('chars')) for e in prior_week) // CHARS_PER_WORD
+    delta = this_words - prior_words
+    delta_pct = (delta / prior_words * 100) if prior_words > 0 else None
+    delta_str = f"+{delta:,}" if delta >= 0 else f"{delta:,}"
+    if delta_pct is not None:
+        pct_color = GREEN if delta >= 0 else "\033[31m"
+        delta_str += f"  ({pct_color}{delta_pct:+.0f}%{RESET})"
+    print(f"  This week:  {len(last_week):>4} sessions, {this_words:>5,} words")
+    print(f"  Last week:  {len(prior_week):>4} sessions, {prior_words:>5,} words")
+    print(f"  Δ words:    {delta_str}")
 
     if by_app:
-        print(f"\n{BOLD}Top apps:{RESET}")
+        print(f"\n{BOLD}Top apps (last 7 days){RESET}")
         for app, count in by_app.most_common(8):
             label = app if app else '<unknown>'
-            print(f"  {count:>5}  {DIM}{label}{RESET}")
+            bar_width = max(1, int(count * 30 / by_app.most_common(1)[0][1]))
+            bar = '█' * bar_width
+            print(f"  {count:>4}  {GREEN}{bar}{RESET}{DIM} {label}{RESET}")
 
     if entries:
         first_ts = entries[0].get('ts', '?')
@@ -226,3 +255,42 @@ def show_stats() -> int:
         print(f"{DIM}Latest entry: {last_ts}{RESET}\n")
 
     return 0
+
+
+def _compute_streaks(active_days: set, today: datetime.date) -> tuple:
+    if not active_days:
+        return 0, 0
+    sorted_days = sorted(active_days)
+    longest = 1
+    current = 1
+    for i in range(1, len(sorted_days)):
+        prev = datetime.date.fromisoformat(sorted_days[i - 1])
+        curr = datetime.date.fromisoformat(sorted_days[i])
+        if (curr - prev).days == 1:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 1
+
+    if today.isoformat() in active_days:
+        cs = 1
+        d = today
+        while True:
+            d -= datetime.timedelta(days=1)
+            if d.isoformat() in active_days:
+                cs += 1
+            else:
+                break
+        return cs, longest
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    if yesterday in active_days:
+        cs = 1
+        d = today - datetime.timedelta(days=1)
+        while True:
+            d -= datetime.timedelta(days=1)
+            if d.isoformat() in active_days:
+                cs += 1
+            else:
+                break
+        return cs, longest
+    return 0, longest

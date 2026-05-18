@@ -78,4 +78,4 @@ Changelog = "https://github.com/drajb/whisper-local/blob/master/CHANGELOG.md"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"whisper_key" = ["assets/**/*", "platform/*/assets/*", "config.defaults.yaml", "commands.defaults.yaml", "profiles.defaults.yaml", "app_rules.defaults.yaml"]
+"whisper_key" = ["assets/**/*", "platform/*/assets/*", "config.defaults.yaml", "commands.defaults.yaml", "profiles.defaults.yaml", "app_rules.defaults.yaml", "transforms.defaults.yaml"]

@@ -263,6 +263,7 @@ def setup_hotkey_listener(hotkey_config, state_manager, voice_commands_enabled=T
         command_hotkey=hotkey_config.get('command_hotkey') if voice_commands_enabled else None,
         rephrase_hotkey=hotkey_config.get('rephrase_hotkey'),
         pause_hotkey=hotkey_config.get('pause_hotkey'),
+        transforms_manager=getattr(state_manager, 'transforms_manager', None),
         recording_mode=hotkey_config.get('recording_mode', 'toggle')
     )
 
@@ -291,6 +292,9 @@ def main():
     parser.add_argument('--setup', action='store_true', help='Run interactive setup wizard')
     parser.add_argument('--export-transcripts', metavar='PATH', help='Export transcription history to .txt / .md / .csv')
     parser.add_argument('--import-vocab', metavar='PATH', help='Scan a folder for terms and merge into whisper.hotwords')
+    parser.add_argument('--add-word', metavar='WORD', help='Add a word to your hotwords dictionary')
+    parser.add_argument('--remove-word', metavar='WORD', help='Remove a word from your hotwords dictionary')
+    parser.add_argument('--list-dictionary', action='store_true', help='Show all words in your hotwords dictionary')
     args = parser.parse_args()
 
     if args.version:
@@ -327,6 +331,18 @@ def main():
     if args.import_vocab:
         from .vocab_import import import_vocab
         sys.exit(import_vocab(args.import_vocab))
+
+    if args.add_word:
+        from .dictionary import add_word
+        sys.exit(0 if add_word(args.add_word) else 1)
+
+    if args.remove_word:
+        from .dictionary import remove_word
+        sys.exit(0 if remove_word(args.remove_word) else 1)
+
+    if args.list_dictionary:
+        from .dictionary import show_dictionary
+        sys.exit(show_dictionary())
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")
