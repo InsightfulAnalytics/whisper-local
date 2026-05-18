@@ -253,3 +253,15 @@ class HotkeyListener:
 
     def is_active(self) -> bool:
         return self.is_listening
+
+    def refresh_transforms(self):
+        if not self.transforms_manager:
+            return
+        self.transforms_manager.reload_if_changed()
+        self.logger.info("Re-registering hotkeys to pick up transform changes")
+        try:
+            self.stop_listening()
+            self._setup_hotkeys()
+            self.start_listening()
+        except Exception as e:
+            self.logger.error(f"Failed to refresh transform hotkeys: {e}")

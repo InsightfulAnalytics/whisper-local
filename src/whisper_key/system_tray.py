@@ -334,6 +334,11 @@ class SystemTray:
 
             transform_items = self._build_transforms_menu()
             if transform_items:
+                transform_items = list(transform_items) + [
+                    pystray.Menu.SEPARATOR,
+                    pystray.MenuItem("Edit transforms.yaml...", self._open_transforms_file),
+                    pystray.MenuItem("Reload from file", self._reload_transforms),
+                ]
                 menu_items.append(pystray.MenuItem(
                     "Transforms",
                     pystray.Menu(*transform_items)
@@ -462,6 +467,23 @@ class SystemTray:
             show_add_word_dialog()
         except Exception as e:
             self.logger.error(f"Failed to show add-word dialog: {e}")
+
+    def _open_transforms_file(self, icon=None, item=None):
+        try:
+            from pathlib import Path
+            from .utils import get_user_app_data_path
+            path = Path(get_user_app_data_path()) / 'transforms.yaml'
+            open_file(str(path))
+        except Exception as e:
+            self.logger.error(f"Failed to open transforms.yaml: {e}")
+
+    def _reload_transforms(self, icon=None, item=None):
+        try:
+            changed = self.state_manager.reload_transforms()
+            if not changed:
+                self.notify("No changes to transforms.yaml")
+        except Exception as e:
+            self.logger.error(f"Failed to reload transforms: {e}")
 
     def _run_module_in_window(self, flag: str):
         import subprocess

@@ -411,6 +411,7 @@ def main():
         
         try:
             hotkey_listener = setup_hotkey_listener(hotkey_config, state_manager, voice_commands_config['enabled'])
+            state_manager.set_hotkey_listener(hotkey_listener)
         except Exception as hotkey_error:
             logger.error(f"Hotkey registration failed: {hotkey_error}")
             print(f"\n❌ Could not register hotkeys ({hotkey_error}).")

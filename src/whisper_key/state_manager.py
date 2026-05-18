@@ -55,6 +55,7 @@ class StateManager:
         self._rephrase_selection = ''
         self._rephrase_original_clipboard = ''
         self._continuous_aborted = False
+        self._hotkey_listener_ref = None
         self._pending_model_change = None
         self._pending_device_change = None
         self._command_mode = False
@@ -714,6 +715,21 @@ class StateManager:
 
     def list_transforms(self) -> list:
         return self.transforms_manager.list_transforms()
+
+    def reload_transforms(self) -> bool:
+        old = [(t.get('name'), t.get('hotkey')) for t in self.transforms_manager.list_transforms()]
+        self.transforms_manager.reload_if_changed()
+        new = [(t.get('name'), t.get('hotkey')) for t in self.transforms_manager.list_transforms()]
+        changed = old != new
+        if changed:
+            self.system_tray.notify(f"Transforms reloaded ({len(new)} active)")
+            self.system_tray.refresh_menu()
+            if self._hotkey_listener_ref:
+                self._hotkey_listener_ref.refresh_transforms()
+        return changed
+
+    def set_hotkey_listener(self, listener):
+        self._hotkey_listener_ref = listener
 
     def list_profiles(self) -> list:
         return self.profile_manager.list_profiles()
