@@ -5,11 +5,33 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "whisper-local"
 version = "0.9.0"
-description = "Global hotkeys to record speech and transcribe directly to your cursor (personal fork of whisper-key-local)"
+description = "Free, local AI dictation. Hold a hotkey, speak, get text at the cursor. 100% offline. Powered by Whisper."
 readme = "README.md"
 license = "MIT"
 authors = [
     {name = "drajb"}
+]
+keywords = [
+    "dictation", "speech-to-text", "whisper", "voice-typing",
+    "transcription", "ai-dictation", "local-ai", "offline",
+    "push-to-talk", "voice-recognition", "accessibility"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+    "Topic :: Utilities",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -45,6 +67,12 @@ whispercpp = ["pywhispercpp>=1.2"]
 [project.scripts]
 whisper-local = "whisper_key.main:main"
 wl = "whisper_key.main:main"
+
+[project.urls]
+Homepage = "https://github.com/drajb/whisper-local"
+Repository = "https://github.com/drajb/whisper-local"
+Issues = "https://github.com/drajb/whisper-local/issues"
+Changelog = "https://github.com/drajb/whisper-local/blob/master/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
