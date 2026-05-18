@@ -48,6 +48,28 @@ class VoiceCommandsDefaultsTests(unittest.TestCase):
         self.assertNotIn("reg add", defaults.lower())
 
 
+class WhisperBackendTests(unittest.TestCase):
+    def test_default_backend_is_faster_whisper(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "config.defaults.yaml"
+        with open(path, encoding="utf-8") as f:
+            cfg = YAML().load(f)
+        self.assertEqual(cfg["whisper"].get("backend"), "faster_whisper")
+
+    def test_whisper_cpp_module_imports_lazily(self):
+        # Import the module — the heavy pywhispercpp import is lazy inside __init__
+        from whisper_key import whisper_engine_cpp
+        self.assertTrue(hasattr(whisper_engine_cpp, 'WhisperEngineCpp'))
+
+    def test_optional_dep_declared(self):
+        import tomllib
+        with open(ROOT / "pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        extras = data.get("project", {}).get("optional-dependencies", {})
+        self.assertIn("whispercpp", extras)
+        self.assertTrue(any("pywhispercpp" in d for d in extras["whispercpp"]))
+
+
 class InstanceManagerTests(unittest.TestCase):
     def test_exposes_cleanup_pid_file(self):
         src = (ROOT / "src" / "whisper_key" / "instance_manager.py").read_text(encoding="utf-8")

@@ -37,6 +37,11 @@ dependencies = [
     "pyobjc-framework-ApplicationServices; sys_platform=='darwin'",
 ]
 
+[project.optional-dependencies]
+# Opt-in whisper.cpp backend (set `whisper.backend: whisper_cpp` in user_settings.yaml)
+# Models auto-download from huggingface.co/ggerganov/whisper.cpp on first use.
+whispercpp = ["pywhispercpp>=1.2"]
+
 [project.scripts]
 whisper-local = "whisper_key.main:main"
 wl = "whisper_key.main:main"

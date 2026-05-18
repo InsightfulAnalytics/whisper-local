@@ -9,6 +9,12 @@
 # macOS: ~/.whisperkey/user_settings.yaml
 
 whisper: # Whisper AI Model Settings
+    # Backend engine
+    # - faster_whisper (default): CTranslate2-based, GPU-friendly, mature
+    # - whisper_cpp: opt-in via `pip install whisper-local[whispercpp]`.
+    #   Better Apple Silicon perf, GGUF model format, lower memory.
+    backend: faster_whisper
+
     # Model selection
     # See "models" below for more information
     model: tiny

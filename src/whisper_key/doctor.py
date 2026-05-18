@@ -222,6 +222,15 @@ def _section_model() -> int:
         from .model_registry import ModelRegistry
         cfg = ConfigManager(quiet=True)
         whisper_cfg = cfg.get_whisper_config()
+        backend = whisper_cfg.get('backend', 'faster_whisper')
+        Check("Whisper backend").info(backend).print()
+        if backend == 'whisper_cpp':
+            try:
+                import pywhispercpp  # noqa
+                Check("pywhispercpp installed").ok(getattr(pywhispercpp, '__version__', '?')).print()
+            except ImportError:
+                Check("pywhispercpp installed").fail("missing — run: pip install 'whisper-local[whispercpp]'").print()
+                failures += 1
         streaming_cfg = cfg.get_streaming_config()
         registry = ModelRegistry(
             whisper_models_config=whisper_cfg.get('models', {}),

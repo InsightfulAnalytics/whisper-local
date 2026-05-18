@@ -148,6 +148,24 @@ def setup_streaming(streaming_config, model_registry):
     )
 
 def setup_whisper_engine(whisper_config, vad_manager, model_registry, log_transcriptions=False, config_manager=None):
+    backend = whisper_config.get('backend', 'faster_whisper')
+
+    if backend == 'whisper_cpp':
+        from .whisper_engine_cpp import WhisperEngineCpp
+        return WhisperEngineCpp(
+            model_key=whisper_config['model'],
+            device=whisper_config['device'],
+            compute_type=whisper_config['compute_type'],
+            language=whisper_config['language'],
+            beam_size=whisper_config['beam_size'],
+            initial_prompt=whisper_config.get('initial_prompt', ''),
+            hotwords=whisper_config.get('hotwords', []),
+            task=whisper_config.get('task', 'transcribe'),
+            vad_manager=vad_manager,
+            model_registry=model_registry,
+            log_transcriptions=log_transcriptions
+        )
+
     try:
         return WhisperEngine(
             model_key=whisper_config['model'],
