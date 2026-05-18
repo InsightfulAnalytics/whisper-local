@@ -67,11 +67,19 @@ class HotkeyListener:
             })
 
         if self.command_hotkey:
-            hotkey_configs.append({
-                'combination': self.command_hotkey,
-                'callback': self._command_hotkey_pressed,
-                'name': 'command'
-            })
+            if self.recording_mode == "push_to_talk":
+                hotkey_configs.append({
+                    'combination': self.command_hotkey,
+                    'callback': self._command_hotkey_pressed,
+                    'release_callback': self._push_to_talk_released,
+                    'name': 'command (push-to-talk)'
+                })
+            else:
+                hotkey_configs.append({
+                    'combination': self.command_hotkey,
+                    'callback': self._command_hotkey_pressed,
+                    'name': 'command'
+                })
 
         if self.rephrase_hotkey:
             hotkey_configs.append({
