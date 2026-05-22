@@ -316,7 +316,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details. By contributing you agree yo
 
 ## ☕ Support
 
-Whisper Local is free and always will be. If it saves you time or a monthly subscription, consider [buying me a coffee](https://buymeacoffee.com) *(link coming soon)* — it helps keep the project alive and motivates new features.
+Whisper Local is free and always will be. If it saves you time or a monthly subscription, consider [buying me a coffee](https://buymeacoffee.com/drajb) — it helps keep the project alive and motivates new features.
 
 No pressure. Starring the repo and sharing it with people who'd find it useful is just as helpful.
 
