@@ -18,6 +18,22 @@ Whisper Local is a free, open-source **voice-to-text dictation tool** for power 
 
 ---
 
+## 🌟 Why this exists
+
+Most AI dictation tools are great — until you check the privacy policy. Your audio goes to a server, gets processed, and (sometimes) stored. You pay a monthly fee or get cut off.
+
+Whisper Local exists because **you shouldn't have to choose between accuracy and privacy.**
+
+- 🔒 Your voice never leaves your machine — not even metadata
+- 🆓 Free forever — no account, no API key, no subscription
+- 🔌 Works offline, air-gapped, after the internet is gone
+- 🛠️ Fork it, hack it, ship your own version — MIT licensed
+- 💡 Same Whisper model quality as cloud services, running on your own GPU
+
+This is a **community tool**, not a product. There's no support SLA, no roadmap committee, no marketing. If it's useful to you, great. If something's broken, PRs are welcome.
+
+---
+
 ## ✨ Why Whisper Local?
 
 | | Whisper Local | Cloud dictation (Otter, Dragon Anywhere, etc.) | Windows Speech Recognition |
@@ -286,9 +302,23 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 
 ## 🤝 Contributing
 
-This is `drajb`'s personal fork — issues and PRs aren't actively triaged. For the upstream project, see [whisper-key-local](https://github.com/PinW/whisper-key-local).
+Contributions of all kinds are welcome — bug fixes, new features, docs improvements, or just opening an issue with a clear reproduction. This project is maintained on a best-effort basis with no SLA; please be patient with response times.
 
-If you fork *this*: smoke tests run with `python -m unittest tests.test_smoke`. CI runs the same on every push.
+```bash
+git clone https://github.com/drajb/whisper-local.git
+pip install -e .
+python -m unittest tests.test_smoke   # all 28 should pass
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details. By contributing you agree your code will be MIT licensed.
+
+---
+
+## ☕ Support
+
+Whisper Local is free and always will be. If it saves you time or a monthly subscription, consider [buying me a coffee](https://buymeacoffee.com) *(link coming soon)* — it helps keep the project alive and motivates new features.
+
+No pressure. Starring the repo and sharing it with people who'd find it useful is just as helpful.
 
 ---
 
