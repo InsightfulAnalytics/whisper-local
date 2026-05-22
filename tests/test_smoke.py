@@ -212,5 +212,110 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(resolve_asset_path(absolute), absolute)
 
 
+class NoiseSuppresionTests(unittest.TestCase):
+    def test_passthrough_without_noisereduce(self):
+        import sys
+        import unittest.mock as mock
+        import numpy as np
+        sys.modules.pop('whisper_key.noise_suppression', None)
+        import importlib
+        with mock.patch.dict(sys.modules, {'noisereduce': None}):
+            import whisper_key.noise_suppression as ns_mod
+            importlib.reload(ns_mod)
+            audio = np.zeros(16000, dtype=np.float32)
+            result = ns_mod.apply_noise_reduction(audio, 16000, 0.75)
+            np.testing.assert_array_equal(result, audio)
+
+    def test_config_in_defaults(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "config.defaults.yaml"
+        with open(path, encoding="utf-8") as f:
+            cfg = YAML().load(f)
+        ns = cfg["audio"]["noise_suppression"]
+        self.assertFalse(ns["enabled"])
+        self.assertAlmostEqual(float(ns["strength"]), 0.75, places=2)
+
+
+class UpdateCheckTests(unittest.TestCase):
+    def test_is_newer_basic(self):
+        from whisper_key.update_check import _is_newer
+        self.assertTrue(_is_newer("1.0.0", "0.9.0"))
+        self.assertFalse(_is_newer("0.9.0", "1.0.0"))
+        self.assertFalse(_is_newer("0.9.0", "0.9.0"))
+
+    def test_no_network_when_disabled(self):
+        import unittest.mock as mock
+        from whisper_key.update_check import maybe_check_for_update
+        with mock.patch('whisper_key.update_check._check_in_background') as m:
+            maybe_check_for_update(lambda _: None, {'enabled': False})
+            m.assert_not_called()
+
+    def test_update_check_in_config_defaults(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "config.defaults.yaml"
+        with open(path, encoding="utf-8") as f:
+            cfg = YAML().load(f)
+        self.assertIn("update_check", cfg)
+        self.assertFalse(cfg["update_check"]["enabled"])
+
+
+class TranscriptLogTests(unittest.TestCase):
+    def test_record_and_load(self):
+        import tempfile
+        import unittest.mock as mock
+        from whisper_key import transcript_log
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch('whisper_key.transcript_log.get_user_app_data_path', return_value=tmpdir):
+                transcript_log.record_transcript("Hello world", app="test.exe", duration_s=1.5)
+                entries = transcript_log.load_transcripts()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["text"], "Hello world")
+        self.assertEqual(entries[0]["app"], "test.exe")
+
+    def test_empty_text_not_logged(self):
+        import tempfile
+        import unittest.mock as mock
+        from whisper_key import transcript_log
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch('whisper_key.transcript_log.get_user_app_data_path', return_value=tmpdir):
+                transcript_log.record_transcript("", app="test.exe")
+                entries = transcript_log.load_transcripts()
+        self.assertEqual(len(entries), 0)
+
+
+class SettingsUiModuleTests(unittest.TestCase):
+    def test_module_importable(self):
+        from whisper_key import settings_ui
+        self.assertTrue(hasattr(settings_ui, 'run_settings_window'))
+
+
+class HistoryWindowModuleTests(unittest.TestCase):
+    def test_module_importable(self):
+        from whisper_key import history_window
+        self.assertTrue(hasattr(history_window, 'show_history'))
+
+
+class ReleaseWorkflowTests(unittest.TestCase):
+    def test_release_workflow_exists(self):
+        self.assertTrue((ROOT / ".github" / "workflows" / "release.yml").exists())
+
+    def test_release_workflow_triggers_on_tag(self):
+        with open(ROOT / ".github" / "workflows" / "release.yml", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("tags:", content)
+        self.assertIn("v*", content)
+        self.assertIn("pypa/gh-action-pypi-publish", content)
+
+
+class PyprojectOptionalDepsTests(unittest.TestCase):
+    def test_noise_optional_dep(self):
+        import tomllib
+        with open(ROOT / "pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        extras = data.get("project", {}).get("optional-dependencies", {})
+        self.assertIn("noise", extras)
+        self.assertTrue(any("noisereduce" in d for d in extras["noise"]))
+
+
 if __name__ == "__main__":
     unittest.main()

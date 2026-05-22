@@ -242,6 +242,13 @@ audio: # Audio Recording Settings
     # are plugged/unplugged. Use system tray to select device - it will save the ID here.
     input_device: "default"
 
+    # Noise suppression (requires: pip install 'whisper-local[noise]')
+    # Applies spectral gating via noisereduce before passing audio to Whisper.
+    # Helps in noisy environments (fans, HVAC, keyboard clatter).
+    noise_suppression:
+        enabled: false
+        strength: 0.75  # 0.0 = minimal, 1.0 = aggressive
+
 clipboard: # Clipboard Behavior
     # Automatically paste after transcription
     # true = paste immediately to active window
@@ -405,3 +412,10 @@ postprocess: # Transcription post-processing pipeline
             Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:
 
             {text}
+
+update_check: # Opt-in update notifications
+    # When enabled, once per day Whisper Local checks the GitHub releases API
+    # for a newer version and shows a tray notification if found.
+    # No audio or transcript data is ever sent. Only the app version is in the UA header.
+    # Set to true to opt in.
+    enabled: false

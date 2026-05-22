@@ -58,7 +58,7 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 - 🤖 **AI rephrase** — dedicated `Ctrl+Shift+Win` hotkey: select text, hold, speak your instruction, release — local Ollama rewrites it in place
 - 🌐 **Translation mode** — speak any language, get English; tray → Profile → Translate
 - 🔁 **Continuous dictation mode** — for long-form notes, the app auto-restarts recording after each delivery
-- 📋 **Notepad fallback** — if no text field is focused, the transcript opens in Notepad instead of disappearing
+- 📋 **Fallback window** — if no text field is focused, the transcript appears in a small window (pre-selected, copy button, already on clipboard)
 - ⏸ **Pause-all hotkey** — `Ctrl+Alt+Win` disables every Whisper Local hotkey until you press it again
 - 📋 **Auto-paste at cursor** — transcript lands wherever you're typing, optionally followed by Enter (auto-send)
 - 🔒 **100 % local & private** — no network calls during use; Whisper models cached on disk
@@ -71,6 +71,10 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 - 🧹 **Optional LLM cleanup** — pipe transcripts through a local [Ollama](https://ollama.ai) model for punctuation / capitalisation polish (off by default, fully local)
 - 📜 **Recent transcriptions** — last 10 results in the tray menu, click to copy back
 - 🔧 **Settings backup/restore** — `--export-settings` / `--import-settings` for portability
+- 🖥️ **Settings UI** — `whisper-local --settings` opens a GUI settings window (no YAML editing required)
+- 📜 **Transcript history** — `whisper-local --history` opens a searchable log of everything you've dictated
+- 🔔 **Opt-in update notifications** — daily GitHub release check, fully offline by default (`update_check.enabled: true` to opt in)
+- 🎚️ **Noise suppression** — spectral gating via `noisereduce`, off by default (`pip install 'whisper-local[noise]'`)
 - 🛡️ **Crash reports** — uncaught errors write a self-contained dump to disk
 - 🪟 **System tray UI** — model selection, mic selection, profile switch, diagnostics
 - 🍎 **Cross-platform** — Windows 10+, macOS
@@ -251,6 +255,8 @@ whisper-local --export-settings DIR        # Back up user_settings + commands
 whisper-local --import-settings DIR        # Restore from a backup
 whisper-local --export-transcripts FILE    # Dump history (.txt/.md/.csv)
 whisper-local --import-vocab FOLDER        # Mine a folder for hotwords
+whisper-local --settings           # Open the settings GUI (no YAML editing required)
+whisper-local --history            # Browse and search transcript history
 whisper-local --test               # Run a separate test instance (own mutex)
 ```
 

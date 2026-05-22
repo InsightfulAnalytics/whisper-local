@@ -289,6 +289,9 @@ class SystemTray:
                 menu_items.append(pystray.Menu.SEPARATOR)
 
             menu_items += [
+                pystray.MenuItem("Settings...", self._open_settings_window),
+                pystray.MenuItem("Transcript history...", self._open_history_window),
+                pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log file...", self._open_log_file),
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
                 pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
@@ -460,6 +463,12 @@ class SystemTray:
 
     def _run_stats_in_window(self, icon=None, item=None):
         self._run_module_in_window('--stats')
+
+    def _open_settings_window(self, icon=None, item=None):
+        self._run_module_in_window('--settings')
+
+    def _open_history_window(self, icon=None, item=None):
+        self._run_module_in_window('--history')
 
     def _open_add_word_dialog(self, icon=None, item=None):
         try:

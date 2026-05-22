@@ -127,7 +127,8 @@ def setup_audio_recorder(audio_config, state_manager, vad_manager, streaming_man
         vad_manager=vad_manager,
         streaming_manager=streaming_manager,
         on_streaming_result=state_manager.handle_streaming_result,
-        device=audio_config['input_device']
+        device=audio_config['input_device'],
+        noise_suppression_config=audio_config.get('noise_suppression') or {},
     )
 
 def setup_vad(vad_config):
@@ -295,6 +296,8 @@ def main():
     parser.add_argument('--add-word', metavar='WORD', help='Add a word to your hotwords dictionary')
     parser.add_argument('--remove-word', metavar='WORD', help='Remove a word from your hotwords dictionary')
     parser.add_argument('--list-dictionary', action='store_true', help='Show all words in your hotwords dictionary')
+    parser.add_argument('--settings', action='store_true', help='Open the settings window')
+    parser.add_argument('--history', action='store_true', help='Browse transcript history')
     args = parser.parse_args()
 
     if args.version:
@@ -343,6 +346,18 @@ def main():
     if args.list_dictionary:
         from .dictionary import show_dictionary
         sys.exit(show_dictionary())
+
+    if args.settings:
+        from .settings_ui import run_settings_window
+        run_settings_window()
+        sys.exit(0)
+
+    if args.history:
+        from .history_window import show_history
+        show_history()
+        import time
+        time.sleep(0.5)
+        sys.exit(0)
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")
@@ -446,6 +461,13 @@ def main():
                 print(f"\n📈 {summary}")
         except Exception as e:
             logger.debug(f"Daily summary skipped: {e}")
+
+        try:
+            from .update_check import maybe_check_for_update
+            update_cfg = config_manager.config.get('update_check') or {}
+            maybe_check_for_update(lambda msg: system_tray.notify(msg), update_cfg)
+        except Exception as e:
+            logger.debug(f"Update check skipped: {e}")
 
         system_tray.apply_console_settings()
 

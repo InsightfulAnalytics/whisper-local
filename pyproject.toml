@@ -64,6 +64,9 @@ dependencies = [
 # Models auto-download from huggingface.co/ggerganov/whisper.cpp on first use.
 whispercpp = ["pywhispercpp>=1.2"]
 
+# Spectral noise suppression via noisereduce (set `audio.noise_suppression.enabled: true`)
+noise = ["noisereduce>=3.0.0"]
+
 [project.scripts]
 whisper-local = "whisper_key.main:main"
 wl = "whisper_key.main:main"

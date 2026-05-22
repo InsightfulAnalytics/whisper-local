@@ -31,7 +31,8 @@ class AudioRecorder:
                  vad_manager=None,
                  streaming_manager=None,
                  on_streaming_result: Callable[[str, bool], None] = None,
-                 device=None):
+                 device=None,
+                 noise_suppression_config: Optional[dict] = None):
 
         self.sample_rate = self.WHISPER_SAMPLE_RATE
         self.channels = channels
@@ -41,6 +42,7 @@ class AudioRecorder:
         self.is_recording = False
         self.recording_start_time = None
         self.logger = logging.getLogger(__name__)
+        self._noise_suppression_config = noise_suppression_config or {}
 
         self.vad_manager = vad_manager
         self.on_vad_event = on_vad_event
@@ -238,6 +240,11 @@ class AudioRecorder:
         if self._needs_resampling_cached:
             self.logger.info(f"Resampling from {self._recording_rate} Hz to {self.WHISPER_SAMPLE_RATE} Hz")
             audio_array = self._resample_audio(audio_array, self._recording_rate, self.WHISPER_SAMPLE_RATE)
+
+        if self._noise_suppression_config.get('enabled'):
+            from .noise_suppression import apply_noise_reduction
+            strength = float(self._noise_suppression_config.get('strength', 0.75))
+            audio_array = apply_noise_reduction(audio_array, self.WHISPER_SAMPLE_RATE, strength)
 
         audio_array = self._trim_long_pauses(audio_array)
         audio_array = self._trim_trailing_silence(audio_array)

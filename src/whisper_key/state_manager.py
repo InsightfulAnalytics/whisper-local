@@ -22,6 +22,7 @@ from .transforms import TransformsManager
 from .text_postprocess import postprocess
 from .stats import record_transcription
 from .audit_log import record as audit_record
+from .transcript_log import record_transcript
 from .platform import foreground
 from .level_overlay import LevelOverlay
 from .fallback_window import FallbackWindow
@@ -442,6 +443,7 @@ class StateManager:
                     duration_seconds=duration,
                     app=fg.get('exe', ''),
                 )
+                record_transcript(transcribed_text, app=fg.get('exe', ''), duration_s=duration)
                 audit_enabled = (self.config_manager.config.get('audit') or {}).get('enabled', False)
                 audit_record('delivered', transcribed_text, fg.get('exe', ''), audit_enabled)
                 self._maybe_restart_continuous()
@@ -885,6 +887,7 @@ class StateManager:
             streaming_manager = self.audio_recorder.streaming_manager
             on_streaming_result = self.audio_recorder.on_streaming_result
 
+            noise_cfg = (self.config_manager.config.get('audio') or {}).get('noise_suppression') or {}
             new_recorder = AudioRecorder(
                 on_vad_event=self.handle_vad_event,
                 channels=channels,
@@ -894,7 +897,8 @@ class StateManager:
                 vad_manager=vad_manager,
                 streaming_manager=streaming_manager,
                 on_streaming_result=on_streaming_result,
-                device=device_id if device_id != -1 else None
+                device=device_id if device_id != -1 else None,
+                noise_suppression_config=noise_cfg,
             )
 
             self.audio_recorder = new_recorder
