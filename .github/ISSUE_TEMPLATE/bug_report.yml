@@ -1,0 +1,115 @@
+name: 🐛 Bug report
+description: Something isn't working the way it should
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. The more detail you give, the faster it gets fixed.
+
+        Before you continue, please:
+        1. Search [existing issues](https://github.com/drajb/whisper-local/issues?q=is%3Aissue) to make sure this isn't already reported
+        2. Run `whisper-local --doctor` and paste the relevant section below
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: "When I press Ctrl+Win, the overlay shows but no text appears..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launch with `whisper-local`
+        2. Open Notepad
+        3. Press Ctrl+Win and say "hello world"
+        4. Release the key
+        5. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Whisper Local version
+      description: Run `whisper-local --version`
+      placeholder: "0.9.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Run `python --version`
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Whisper backend
+      options:
+        - faster_whisper (default)
+        - whisper_cpp
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Whisper model
+      placeholder: "tiny / base / small / medium / large / large-v3"
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Compute device
+      options:
+        - CPU
+        - CUDA (NVIDIA)
+        - ROCm (AMD)
+        - MPS (Apple Silicon)
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `whisper-local --doctor`
+      description: Paste relevant sections. Redact anything personal.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant lines from `whisperkey.log`
+      description: |
+        Find it at `%APPDATA%\whisperkey\whisperkey.log` (Windows) or `~/.whisperkey/whisperkey.log` (macOS).
+        Paste the last ~50 lines around when the bug occurred. Redact anything personal.
+      render: shell

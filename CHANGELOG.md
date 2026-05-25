@@ -1,6 +1,21 @@
 # Changelog
 
-History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+History inherited from upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local). Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- **Settings UI** (`whisper-local --settings`) — 4-tab Tkinter window covering all common settings; no YAML editing required. Reachable from the tray menu (**Settings...**).
+- **Transcript history window** (`whisper-local --history`) — searchable browser of every past transcription with preview pane and click-to-copy. Reachable from the tray menu (**Transcript history...**).
+- **Persistent transcript journal** — every successful delivery is appended to `transcripts.jsonl` (last 2000 entries, auto-rotates).
+- **Noise suppression** (`audio.noise_suppression.enabled`) — opt-in spectral gating via `noisereduce`; install with `pip install 'whisper-local[noise]'`.
+- **Opt-in update notifications** (`update_check.enabled`) — daily GitHub release check; no audio or transcript data is ever transmitted (only the version string in the User-Agent header).
+- **Release pipeline** (`.github/workflows/release.yml`) — tag-triggered CI: tests → build wheel → publish to PyPI → create GitHub Release with the wheel attached.
+- **Community setup** — `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `AUTHORS.md`, `CITATION.cff`, issue and PR templates, Dependabot config, `.editorconfig`.
+
+### Changed
+- Repositioned README for open-source / privacy-first audience: added a "Why this exists" section, removed "personal fork" defensive framing, expanded SEO keywords throughout.
+- LICENSE updated to credit both Pin Wang (original author) and Rohit Burani (fork maintainer).
 
 ## [0.9.0] - 2026-05-11 (drajb/whisper-local fork)
 

@@ -1,12 +1,23 @@
-# Whisper Local — Free, Private, AI Dictation for Windows & macOS
+<div align="center">
 
-> **Press a hotkey. Speak. Your words appear at the cursor.**
-> No cloud, no subscription, no telemetry. Powered by [OpenAI Whisper](https://github.com/openai/whisper) running **100 % on your machine**.
+# Whisper Local
+
+### Free, Open-Source, **100% Offline** AI Dictation for Windows & macOS
+
+**Press a hotkey. Speak. Your words appear at the cursor.**
+No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://github.com/openai/whisper).
 
 [![Tests](https://github.com/drajb/whisper-local/actions/workflows/test.yml/badge.svg)](https://github.com/drajb/whisper-local/actions/workflows/test.yml)
+[![Release](https://github.com/drajb/whisper-local/actions/workflows/release.yml/badge.svg)](https://github.com/drajb/whisper-local/actions/workflows/release.yml)
+[![PyPI](https://img.shields.io/pypi/v/whisper-local.svg)](https://pypi.org/project/whisper-local/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](#-quick-start)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+[**Quick Start**](#-quick-start) · [**Features**](#-features) · [**vs. Wispr Flow / Dragon**](#-why-whisper-local) · [**Voice Commands**](#-voice-commands) · [**Contributing**](#-contributing)
+
+</div>
 
 ![Whisper Local — press, speak, type](docs/hero.svg)
 
@@ -14,7 +25,9 @@
 <!-- ![Demo](docs/demo.gif) -->
 
 
-Whisper Local is a free, open-source **voice-to-text dictation tool** for power users who want **AI transcription without sending audio to the cloud**. Built around [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper), it gives you **push-to-talk dictation in any application** — chat apps, code editors, browsers, terminals, design tools, anywhere a cursor blinks.
+Whisper Local is a **free, open-source, fully offline alternative to Wispr Flow, Dragon, and Otter** for power users who want **AI dictation without sending audio to the cloud**. Built on [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2), it delivers **push-to-talk speech-to-text in any application** — chat apps, code editors, browsers, terminals, design tools, anywhere a cursor blinks. Self-hosted, hackable, MIT-licensed.
+
+**Looking for:** *Wispr Flow alternative*, *offline voice typing*, *local Whisper dictation*, *free Dragon NaturallySpeaking alternative*, *privacy-first speech-to-text*, *Windows voice dictation without cloud*, *macOS push-to-talk transcription*. You found it.
 
 ---
 
@@ -36,16 +49,19 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 
 ## ✨ Why Whisper Local?
 
-| | Whisper Local | Cloud dictation (Otter, Dragon Anywhere, etc.) | Windows Speech Recognition |
-|---|:---:|:---:|:---:|
-| Runs offline | ✅ | ❌ | ✅ |
-| Audio never leaves your machine | ✅ | ❌ | partial |
-| Free / open source | ✅ | ❌ | ✅ |
-| Modern AI accuracy (Whisper) | ✅ | ✅ | ❌ |
-| Works in any app via hotkey | ✅ | ❌ | partial |
-| Customisable voice commands | ✅ | partial | ❌ |
-| Push-to-talk + auto-paste + auto-send | ✅ | ❌ | ❌ |
-| GPU acceleration (NVIDIA & AMD) | ✅ | n/a | ❌ |
+| Feature | **Whisper Local** | Wispr Flow | Dragon / Dragon Anywhere | Otter.ai | Windows Speech Recognition |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Runs 100% offline** | ✅ | ❌ | ❌ (Anywhere) | ❌ | ✅ |
+| **Audio never leaves your machine** | ✅ | ❌ | ❌ | ❌ | partial |
+| **Free / open source** | ✅ | ❌ | ❌ ($$$/yr) | ❌ ($$/mo) | ✅ |
+| **Modern AI accuracy (Whisper)** | ✅ | ✅ | partial | ✅ | ❌ |
+| **Works in any app via hotkey** | ✅ | ✅ | partial | ❌ | partial |
+| **Customisable voice commands** | ✅ | partial | ✅ | ❌ | ❌ |
+| **Push-to-talk + auto-paste + auto-send** | ✅ | ✅ | partial | ❌ | ❌ |
+| **GPU acceleration (NVIDIA & AMD)** | ✅ | n/a | n/a | n/a | ❌ |
+| **AI rephrase / transforms (Ollama)** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Hackable / MIT licensed** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **No account required** | ✅ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -313,10 +329,12 @@ Contributions of all kinds are welcome — bug fixes, new features, docs improve
 ```bash
 git clone https://github.com/drajb/whisper-local.git
 pip install -e .
-python -m unittest tests.test_smoke   # all 28 should pass
+python -m unittest tests.test_smoke   # all 40 should pass
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details. By contributing you agree your code will be MIT licensed.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards. By contributing you agree your code will be MIT licensed. Found a security issue? See [SECURITY.md](SECURITY.md) — please don't open a public issue.
+
+Good first issues are tagged [here](https://github.com/drajb/whisper-local/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). The full credit list is in [AUTHORS.md](AUTHORS.md).
 
 ---
 
@@ -330,4 +348,20 @@ No pressure. Starring the repo and sharing it with people who'd find it useful i
 
 ## 🙏 Credit
 
-Forked from [whisper-key-local](https://github.com/PinW/whisper-key-local) by Pin Wang. MIT licensed; original copyright preserved in [`LICENSE`](LICENSE).
+Forked from [whisper-key-local](https://github.com/PinW/whisper-key-local) by **Pin Wang** — huge thanks to the original work that made this fork possible. The full list of credits, including every open-source library Whisper Local builds on, is in [`AUTHORS.md`](AUTHORS.md).
+
+MIT licensed; original copyright preserved in [`LICENSE`](LICENSE).
+
+---
+
+<div align="center">
+
+### ⭐ If you find this useful, please [star the repo](https://github.com/drajb/whisper-local) — it helps others discover it.
+
+**Maintained by [Rohit Burani](https://gekro.com) ([@drajb](https://github.com/drajb))**
+
+[Website](https://gekro.com) · [GitHub](https://github.com/drajb) · [Discussions](https://github.com/drajb/whisper-local/discussions) · [Report a bug](https://github.com/drajb/whisper-local/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/drajb/whisper-local/issues/new?template=feature_request.yml)
+
+<sub>Tags: whisper · dictation · speech-to-text · voice-typing · transcription · ai-dictation · local-ai · offline · push-to-talk · voice-recognition · accessibility · faster-whisper · privacy · self-hosted · wispr-flow-alternative · dragon-naturallyspeaking-alternative · otter-alternative · ollama · voice-commands · windows · macos · python</sub>
+
+</div>
