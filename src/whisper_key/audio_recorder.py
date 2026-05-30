@@ -160,22 +160,51 @@ class AudioRecorder:
         self._capture_thread.start()
 
     def _capture_loop(self):
-        try:
-            with sd.InputStream(samplerate=self._recording_rate,
-                                channels=self.channels,
-                                callback=self._audio_callback,
-                                dtype=self.STREAM_DTYPE,
-                                blocksize=self._vad_blocksize if self.continuous_vad else None,
-                                device=self.device,
-                                latency='low'):
-                while self._capture_running:
+        retry_count = 0
+        max_retries = 3
+        while self._capture_running and retry_count <= max_retries:
+            try:
+                with sd.InputStream(samplerate=self._recording_rate,
+                                    channels=self.channels,
+                                    callback=self._audio_callback,
+                                    dtype=self.STREAM_DTYPE,
+                                    blocksize=self._vad_blocksize if self.continuous_vad else None,
+                                    device=self.device,
+                                    latency='low'):
+                    retry_count = 0
+                    while self._capture_running:
+                        if self.is_recording:
+                            self._check_max_duration_exceeded()
+                        sd.sleep(self.LOOP_SLEEP_MS)
+                    return
+            except Exception as e:
+                if not self._capture_running:
+                    return
+                retry_count += 1
+                self._stream_error = e
+                msg = str(e).lower()
+                is_disconnect = any(s in msg for s in (
+                    'unanticipated', 'invalid device', 'device unavailable',
+                    'no default input', 'errno -9999', 'errno -9988',
+                ))
+                if is_disconnect and retry_count <= max_retries:
+                    self.logger.warning(f"Audio stream lost ({e}); recovering to default device (attempt {retry_count}/{max_retries})")
+                    print(f"⚠ Audio device disconnected — falling back to default input")
                     if self.is_recording:
-                        self._check_max_duration_exceeded()
-                    sd.sleep(self.LOOP_SLEEP_MS)
-        except Exception as e:
-            self.logger.error(f"Audio capture stream error: {e}")
-            self._stream_error = e
-            print(f"Audio capture failed: {e}")
+                        self.is_recording = False
+                        self._buffer.clear()
+                    self.device = None
+                    try:
+                        self._resolve_hostapi(None)
+                        self._recording_rate = self._get_recording_sample_rate()
+                        self._needs_resampling_cached = self._needs_resampling()
+                    except Exception as resolve_err:
+                        self.logger.error(f"Could not resolve default device: {resolve_err}")
+                    time.sleep(0.5)
+                    continue
+                self.logger.error(f"Audio capture stream error: {e}")
+                print(f"Audio capture failed: {e}")
+                return
 
     def _audio_callback(self, audio_data, frames, _time, status):
         chunk = audio_data.copy()
@@ -236,6 +265,10 @@ class AudioRecorder:
             return None
 
         audio_array = np.concatenate(chunks, axis=0)
+        peak = float(np.max(np.abs(audio_array))) if len(audio_array) else 0.0
+        if peak < 1e-5:
+            self.logger.warning(f"Recorded audio is silent (peak={peak:.2e}) — mic may be muted or permission denied")
+            print("   ⚠ Recording captured pure silence — mic muted, unplugged, or OS permission denied?")
 
         if self._needs_resampling_cached:
             self.logger.info(f"Resampling from {self._recording_rate} Hz to {self.WHISPER_SAMPLE_RATE} Hz")

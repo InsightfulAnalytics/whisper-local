@@ -1,5 +1,10 @@
 import logging
 
+try:
+    from tkinter import ttk
+except ImportError:
+    ttk = None
+
 logger = logging.getLogger(__name__)
 
 BG = '#0d1117'
@@ -14,7 +19,7 @@ SEP = '#30363d'
 def run_settings_window():
     try:
         import tkinter as tk
-        from tkinter import ttk, messagebox
+        from tkinter import ttk, messagebox, filedialog
     except ImportError:
         logger.error("Tkinter not available")
         return
@@ -24,8 +29,8 @@ def run_settings_window():
 
     root = tk.Tk()
     root.title("Whisper Local — Settings")
-    root.geometry("540x580")
-    root.resizable(False, False)
+    root.geometry("600x680")
+    root.minsize(560, 560)
     root.configure(bg=BG)
     try:
         root.attributes('-topmost', True)
@@ -34,21 +39,36 @@ def run_settings_window():
 
     _apply_style(root)
 
+    search_bar = tk.Frame(root, bg=BG)
+    search_bar.pack(fill='x', padx=10, pady=(10, 4))
+    tk.Label(search_bar, text='🔍', bg=BG, fg=FG_DIM,
+             font=('Segoe UI', 11)).pack(side='left')
+    search_var = tk.StringVar()
+    search_entry = tk.Entry(search_bar, textvariable=search_var, bg=BG2,
+                            fg=FG, insertbackground=FG, relief='flat', bd=4,
+                            font=('Segoe UI', 10))
+    search_entry.pack(side='left', fill='x', expand=True, padx=(4, 0))
+    hint_var = tk.StringVar(value='Type to search settings…')
+    tk.Label(search_bar, textvariable=hint_var, bg=BG, fg=FG_DIM,
+             font=('Segoe UI', 8)).pack(side='left', padx=(8, 0))
+
     nb = ttk.Notebook(root)
-    nb.pack(fill='both', expand=True, padx=8, pady=8)
+    nb.pack(fill='both', expand=True, padx=8, pady=4)
 
     vars_ = {}
+    row_index = {}
+    _TAB_COUNTER['n'] = 0
 
-    _build_general_tab(nb, cm, vars_)
-    _build_audio_tab(nb, cm, vars_)
-    _build_hotkeys_tab(nb, cm, vars_)
-    _build_postprocess_tab(nb, cm, vars_)
+    _build_general_tab(nb, cm, vars_, row_index)
+    _build_audio_tab(nb, cm, vars_, row_index)
+    _build_hotkeys_tab(nb, cm, vars_, row_index)
+    _build_postprocess_tab(nb, cm, vars_, row_index)
 
     sep = tk.Frame(root, bg=SEP, height=1)
     sep.pack(fill='x', padx=8)
 
-    btns = tk.Frame(root, bg=BG)
-    btns.pack(fill='x', padx=8, pady=8)
+    bottom = tk.Frame(root, bg=BG)
+    bottom.pack(fill='x', padx=8, pady=8)
 
     def save():
         _save_all(cm, vars_)
@@ -59,12 +79,123 @@ def run_settings_window():
         )
         root.destroy()
 
-    tk.Button(btns, text='Save', command=save,
+    def reset_defaults():
+        if not messagebox.askyesno(
+            "Reset all settings?",
+            "This will reset every setting to its default value.\n\nYour hotwords, commands, transforms, and transcript history will NOT be affected.\n\nContinue?",
+            parent=root, icon='warning',
+        ):
+            return
+        try:
+            from .utils import get_user_app_data_path
+            import os
+            settings_path = os.path.join(get_user_app_data_path(), 'user_settings.yaml')
+            if os.path.exists(settings_path):
+                os.remove(settings_path)
+            messagebox.showinfo(
+                "Reset complete",
+                "Settings cleared. Next launch will use defaults.",
+                parent=root,
+            )
+            root.destroy()
+        except Exception as e:
+            messagebox.showerror("Reset failed", str(e), parent=root)
+
+    def export_settings_action():
+        target = filedialog.askdirectory(
+            title="Choose a folder for the settings backup",
+            parent=root,
+        )
+        if not target:
+            return
+        try:
+            from .settings_io import export_settings
+            if export_settings(target) == 0:
+                messagebox.showinfo("Exported", f"Settings backed up to:\n{target}", parent=root)
+            else:
+                messagebox.showerror("Export failed", "See console for details.", parent=root)
+        except Exception as e:
+            messagebox.showerror("Export failed", str(e), parent=root)
+
+    def import_settings_action():
+        source = filedialog.askdirectory(
+            title="Choose a settings backup folder to restore",
+            parent=root,
+        )
+        if not source:
+            return
+        if not messagebox.askyesno(
+            "Restore settings?",
+            f"Restore settings from:\n{source}\n\nYour current settings will be overwritten.",
+            parent=root, icon='warning',
+        ):
+            return
+        try:
+            from .settings_io import import_settings
+            if import_settings(source) == 0:
+                messagebox.showinfo("Restored", "Settings restored. Restart the app to apply.", parent=root)
+                root.destroy()
+            else:
+                messagebox.showerror("Restore failed", "See console for details.", parent=root)
+        except Exception as e:
+            messagebox.showerror("Restore failed", str(e), parent=root)
+
+    left = tk.Frame(bottom, bg=BG)
+    left.pack(side='left')
+    tk.Button(left, text='Backup…', command=export_settings_action,
+              bg=BG3, fg=FG, relief='flat', padx=10, pady=4,
+              font=('Segoe UI', 9)).pack(side='left', padx=(0, 4))
+    tk.Button(left, text='Restore…', command=import_settings_action,
+              bg=BG3, fg=FG, relief='flat', padx=10, pady=4,
+              font=('Segoe UI', 9)).pack(side='left', padx=(0, 4))
+    tk.Button(left, text='Reset to defaults', command=reset_defaults,
+              bg=BG3, fg='#f85149', relief='flat', padx=10, pady=4,
+              font=('Segoe UI', 9)).pack(side='left')
+
+    right = tk.Frame(bottom, bg=BG)
+    right.pack(side='right')
+    tk.Button(right, text='Save', command=save,
               bg=ACCENT, fg='white', relief='flat',
-              padx=18, pady=5, font=('Segoe UI', 9)).pack(side='right', padx=(4, 0))
-    tk.Button(btns, text='Cancel', command=root.destroy,
+              padx=18, pady=5, font=('Segoe UI', 9, 'bold')).pack(side='right', padx=(4, 0))
+    tk.Button(right, text='Cancel', command=root.destroy,
               bg=BG3, fg=FG, relief='flat',
               padx=18, pady=5, font=('Segoe UI', 9)).pack(side='right')
+
+    def on_search(*_):
+        query = search_var.get().lower().strip()
+        if not query:
+            hint_var.set('')
+            for rec in row_index.values():
+                for w in rec['widgets']:
+                    try: w.pack(fill='x', padx=(12, 12), pady=2)
+                    except Exception: pass
+            return
+        matched_count = 0
+        matched_tabs = set()
+        for path, rec in row_index.items():
+            haystack = (path + ' ' + rec.get('label', '')).lower()
+            visible = query in haystack
+            if visible:
+                matched_count += 1
+                matched_tabs.add(rec['tab_index'])
+            for w in rec['widgets']:
+                try:
+                    if visible:
+                        w.pack(fill='x', padx=(12, 12), pady=2)
+                    else:
+                        w.pack_forget()
+                except Exception:
+                    pass
+        if matched_tabs:
+            try:
+                nb.select(min(matched_tabs))
+            except Exception:
+                pass
+        hint_var.set(f'{matched_count} match{"" if matched_count == 1 else "es"}')
+
+    search_var.trace_add('write', on_search)
+    root.bind('<Control-f>', lambda e: search_entry.focus_set())
+    root.bind('<Escape>', lambda e: root.destroy())
 
     root.mainloop()
 
@@ -93,35 +224,68 @@ def _apply_style(root):
         pass
 
 
-def _frame(nb, title):
-    f = ttk.Frame(nb)
-    f.columnconfigure(1, weight=1)
-    nb.add(f, text=title)
-    return f
+_TAB_COUNTER = {'n': 0}
 
 
-def _row(parent, label, widget_fn, row, note=None):
-    ttk.Label(parent, text=label, foreground=FG_DIM,
-              font=('Segoe UI', 9)).grid(
-        row=row, column=0, sticky='w', padx=(12, 6), pady=4)
-    w = widget_fn(parent)
-    w.grid(row=row, column=1, sticky='ew', padx=(0, 12), pady=4)
+def _frame(nb, title, row_index):
+    import tkinter as tk
+    outer = ttk.Frame(nb)
+    nb.add(outer, text=title)
+    tab_idx = _TAB_COUNTER['n']
+    _TAB_COUNTER['n'] += 1
+    inner = tk.Frame(outer, bg=BG)
+    inner.pack(fill='both', expand=True)
+    return {'outer': outer, 'inner': inner, 'tab_index': tab_idx}
+
+
+def _row(tab, path, label, widget_fn, row_index, note=None):
+    import tkinter as tk
+    parent = tab['inner']
+    row_frame = tk.Frame(parent, bg=BG)
+    row_frame.pack(fill='x', padx=(12, 12), pady=2)
+    tk.Label(row_frame, text=label, fg=FG_DIM, bg=BG,
+             font=('Segoe UI', 9), anchor='w', width=24).pack(side='left')
+    w = widget_fn(row_frame)
+    w.pack(side='right', fill='x', expand=True)
+    row_index[path] = {'widgets': [row_frame], 'label': label, 'tab_index': tab['tab_index']}
     if note:
-        ttk.Label(parent, text=note, foreground=FG_DIM,
-                  font=('Segoe UI', 8)).grid(
-            row=row + 1, column=0, columnspan=2, sticky='w',
-            padx=(12, 12), pady=(0, 4))
+        note_frame = tk.Frame(parent, bg=BG)
+        note_frame.pack(fill='x', padx=(12, 12), pady=(0, 4))
+        tk.Label(note_frame, text=note, fg=FG_DIM, bg=BG,
+                 font=('Segoe UI', 8), anchor='w').pack(side='left')
+        row_index[path]['widgets'].append(note_frame)
     return w
 
 
-def _check(parent, label, var, row):
-    cb = ttk.Checkbutton(parent, text=label, variable=var)
-    cb.grid(row=row, column=0, columnspan=2, sticky='w', padx=(12, 12), pady=3)
+def _check(tab, path, label, var, row_index):
+    import tkinter as tk
+    parent = tab['inner']
+    row_frame = tk.Frame(parent, bg=BG)
+    row_frame.pack(fill='x', padx=(12, 12), pady=2)
+    cb = ttk.Checkbutton(row_frame, text=label, variable=var)
+    cb.pack(side='left', anchor='w')
+    row_index[path] = {'widgets': [row_frame], 'label': label, 'tab_index': tab['tab_index']}
     return cb
 
 
+def _separator(tab):
+    import tkinter as tk
+    parent = tab['inner']
+    sep = tk.Frame(parent, bg=SEP, height=1)
+    sep.pack(fill='x', padx=12, pady=8)
+
+
+def _footnote(tab, text):
+    import tkinter as tk
+    parent = tab['inner']
+    fn = tk.Frame(parent, bg=BG)
+    fn.pack(fill='x', padx=(12, 12), pady=(8, 4))
+    tk.Label(fn, text=text, fg=FG_DIM, bg=BG,
+             font=('Segoe UI', 8), anchor='w',
+             justify='left', wraplength=520).pack(side='left')
+
+
 def _combo(parent, var, values):
-    import tkinter.ttk as ttk
     cb = ttk.Combobox(parent, textvariable=var, values=values,
                       state='readonly', width=22)
     return cb
@@ -143,97 +307,112 @@ def _v(cfg, *path, default=''):
     return obj if obj is not None else default
 
 
-def _build_general_tab(nb, cm, vars_):
+def _build_general_tab(nb, cm, vars_, row_index):
     import tkinter as tk
-    f = _frame(nb, 'General')
+    tab = _frame(nb, 'General', row_index)
     cfg = cm.config
     whisper = cfg.get('whisper', {})
 
     models = list((whisper.get('models') or {}).keys())
     v = tk.StringVar(value=_v(cfg, 'whisper', 'model', default='tiny'))
     vars_['whisper.model'] = v
-    _row(f, 'Model', lambda p: _combo(p, v, models), 0)
+    _row(tab, 'whisper.model', 'Model', lambda p: _combo(p, v, models), row_index)
 
     langs = ['auto', 'en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl',
              'ru', 'ja', 'zh', 'ko', 'hi', 'ar']
     v = tk.StringVar(value=_v(cfg, 'whisper', 'language', default='auto'))
     vars_['whisper.language'] = v
-    _row(f, 'Language', lambda p: _combo(p, v, langs), 2)
+    _row(tab, 'whisper.language', 'Language', lambda p: _combo(p, v, langs), row_index)
 
     modes = ['toggle', 'push_to_talk']
     v = tk.StringVar(value=_v(cfg, 'hotkey', 'recording_mode', default='toggle'))
     vars_['hotkey.recording_mode'] = v
-    _row(f, 'Recording mode', lambda p: _combo(p, v, modes), 4)
+    _row(tab, 'hotkey.recording_mode', 'Recording mode',
+         lambda p: _combo(p, v, modes), row_index)
 
     devs = ['cpu', 'cuda']
     v = tk.StringVar(value=_v(cfg, 'whisper', 'device', default='cpu'))
     vars_['whisper.device'] = v
-    _row(f, 'Compute device', lambda p: _combo(p, v, devs), 6)
+    _row(tab, 'whisper.device', 'Compute device',
+         lambda p: _combo(p, v, devs), row_index)
 
     ctypes = ['int8', 'float16', 'float32']
     v = tk.StringVar(value=_v(cfg, 'whisper', 'compute_type', default='int8'))
     vars_['whisper.compute_type'] = v
-    _row(f, 'Compute type', lambda p: _combo(p, v, ctypes), 8)
+    _row(tab, 'whisper.compute_type', 'Compute type',
+         lambda p: _combo(p, v, ctypes), row_index)
 
     v = tk.StringVar(value=str(_v(cfg, 'whisper', 'beam_size', default=5)))
     vars_['whisper.beam_size'] = v
-    _row(f, 'Beam size (1–10)', lambda p: _entry(p, v), 10)
+    _row(tab, 'whisper.beam_size', 'Beam size (1–10)',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.StringVar(value=str(_v(cfg, 'whisper', 'initial_prompt', default='')))
     vars_['whisper.initial_prompt'] = v
-    _row(f, 'Initial prompt', lambda p: _entry(p, v), 12)
+    _row(tab, 'whisper.initial_prompt', 'Initial prompt',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'whisper', 'prompt_from_selection', default=False)))
     vars_['whisper.prompt_from_selection'] = v
-    _check(f, 'Seed prompt from selected text at recording start', v, 14)
+    _check(tab, 'whisper.prompt_from_selection',
+           'Seed prompt from selected text at recording start', v, row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'clipboard', 'auto_paste', default=True)))
     vars_['clipboard.auto_paste'] = v
-    _check(f, 'Auto-paste at cursor after transcription', v, 15)
+    _check(tab, 'clipboard.auto_paste',
+           'Auto-paste at cursor after transcription', v, row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'audio', 'continuous_mode', default=False)))
     vars_['audio.continuous_mode'] = v
-    _check(f, 'Continuous dictation mode (auto-restarts recording)', v, 16)
+    _check(tab, 'audio.continuous_mode',
+           'Continuous dictation mode (auto-restarts recording)', v, row_index)
 
 
-def _build_audio_tab(nb, cm, vars_):
+def _build_audio_tab(nb, cm, vars_, row_index):
     import tkinter as tk
-    f = _frame(nb, 'Audio')
+    tab = _frame(nb, 'Audio', row_index)
     cfg = cm.config
     ns = (cfg.get('audio') or {}).get('noise_suppression') or {}
 
     v = tk.BooleanVar(value=bool(ns.get('enabled', False)))
     vars_['audio.noise_suppression.enabled'] = v
-    _check(f, 'Noise suppression  (pip install noisereduce)', v, 0)
+    _check(tab, 'audio.noise_suppression.enabled',
+           'Noise suppression  (pip install noisereduce)', v, row_index)
 
     v = tk.StringVar(value=str(ns.get('strength', 0.75)))
     vars_['audio.noise_suppression.strength'] = v
-    _row(f, 'Noise strength (0.0 – 1.0)', lambda p: _entry(p, v), 1)
+    _row(tab, 'audio.noise_suppression.strength',
+         'Noise strength (0.0 – 1.0)', lambda p: _entry(p, v), row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'audio', 'pause_media_on_record', default=False)))
     vars_['audio.pause_media_on_record'] = v
-    _check(f, 'Pause media player when recording starts', v, 3)
+    _check(tab, 'audio.pause_media_on_record',
+           'Pause media player when recording starts', v, row_index)
 
     v = tk.StringVar(value=str(_v(cfg, 'audio', 'max_duration', default=900)))
     vars_['audio.max_duration'] = v
-    _row(f, 'Max recording duration (s)', lambda p: _entry(p, v), 4)
+    _row(tab, 'audio.max_duration', 'Max recording duration (s)',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'vad', 'vad_realtime_enabled', default=True)))
     vars_['vad.vad_realtime_enabled'] = v
-    _check(f, 'Auto-stop on silence (realtime VAD)', v, 6)
+    _check(tab, 'vad.vad_realtime_enabled',
+           'Auto-stop on silence (realtime VAD)', v, row_index)
 
     v = tk.StringVar(value=str(_v(cfg, 'vad', 'vad_silence_timeout_seconds', default=30.0)))
     vars_['vad.vad_silence_timeout_seconds'] = v
-    _row(f, 'Silence timeout (s)', lambda p: _entry(p, v), 7)
+    _row(tab, 'vad.vad_silence_timeout_seconds', 'Silence timeout (s)',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.BooleanVar(value=bool(_v(cfg, 'audio_feedback', 'enabled', default=True)))
     vars_['audio_feedback.enabled'] = v
-    _check(f, 'Audio feedback sounds (start / stop beeps)', v, 9)
+    _check(tab, 'audio_feedback.enabled',
+           'Audio feedback sounds (start / stop beeps)', v, row_index)
 
 
-def _build_hotkeys_tab(nb, cm, vars_):
+def _build_hotkeys_tab(nb, cm, vars_, row_index):
     import tkinter as tk
-    f = _frame(nb, 'Hotkeys')
+    tab = _frame(nb, 'Hotkeys', row_index)
     cfg = cm.config
 
     pairs = [
@@ -245,21 +424,19 @@ def _build_hotkeys_tab(nb, cm, vars_):
         ('hotkey.rephrase_hotkey', 'Rephrase (PTT)'),
         ('hotkey.pause_hotkey', 'Pause all hotkeys'),
     ]
-    for row, (path, label) in enumerate(pairs):
+    for path, label in pairs:
         parts = path.split('.')
         v = tk.StringVar(value=str(_v(cfg, *parts, default='')))
         vars_[path] = v
-        _row(f, label, lambda p, var=v: _entry(p, var), row * 2)
+        _row(tab, path, label, lambda p, var=v: _entry(p, var), row_index)
 
-    ttk.Label(f, text='Hotkey changes take effect on next app restart.',
-              foreground=FG_DIM, font=('Segoe UI', 8)).grid(
-        row=len(pairs) * 2 + 2, column=0, columnspan=2,
-        sticky='w', padx=12, pady=(10, 4))
+    _footnote(tab, 'Hotkey changes take effect on next app restart. '
+                   'Format: lowercase modifiers separated by + (e.g. "ctrl+win+space").')
 
 
-def _build_postprocess_tab(nb, cm, vars_):
+def _build_postprocess_tab(nb, cm, vars_, row_index):
     import tkinter as tk
-    f = _frame(nb, 'Post-process')
+    tab = _frame(nb, 'Post-process', row_index)
     cfg = cm.config
     pp = cfg.get('postprocess') or {}
 
@@ -270,33 +447,34 @@ def _build_postprocess_tab(nb, cm, vars_):
         ('postprocess.strip_trailing_period', 'Strip trailing period', 'strip_trailing_period'),
         ('postprocess.inline_formatting', 'Inline voice formatting  (say "comma", "period")', 'inline_formatting'),
     ]
-    for row, (var_key, label, cfg_key) in enumerate(checks):
+    for path, label, cfg_key in checks:
         v = tk.BooleanVar(value=bool(pp.get(cfg_key, False)))
-        vars_[var_key] = v
-        _check(f, label, v, row)
+        vars_[path] = v
+        _check(tab, path, label, v, row_index)
 
-    ttk.Separator(f, orient='horizontal').grid(
-        row=len(checks), column=0, columnspan=2,
-        sticky='ew', padx=12, pady=8)
+    _separator(tab)
 
     ollama = pp.get('ollama') or {}
-    base = len(checks) + 1
 
     v = tk.BooleanVar(value=bool(ollama.get('enabled', False)))
     vars_['postprocess.ollama.enabled'] = v
-    _check(f, 'Ollama polish  (local LLM punctuation cleanup)', v, base)
+    _check(tab, 'postprocess.ollama.enabled',
+           'Ollama polish  (local LLM punctuation cleanup)', v, row_index)
 
     v = tk.StringVar(value=str(ollama.get('endpoint', 'http://localhost:11434')))
     vars_['postprocess.ollama.endpoint'] = v
-    _row(f, 'Ollama endpoint', lambda p: _entry(p, v), base + 1)
+    _row(tab, 'postprocess.ollama.endpoint', 'Ollama endpoint',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.StringVar(value=str(ollama.get('model', 'llama3.2')))
     vars_['postprocess.ollama.model'] = v
-    _row(f, 'Ollama model', lambda p: _entry(p, v), base + 3)
+    _row(tab, 'postprocess.ollama.model', 'Ollama model',
+         lambda p: _entry(p, v), row_index)
 
     v = tk.StringVar(value=str(ollama.get('timeout', 5)))
     vars_['postprocess.ollama.timeout'] = v
-    _row(f, 'Ollama timeout (s)', lambda p: _entry(p, v), base + 5)
+    _row(tab, 'postprocess.ollama.timeout', 'Ollama timeout (s)',
+         lambda p: _entry(p, v), row_index)
 
 
 def _save_all(cm, vars_):

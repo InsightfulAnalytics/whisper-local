@@ -298,6 +298,12 @@ def main():
     parser.add_argument('--list-dictionary', action='store_true', help='Show all words in your hotwords dictionary')
     parser.add_argument('--settings', action='store_true', help='Open the settings window')
     parser.add_argument('--history', action='store_true', help='Browse transcript history')
+    parser.add_argument('--selftest', action='store_true', help='Run automated self-test (mic, model, transcription, clipboard)')
+    parser.add_argument('--cheat-sheet', action='store_true', help='Show your currently configured hotkeys in a window')
+    parser.add_argument('--bundle-logs', metavar='PATH', nargs='?', const='', help='Create a redacted diagnostic zip for bug reports')
+    parser.add_argument('--serve', action='store_true', help='Run a local OpenAI-compatible Whisper API server')
+    parser.add_argument('--serve-host', default='127.0.0.1', help='Server bind host (default: 127.0.0.1)')
+    parser.add_argument('--serve-port', type=int, default=7777, help='Server bind port (default: 7777)')
     args = parser.parse_args()
 
     if args.version:
@@ -358,6 +364,25 @@ def main():
         import time
         time.sleep(0.5)
         sys.exit(0)
+
+    if args.selftest:
+        from .selftest import run_selftest
+        sys.exit(run_selftest())
+
+    if args.cheat_sheet:
+        from .cheat_sheet import show_cheat_sheet
+        show_cheat_sheet()
+        import time
+        time.sleep(0.5)
+        sys.exit(0)
+
+    if args.bundle_logs is not None:
+        from .bundle_logs import bundle_logs
+        sys.exit(bundle_logs(args.bundle_logs or None))
+
+    if args.serve:
+        from .local_server import run_server
+        sys.exit(run_server(args.serve_host, args.serve_port))
 
     console.setup()
     sys.stdout.write("\033]0;Whisper Local\007")
@@ -453,6 +478,16 @@ def main():
                 show_console_welcome(notify=lambda msg: system_tray.notify(msg))
         except Exception as e:
             logger.debug(f"Onboarding skipped: {e}")
+
+        try:
+            from .first_run import is_first_run, show_welcome_window
+            from .utils import beautify_hotkey
+            if is_first_run():
+                show_welcome_window(
+                    hotkey_label=beautify_hotkey(hotkey_config.get('recording_hotkey', 'ctrl+win')),
+                )
+        except Exception as e:
+            logger.debug(f"First-run welcome skipped: {e}")
 
         try:
             from .stats import maybe_show_daily_summary

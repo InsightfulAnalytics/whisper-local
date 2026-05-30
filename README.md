@@ -91,6 +91,11 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 - 📜 **Transcript history** — `whisper-local --history` opens a searchable log of everything you've dictated
 - 🔔 **Opt-in update notifications** — daily GitHub release check, fully offline by default (`update_check.enabled: true` to opt in)
 - 🎚️ **Noise suppression** — spectral gating via `noisereduce`, off by default (`pip install 'whisper-local[noise]'`)
+- 🩺 **`--selftest`** — one-command sanity check (mic, model, transcription, clipboard) — perfect for first-launch
+- 🎯 **Hotkey cheat sheet** — `whisper-local --cheat-sheet` or tray menu — shows your *current* configured hotkeys at a glance
+- 📦 **`--bundle-logs`** — zip up redacted logs + diagnostics for bug reports with one command
+- 🌐 **Local OpenAI-compatible API** — `whisper-local --serve` exposes `POST /v1/audio/transcriptions` on `localhost:7777` for Cursor, Open WebUI, anything that speaks OpenAI Whisper API
+- 🛡️ **Auto-recovery** — silently reconnects when a USB mic is unplugged mid-recording
 - 🛡️ **Crash reports** — uncaught errors write a self-contained dump to disk
 - 🪟 **System tray UI** — model selection, mic selection, profile switch, diagnostics
 - 🍎 **Cross-platform** — Windows 10+, macOS
@@ -170,6 +175,25 @@ Edits hot-reload — no app restart required. See **[docs/voice-commands.md](doc
 On first launch, Whisper Local detects your GPU and offers one-press install of the required runtime libraries. Supports **NVIDIA CUDA** and **AMD ROCm**.
 
 For manual setup or AMD RDNA 1, see **[docs/gpu-setup.md](docs/gpu-setup.md)**.
+
+---
+
+## 🌐 Local OpenAI-Compatible API
+
+Whisper Local doubles as a **drop-in local replacement for the OpenAI Whisper API** — fully offline. Point any tool that speaks `POST /v1/audio/transcriptions` at it (Cursor, VS Code Continue, Open WebUI, n8n, custom scripts, anything else).
+
+```bash
+whisper-local --serve            # listens on http://127.0.0.1:7777
+whisper-local --serve --serve-port 8080
+```
+
+```bash
+# Drop-in compatible with the OpenAI SDK:
+curl -X POST http://127.0.0.1:7777/v1/audio/transcriptions \
+  -F file=@audio.wav -F model=whisper-1 -F response_format=text
+```
+
+Same Whisper model you use for dictation. Same GPU. No API key. No rate limit. No outgoing traffic.
 
 ---
 
@@ -273,6 +297,10 @@ whisper-local --export-transcripts FILE    # Dump history (.txt/.md/.csv)
 whisper-local --import-vocab FOLDER        # Mine a folder for hotwords
 whisper-local --settings           # Open the settings GUI (no YAML editing required)
 whisper-local --history            # Browse and search transcript history
+whisper-local --cheat-sheet        # Show your currently configured hotkeys
+whisper-local --selftest           # Run an automated self-test (mic, model, transcription)
+whisper-local --bundle-logs        # Create a redacted diagnostic zip for bug reports
+whisper-local --serve              # Run a local OpenAI-compatible Whisper API on :7777
 whisper-local --test               # Run a separate test instance (own mutex)
 ```
 
@@ -319,6 +347,18 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 `faster-whisper` · `ctranslate2` · `sounddevice` · `ten-vad` · `pyperclip` · `pystray` · `ruamel.yaml` · `playsound3`
 **Windows-only:** `global-hotkeys` · `pywin32` · ctypes `SendInput`
 **macOS-only:** `pyobjc-framework-Quartz` · `pyobjc-framework-ApplicationServices`
+
+---
+
+## 📚 Documentation
+
+- **[docs/troubleshooting.md](docs/troubleshooting.md)** — symptom → cause → fix table for the most common issues
+- **[docs/faq.md](docs/faq.md)** — privacy, comparisons (Whisper.cpp / WSR / Wispr Flow / Dragon), model picks, GPU notes
+- **[docs/voice-commands.md](docs/voice-commands.md)** — the full voice command DSL
+- **[docs/gpu-setup.md](docs/gpu-setup.md)** — manual GPU setup for NVIDIA / AMD
+- **[CHANGELOG.md](CHANGELOG.md)** — release notes
+
+Hit a wall? Run `whisper-local --doctor` or `whisper-local --selftest` first — they catch 90% of issues.
 
 ---
 

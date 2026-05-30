@@ -4,18 +4,30 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.10.0]
+
 ### Added
-- **Settings UI** (`whisper-local --settings`) — 4-tab Tkinter window covering all common settings; no YAML editing required. Reachable from the tray menu (**Settings...**).
-- **Transcript history window** (`whisper-local --history`) — searchable browser of every past transcription with preview pane and click-to-copy. Reachable from the tray menu (**Transcript history...**).
+- **Local OpenAI-compatible API server** (`whisper-local --serve`) — exposes `POST /v1/audio/transcriptions` on `localhost:7777`. Drop-in for Cursor, Open WebUI, VS Code Continue, n8n, anything that speaks the OpenAI Whisper API. Fully offline.
+- **`--selftest` command** — automated sanity check: audio capture, model load, end-to-end transcription, clipboard round-trip. Catches 90% of first-launch issues in one command.
+- **`--cheat-sheet` command** — opens a window showing your **currently configured** hotkeys, including transform hotkeys. Reachable from the tray (**Hotkey cheat sheet...**).
+- **`--bundle-logs` command** — creates a redacted zip of recent logs + `--doctor` output + crash dumps. Attach to bug reports. Reachable from the tray (**Bundle logs for bug report...**).
+- **First-run welcome window** — appears once on first launch with 3 short tips (tray icon location, hotkey hint, troubleshooting commands). Privacy assurance baked in.
+- **Audio device disconnect recovery** — if a USB mic is unplugged mid-recording, the app falls back to default input and resumes silently (up to 3 retries).
+- **Silent-mic detection** — if the recording is essentially zero amplitude, the app warns the user (mic muted / unplugged / OS permission denied).
+- **Settings UI search box** — filter settings across all tabs with live highlighting. Ctrl+F focuses search.
+- **Settings UI Reset / Backup / Restore buttons** — one-click reset to defaults, plus Backup… and Restore… file pickers wired to `--export-settings` / `--import-settings`.
+- **Settings UI** — 4-tab Tkinter window covering all common settings; no YAML editing required.
+- **Transcript history window** (`--history`) — searchable browser of every past transcription with preview pane and click-to-copy.
 - **Persistent transcript journal** — every successful delivery is appended to `transcripts.jsonl` (last 2000 entries, auto-rotates).
 - **Noise suppression** (`audio.noise_suppression.enabled`) — opt-in spectral gating via `noisereduce`; install with `pip install 'whisper-local[noise]'`.
-- **Opt-in update notifications** (`update_check.enabled`) — daily GitHub release check; no audio or transcript data is ever transmitted (only the version string in the User-Agent header).
+- **Opt-in update notifications** (`update_check.enabled`) — daily GitHub release check; no audio or transcript data is ever transmitted.
 - **Release pipeline** (`.github/workflows/release.yml`) — tag-triggered CI: tests → build wheel → publish to PyPI → create GitHub Release with the wheel attached.
-- **Community setup** — `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `AUTHORS.md`, `CITATION.cff`, issue and PR templates, Dependabot config, `.editorconfig`.
+- **Community setup** — `CODE_OF_CONDUCT.md`, `SECURITY.md`, `AUTHORS.md`, `CITATION.cff`, issue/PR templates, Dependabot, `.editorconfig`.
+- **Docs** — `docs/troubleshooting.md` and `docs/faq.md` for the most common questions and symptom→fix table.
 
 ### Changed
-- Repositioned README for open-source / privacy-first audience: added a "Why this exists" section, removed "personal fork" defensive framing, expanded SEO keywords throughout.
-- LICENSE updated to credit both Pin Wang (original author) and Rohit Burani (fork maintainer).
+- Repositioned README for open-source / privacy-first audience; expanded SEO and comparison tables (Wispr Flow, Dragon, Otter, WSR).
+- LICENSE credits both Pin Wang (upstream author) and Rohit Burani (fork maintainer).
 
 ## [0.9.0] - 2026-05-11 (drajb/whisper-local fork)
 

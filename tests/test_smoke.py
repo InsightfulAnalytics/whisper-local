@@ -317,5 +317,140 @@ class PyprojectOptionalDepsTests(unittest.TestCase):
         self.assertTrue(any("noisereduce" in d for d in extras["noise"]))
 
 
+class SelftestModuleTests(unittest.TestCase):
+    def test_module_importable(self):
+        from whisper_key import selftest
+        self.assertTrue(hasattr(selftest, 'run_selftest'))
+
+    def test_report_helper(self):
+        import io
+        import sys
+        from whisper_key.selftest import _report
+        failures = []
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            _report(True, "looks good", failures, "fake")
+            _report(False, ("uh oh", "fix-me"), failures, "fake-2")
+        finally:
+            sys.stdout = old_stdout
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0][0], "fake-2")
+
+
+class FirstRunTests(unittest.TestCase):
+    def test_flag_file_lifecycle(self):
+        import tempfile
+        import unittest.mock as mock
+        from whisper_key import first_run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch('whisper_key.first_run.get_user_app_data_path', return_value=tmpdir):
+                self.assertTrue(first_run.is_first_run())
+                first_run.mark_first_run_complete()
+                self.assertFalse(first_run.is_first_run())
+
+    def test_show_welcome_module_importable(self):
+        from whisper_key import first_run
+        self.assertTrue(hasattr(first_run, 'show_welcome_window'))
+
+
+class CheatSheetTests(unittest.TestCase):
+    def test_module_importable(self):
+        from whisper_key import cheat_sheet
+        self.assertTrue(hasattr(cheat_sheet, 'show_cheat_sheet'))
+
+
+class BundleLogsTests(unittest.TestCase):
+    def test_redaction_replaces_usernames(self):
+        from whisper_key.bundle_logs import _redact
+        sample = "Path: C:\\Users\\rohit\\AppData\\Roaming and email me at test@example.com"
+        red = _redact(sample)
+        self.assertNotIn("rohit", red.lower())
+        self.assertNotIn("test@example.com", red)
+        self.assertIn("<USER>", red)
+        self.assertIn("<EMAIL>", red)
+
+    def test_redaction_macos_linux_paths(self):
+        from whisper_key.bundle_logs import _redact
+        self.assertIn("<USER>", _redact("/Users/alice/.whisperkey/"))
+        self.assertIn("<USER>", _redact("/home/bob/log.txt"))
+
+    def test_bundle_creates_zip(self):
+        import io
+        import sys
+        import tempfile
+        import unittest.mock as mock
+        import zipfile
+        from whisper_key import bundle_logs
+
+        with tempfile.TemporaryDirectory() as appdata:
+            with tempfile.TemporaryDirectory() as out:
+                output = f"{out}/bundle.zip"
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    with mock.patch('whisper_key.bundle_logs.get_user_app_data_path', return_value=appdata), \
+                         mock.patch('whisper_key.bundle_logs._capture_doctor', return_value='[doctor mocked]'):
+                        rc = bundle_logs.bundle_logs(output)
+                finally:
+                    sys.stdout = old_stdout
+                self.assertEqual(rc, 0)
+                with zipfile.ZipFile(output) as zf:
+                    names = zf.namelist()
+                self.assertIn('about.txt', names)
+                self.assertIn('doctor.txt', names)
+
+
+class LocalServerTests(unittest.TestCase):
+    def test_module_importable(self):
+        from whisper_key import local_server
+        self.assertTrue(hasattr(local_server, 'run_server'))
+        self.assertEqual(local_server.DEFAULT_PORT, 7777)
+
+    def test_decode_wav_fallback(self):
+        import io
+        import wave
+        import numpy as np
+        from whisper_key.local_server import _decode_wav_fallback
+
+        with io.BytesIO() as buf:
+            with wave.open(buf, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(16000)
+                samples = (np.sin(2 * np.pi * 440 * np.arange(16000) / 16000) * 32767).astype(np.int16)
+                wf.writeframes(samples.tobytes())
+            wav_bytes = buf.getvalue()
+
+        decoded = _decode_wav_fallback(wav_bytes)
+        self.assertEqual(decoded.dtype, np.float32)
+        self.assertEqual(len(decoded), 16000)
+        self.assertGreater(float(np.max(np.abs(decoded))), 0.5)
+
+
+class MainCliFlagsTests(unittest.TestCase):
+    def test_main_registers_new_flags(self):
+        main_src = (ROOT / "src" / "whisper_key" / "main.py").read_text(encoding="utf-8")
+        for flag in ('--selftest', '--cheat-sheet', '--bundle-logs', '--serve'):
+            self.assertIn(flag, main_src, f"main.py should register {flag}")
+
+
+class TroubleshootingDocTests(unittest.TestCase):
+    def test_docs_exist(self):
+        self.assertTrue((ROOT / "docs" / "troubleshooting.md").exists())
+        self.assertTrue((ROOT / "docs" / "faq.md").exists())
+
+
+class VersionBumpTests(unittest.TestCase):
+    def test_pyproject_version(self):
+        import tomllib
+        with open(ROOT / "pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        version = data["project"]["version"]
+        major, minor = version.split('.')[:2]
+        self.assertGreaterEqual((int(major), int(minor)), (0, 10))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -290,11 +290,14 @@ class SystemTray:
 
             menu_items += [
                 pystray.MenuItem("Settings...", self._open_settings_window),
+                pystray.MenuItem("Hotkey cheat sheet...", self._open_cheat_sheet),
                 pystray.MenuItem("Transcript history...", self._open_history_window),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log file...", self._open_log_file),
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
                 pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
+                pystray.MenuItem("Run self-test...", self._run_selftest_in_window),
+                pystray.MenuItem("Bundle logs for bug report...", self._bundle_logs_action),
                 pystray.MenuItem("View stats...", self._run_stats_in_window),
                 pystray.MenuItem("Add word to dictionary...", self._open_add_word_dialog),
                 pystray.MenuItem("Edit hotwords / settings...", self._open_config_file),
@@ -469,6 +472,36 @@ class SystemTray:
 
     def _open_history_window(self, icon=None, item=None):
         self._run_module_in_window('--history')
+
+    def _open_cheat_sheet(self, icon=None, item=None):
+        try:
+            from .cheat_sheet import show_cheat_sheet
+            show_cheat_sheet(
+                config_manager=self.config_manager,
+                transforms_manager=getattr(self.state_manager, 'transforms_manager', None),
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to open cheat sheet: {e}")
+
+    def _run_selftest_in_window(self, icon=None, item=None):
+        self._run_module_in_window('--selftest')
+
+    def _bundle_logs_action(self, icon=None, item=None):
+        import threading
+
+        def work():
+            try:
+                from .bundle_logs import bundle_logs
+                import datetime
+                from pathlib import Path
+                stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+                output = str(Path.home() / 'Desktop' / f'whisper-local-bundle-{stamp}.zip')
+                bundle_logs(output)
+                self.notify(f"Bundle saved to your Desktop: whisper-local-bundle-{stamp}.zip")
+            except Exception as e:
+                self.logger.error(f"Bundle logs failed: {e}")
+                self.notify(f"Bundle failed: {e}")
+        threading.Thread(target=work, daemon=True, name='bundle-logs').start()
 
     def _open_add_word_dialog(self, icon=None, item=None):
         try:
