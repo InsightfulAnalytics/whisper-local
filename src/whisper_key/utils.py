@@ -34,14 +34,26 @@ def is_installed_package():
     return 'site-packages' in __file__
 
 def get_user_app_data_path():
-    from .platform import paths
-    whisperkey_dir = paths.get_app_data_path()
+    # On Linux CI / unsupported platforms, .platform doesn't ship a `paths`
+    # module. Fall back to ~/.whisperkey so tests and tools that just need a
+    # directory keep working — actual app functionality is Windows/macOS only.
+    try:
+        from .platform import paths
+        whisperkey_dir = paths.get_app_data_path()
+    except ImportError:
+        whisperkey_dir = Path.home() / ".whisperkey"
     whisperkey_dir.mkdir(parents=True, exist_ok=True)
     return str(whisperkey_dir)
 
 def open_file(path):
-    from .platform import paths
-    paths.open_file(path)
+    # Best-effort on Linux: log only, don't crash. Real Windows/macOS path goes
+    # through the platform module's xdg-open / explorer.exe wrapper.
+    try:
+        from .platform import paths
+        paths.open_file(path)
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning(f"open_file('{path}'): unsupported platform")
 
 def resolve_asset_path(relative_path: str) -> str:
     if not relative_path or os.path.isabs(relative_path):
