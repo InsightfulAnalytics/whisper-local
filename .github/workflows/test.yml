@@ -13,5 +13,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruamel.yaml
+      # Smoke tests deliberately avoid the heavy ML stack (faster-whisper, ctranslate2)
+      # but a handful need numpy and pyperclip via transitive module-level imports.
+      # Keep this list tight — anything heavier should be skipped behind a feature flag.
+      - run: pip install ruamel.yaml numpy pyperclip
       - run: python -m unittest tests.test_smoke -v
