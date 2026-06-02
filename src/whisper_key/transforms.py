@@ -7,7 +7,10 @@ from typing import List, Optional
 import pyperclip
 from ruamel.yaml import YAML
 
-from .platform import keyboard as kb
+# `keyboard` is imported lazily inside the methods that need it. The chain
+# .platform → .platform.windows pulls in win32api, which doesn't exist on Linux.
+# Keeping the import lazy means transforms.py is importable on CI (Linux smoke
+# tests) and from tools that only need to read transforms.yaml metadata.
 from .text_postprocess import _ollama_polish
 from .utils import get_user_app_data_path, resolve_asset_path
 
@@ -92,6 +95,7 @@ class TransformsManager:
             original_clipboard = ''
 
         try:
+            from .platform import keyboard as kb
             kb.send_hotkey('ctrl', 'c')
             time.sleep(0.12)
             selection = pyperclip.paste()
@@ -130,6 +134,7 @@ class TransformsManager:
             return False
 
         try:
+            from .platform import keyboard as kb
             pyperclip.copy(result)
             time.sleep(0.05)
             kb.send_hotkey('ctrl', 'v')
