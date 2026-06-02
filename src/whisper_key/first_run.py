@@ -1,3 +1,10 @@
+# first_run.py
+# Shows a one-time welcome window on the very first launch.
+# A flag file in %APPDATA%\whisperkey marks completion so the window never
+# re-appears unless the user deletes that file. The window is intentionally
+# minimal: 3 tips + a privacy promise, no settings, no wizard. The full
+# wizard lives in setup_wizard.py for users who run `--setup` explicitly.
+
 import logging
 import threading
 from pathlib import Path
@@ -6,13 +13,18 @@ from .utils import get_user_app_data_path
 
 logger = logging.getLogger(__name__)
 
+# Sentinel file written after the user dismisses the welcome window.
 _FLAG_FILE = 'first_run_complete.txt'
 
 
+# Returns True only when the user has never completed first-run before.
+# Cheap call — just a filesystem stat — safe to invoke on every launch.
 def is_first_run() -> bool:
     return not (Path(get_user_app_data_path()) / _FLAG_FILE).exists()
 
 
+# Called from the welcome window's Close handler. Writes the sentinel so we
+# don't re-show on next launch.
 def mark_first_run_complete():
     try:
         path = Path(get_user_app_data_path())
@@ -22,6 +34,9 @@ def mark_first_run_complete():
         logger.debug(f"Could not write first-run flag: {e}")
 
 
+# Spawns the welcome window on a daemon thread so it doesn't block the main
+# app from starting up. `hotkey_label` is the user's *current* configured
+# recording hotkey, displayed in the tip text so it's accurate.
 def show_welcome_window(on_close=None, hotkey_label: str = "Ctrl+Win"):
     threading.Thread(
         target=_run_welcome,

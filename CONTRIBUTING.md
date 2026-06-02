@@ -1,15 +1,15 @@
 # Contributing to Whisper Local
 
-Thank you for wanting to make this better! All contributions are welcome — bug reports, fixes, new features, docs, tests, even just sharing how you use it.
+Thank you for wanting to make this better! **All contributions are welcome** — bug reports, fixes, new features, docs, tests, even just sharing how you use it.
 
-This project is maintained by **Rohit Burani** ([@drajb](https://github.com/drajb)) on a best-effort basis. Whisper Local is a fork of [`whisper-key-local`](https://github.com/PinW/whisper-key-local) by Pin Wang — see [`AUTHORS.md`](AUTHORS.md) for the full credit list.
+This project is maintained by **Rohit Burani** ([@drajb](https://github.com/drajb)) on a best-effort basis. Whisper Local is **provided to anyone who wants it** as a free, open-source MIT-licensed fork of [`whisper-key-local`](https://github.com/PinW/whisper-key-local) by Pin Wang — see [`AUTHORS.md`](AUTHORS.md) for the full credit list.
 
 ## Ground rules
 
 - **Be kind.** This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Privacy is non-negotiable.** No feature should send audio, transcripts, or user data anywhere without an explicit opt-in. If your change adds network calls, they must be opt-in and clearly disclosed in the README and `CHANGELOG.md`.
 - **One thing per PR.** Small, focused PRs land faster than a sprawling one.
-- **Match the existing style.** Explicit names. No docstrings. Minimal comments. See `CLAUDE.md`.
+- **Comment generously.** Every module starts with a short header comment explaining its purpose. Non-trivial functions get a one-line comment explaining *why* (not what). Group related code into labeled sections so newcomers can follow each file top-to-bottom. See `CLAUDE.md` for the full style guide.
 - **No SLA.** This is volunteer work. Be patient if reviews take a while.
 - **All contributions are MIT licensed.** By submitting a PR, you agree your code is contributed under the [LICENSE](LICENSE).
 
@@ -62,8 +62,10 @@ Use the [Feature request template](https://github.com/drajb/whisper-local/issues
 
 ## Style notes
 
-- **Names over comments.** A well-named function or variable beats a comment that says the same thing.
-- **No docstrings.** The codebase deliberately avoids them. If a function isn't obvious from its name and signature, rename it.
+- **Names first, comments second.** A well-named function still gets a one-line comment above it explaining intent — but the name should carry the bulk of meaning. Bad: `def f(x)  # convert input`. Good: `def normalise_hotkey(spec)  # Trim, lowercase, split on +`.
+- **Header comments on every module.** A 2–4 line block at the top describing what the file is responsible for and any non-obvious design choices.
+- **Section markers in long files.** When a file has multiple concerns (e.g. `state_manager.py`), use comment dividers between them so readers can scan.
+- **Explain WHY, not WHAT.** `# increment counter` is noise. `# we count attempts not failures so retries-after-disconnect still expose a stuck loop` is signal.
 - **Break old formats freely.** We don't maintain backward compatibility for configs across major versions — feel free to clean up.
 - **Tests live in `tests/test_smoke.py`.** Add new test classes alongside the existing ones.
 

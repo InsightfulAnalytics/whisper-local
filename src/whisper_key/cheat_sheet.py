@@ -1,12 +1,24 @@
+# cheat_sheet.py
+# Pops up a window showing the user's currently configured hotkeys. Users forget
+# their bindings mid-week, especially after editing user_settings.yaml. Reading
+# the live config (not the defaults) means what the user sees is always what
+# the app actually responds to. Also lists transform hotkeys when transforms_manager
+# is supplied.
+
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
+# Singleton guard — re-invoking the tray menu item or the CLI flag should just
+# raise the existing window instead of stacking duplicates.
 _thread_lock = threading.Lock()
 _current_root = None
 
 
+# Public entry point. Pass config_manager and transforms_manager from the running
+# app when calling from the tray; the CLI path (--cheat-sheet) constructs a fresh
+# ConfigManager since no app instance is running.
 def show_cheat_sheet(config_manager=None, transforms_manager=None):
     global _current_root
     with _thread_lock:

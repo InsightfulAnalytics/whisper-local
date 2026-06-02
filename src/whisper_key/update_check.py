@@ -1,3 +1,9 @@
+# update_check.py
+# Once-per-day check against the GitHub Releases API for newer versions.
+# OFF by default — users must opt in via `update_check.enabled: true`.
+# No audio or transcript data is ever transmitted; the only thing leaving
+# the machine is the User-Agent header with the current app version.
+
 import datetime
 import json
 import logging
@@ -8,10 +14,16 @@ from .utils import get_user_app_data_path, get_version
 
 logger = logging.getLogger(__name__)
 
+# Public unauthenticated endpoint; 60 req/hour rate limit per IP is plenty
+# for a once-a-day per-user check.
 _API_URL = 'https://api.github.com/repos/drajb/whisper-local/releases/latest'
+
+# We rate-limit ourselves to one check per calendar day by writing the date here.
 _LAST_CHECK_FILE = 'last_update_check.txt'
 
 
+# Called from main.py at startup. Hard short-circuits when disabled — no
+# thread is spawned, no network state is touched.
 def maybe_check_for_update(notify_callback, config: dict):
     if not (config or {}).get('enabled', False):
         return
@@ -23,6 +35,9 @@ def maybe_check_for_update(notify_callback, config: dict):
     ).start()
 
 
+# Runs on a daemon thread so startup isn't delayed by network latency.
+# Writes the current date to the rate-limit file regardless of outcome so a
+# transient network failure doesn't cause us to retry every launch.
 def _check_in_background(notify_callback):
     last_file = Path(get_user_app_data_path()) / _LAST_CHECK_FILE
     today = datetime.date.today().isoformat()
@@ -56,6 +71,8 @@ def _check_in_background(notify_callback):
         logger.debug(f"Update check failed: {e}")
 
 
+# Compare two semver strings. Tuple-of-ints comparison is good enough — we
+# never publish pre-release tags via this channel.
 def _is_newer(latest: str, current: str) -> bool:
     try:
         def _parts(v):

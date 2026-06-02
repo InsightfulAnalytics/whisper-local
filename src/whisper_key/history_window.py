@@ -1,12 +1,20 @@
+# history_window.py
+# Searchable browser over `transcripts.jsonl`. Launched by `whisper-local --history`
+# or the tray "Transcript history..." item. Pure Tkinter, no external deps.
+# Highlights matching rows live as the user types, with a click-to-copy action.
+
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
+# Singleton — re-opening the window just raises the existing one.
 _lock = threading.Lock()
 _instance = None
 
 
+# Public entry point. Spawns the window on a daemon thread so the caller
+# (CLI or tray) doesn't block. The window manages its own lifecycle.
 def show_history():
     global _instance
     with _lock:

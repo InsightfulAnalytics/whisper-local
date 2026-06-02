@@ -1,3 +1,15 @@
+# local_server.py
+# Local OpenAI-compatible Whisper API server. Started by `whisper-local --serve`.
+# Implements the minimal subset of the OpenAI audio API that real-world tools
+# (Cursor, Open WebUI, n8n, the openai Python SDK) actually call:
+#
+#   POST /v1/audio/transcriptions  — multipart upload, returns {text} or text
+#   GET  /v1/models                — minimal model listing
+#   GET  /health                   — liveness probe for tools that ping first
+#
+# Built on stdlib http.server so we don't add Flask/FastAPI as a hard dep.
+# The multipart parser is hand-rolled to keep dependencies tight.
+
 import io
 import json
 import logging
@@ -7,10 +19,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 logger = logging.getLogger(__name__)
 
+# Bound to loopback by default — this is a *local* tool and binding to 0.0.0.0
+# would expose your Whisper model to the network. Override via --serve-host
+# only if you understand the implications (e.g. a trusted LAN service).
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 7777
 
 
+# Public entry point. Builds the Whisper engine once at startup (warm cache,
+# fast subsequent transcriptions), then enters the http.server forever loop.
+# Returns 1 on init/bind failure, 0 on graceful Ctrl+C shutdown.
 def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
     print("\n🌐 Whisper Local — local OpenAI-compatible API server")
     print("─" * 60)
@@ -42,6 +60,10 @@ def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
     return 0
 
 
+# Constructs the Whisper engine from the user's saved config. Reuses the same
+# config + backend selection logic as the dictation app, so --serve always uses
+# the same model the user chose for dictation. Disables VAD silence-timeout
+# (server requests are bounded by the uploaded file, not silence).
 def _build_engine():
     from .config_manager import ConfigManager
     from .model_registry import ModelRegistry
@@ -91,8 +113,14 @@ def _build_engine():
     return engine
 
 
+# Factory that returns a per-server BaseHTTPRequestHandler subclass bound to
+# our engine. We use a factory (not module-level globals) so multiple servers
+# could in principle coexist with different configs.
 def _make_handler(engine):
 
+    # Single lock across requests — Whisper inference is single-threaded per
+    # model instance, and serialising here gives predictable latency. If you
+    # need parallel throughput, run multiple servers on different ports.
     transcribe_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -174,6 +202,9 @@ def _make_handler(engine):
     return Handler
 
 
+# Hand-rolled multipart/form-data parser. The OpenAI Whisper API uploads always
+# look like a few small text fields + one binary `file` field, so we don't need
+# a streaming parser. Returns {field_name: {'value': str, 'data': bytes}}.
 def _parse_multipart(handler):
     ctype = handler.headers.get('Content-Type', '')
     if 'multipart/form-data' not in ctype:
@@ -221,6 +252,9 @@ def _parse_multipart(handler):
     return fields
 
 
+# Decode the uploaded audio bytes to a 16 kHz mono float32 numpy array (the
+# format Whisper expects). Prefers `soundfile` (handles wav/flac/ogg/etc.), falls
+# back to stdlib `wave` for plain WAV when soundfile isn't installed.
 def _decode_audio(data: bytes):
     import numpy as np
     try:
@@ -240,6 +274,8 @@ def _decode_audio(data: bytes):
         return _decode_wav_fallback(data)
 
 
+# Pure-stdlib WAV decoder used when soundfile (libsndfile) isn't available.
+# Handles 16-bit and 32-bit PCM mono/stereo WAVs — the realistic 99% case.
 def _decode_wav_fallback(data: bytes):
     import numpy as np
     import wave

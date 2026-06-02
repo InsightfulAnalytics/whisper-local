@@ -45,6 +45,10 @@ Whisper Local exists because **you shouldn't have to choose between accuracy and
 
 This is a **community tool**, not a product. There's no support SLA, no roadmap committee, no marketing. If it's useful to you, great. If something's broken, PRs are welcome.
 
+> **A note from the maintainer:** I built this for myself, then realised it might help others. So I'm releasing it **for anyone who wants it** — no strings attached. Use it. Fork it. Rebrand it. Ship your own version. The only thing I ask is that you keep the LICENSE attribution intact (to Pin Wang, the original upstream author, and to me as the fork maintainer). If you build something cool on top of it, I'd love to hear about it via a [Discussion](https://github.com/drajb/whisper-local/discussions) — but you don't owe anyone anything.
+>
+> — **Rohit Burani**
+
 ---
 
 ## ✨ Why Whisper Local?

@@ -1,3 +1,10 @@
+# noise_suppression.py
+# Optional spectral-gating noise reduction applied to recorded audio before it
+# reaches Whisper. Wraps the `noisereduce` library, which is itself a wrapper
+# around librosa's spectral subtraction. Off by default — enable via
+# `audio.noise_suppression.enabled: true` and `pip install 'whisper-local[noise]'`.
+# Falls back to passthrough silently when the library isn't installed.
+
 import logging
 
 import numpy as np
@@ -5,6 +12,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+# Returns the noise-reduced array on success, the original array on any failure
+# (missing library, processing error, etc.). Never raises — noise reduction is
+# strictly opt-in polish, never required for correct transcription.
 def apply_noise_reduction(audio: np.ndarray, sample_rate: int, strength: float = 0.75) -> np.ndarray:
     try:
         import noisereduce as nr

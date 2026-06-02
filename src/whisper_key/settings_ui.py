@@ -1,5 +1,23 @@
+# settings_ui.py
+# GUI settings editor — launched by `whisper-local --settings` or the tray
+# "Settings..." item. Tkinter-only, no extra deps. Reads/writes user_settings.yaml
+# via ConfigManager, preserving comments and overrides-only semantics.
+#
+# Layout:
+#   • Top: search box (Ctrl+F to focus) that hides/shows rows across all tabs
+#   • Middle: Notebook with 4 tabs — General, Audio, Hotkeys, Post-process
+#   • Bottom-left: Backup… / Restore… / Reset-to-defaults
+#   • Bottom-right: Save / Cancel
+#
+# Each setting row is its own packed Frame so the search filter can pack_forget/pack
+# it without disturbing the rest. row_index[path] = {widgets, label, tab_index}
+# is the structure that powers search.
+
 import logging
 
+# Imported lazily up here so module-level helper functions can use it. Falls
+# back to None on systems without Tkinter — the run_settings_window() entry
+# point checks again before touching anything.
 try:
     from tkinter import ttk
 except ImportError:
@@ -16,6 +34,9 @@ ACCENT = '#1f6feb'
 SEP = '#30363d'
 
 
+# Public entry point. Loads the live config, builds the window, blocks on
+# mainloop. Designed to be invoked as a subprocess (`python -m whisper_key.main
+# --settings`) from the tray so the running app's Tk root isn't disturbed.
 def run_settings_window():
     try:
         import tkinter as tk
@@ -477,6 +498,10 @@ def _build_postprocess_tab(nb, cm, vars_, row_index):
          lambda p: _entry(p, v), row_index)
 
 
+# Flatten the {dotted.path: tkinter.Var} dict back into ConfigManager updates.
+# Two-level paths (e.g. "whisper.model") become direct update_user_setting calls.
+# Three-level paths (e.g. "postprocess.ollama.enabled") get batched per parent
+# so we issue a single update per nested dict, preserving sibling keys.
 def _save_all(cm, vars_):
     pending_nested = {}
 
@@ -505,6 +530,9 @@ def _save_all(cm, vars_):
             logger.warning(f"Could not save {section}.{sub_key}: {e}")
 
 
+# Turn the string-based Tkinter value back into the right Python type. Order
+# matters: bool first (some BooleanVars return strings on some Tk builds), then
+# int, then float, then fallback to the raw string.
 def _coerce(var, raw):
     import tkinter as tk
     if isinstance(var, tk.BooleanVar):

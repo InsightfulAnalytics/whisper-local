@@ -1,3 +1,11 @@
+# bundle_logs.py
+# Creates a redacted diagnostic zip for bug reports. Users running `--bundle-logs`
+# (or clicking the tray item) get a single zip they can attach to an issue without
+# manually scrubbing usernames or emails. Captures: app.log (last 500 lines),
+# rotated logs, user_settings.yaml, last 10 crash dumps from past 7 days, plus
+# the live output of --doctor. All paths and emails are regex-redacted before
+# writing into the archive.
+
 import datetime
 import io
 import logging
@@ -11,6 +19,9 @@ from .utils import get_user_app_data_path, get_version
 
 logger = logging.getLogger(__name__)
 
+# Regex pairs applied to every file before zipping. Cover Windows, macOS, and
+# Linux user-directory shapes plus a broad RFC-5322-ish email matcher. Anything
+# more aggressive risks munging legitimate log content (file paths, IPs, etc.).
 _REDACTIONS = [
     (re.compile(r'(C:\\Users\\)([^\\]+)', re.IGNORECASE), r'\1<USER>'),
     (re.compile(r'(/Users/)([^/]+)'), r'\1<USER>'),
@@ -19,6 +30,9 @@ _REDACTIONS = [
 ]
 
 
+# Build the diagnostic archive. If output_path is None, write to the cwd with
+# a timestamped name. Returns 0 always (the operation is opportunistic — partial
+# captures are still useful, so we keep going even if a sub-step fails).
 def bundle_logs(output_path: str = None) -> int:
     app_data = Path(get_user_app_data_path())
 
@@ -83,6 +97,8 @@ def bundle_logs(output_path: str = None) -> int:
     return 0
 
 
+# Top-level README inside the zip. Tells the recipient (issue triager, the user,
+# or a future you) exactly what's inside and how it was redacted.
 def _build_about() -> str:
     return (
         f"Whisper Local diagnostic bundle\n"
@@ -104,6 +120,8 @@ def _build_about() -> str:
     )
 
 
+# Runs the existing --doctor flow and captures its stdout into a string so we
+# can embed it in the zip without invoking a subprocess.
 def _capture_doctor() -> str:
     buf = io.StringIO()
     old_stdout = sys.stdout
@@ -118,6 +136,8 @@ def _capture_doctor() -> str:
     return _redact(buf.getvalue())
 
 
+# Read just the last N lines of a (potentially huge) log file. Bundles get
+# attached to GitHub issues which cap at 25 MB total, so we keep this tight.
 def _tail_lines(path: Path, n: int) -> str:
     try:
         with open(path, encoding='utf-8', errors='replace') as f:
@@ -127,6 +147,8 @@ def _tail_lines(path: Path, n: int) -> str:
         return f"[bundle-logs: could not read {path}: {e}]"
 
 
+# Applied to every file we put in the zip. Order doesn't matter — each pattern
+# operates on disjoint regions of typical log content.
 def _redact(text: str) -> str:
     for pattern, replacement in _REDACTIONS:
         text = pattern.sub(replacement, text)

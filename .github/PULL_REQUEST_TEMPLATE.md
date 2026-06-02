@@ -32,6 +32,6 @@ Fixes #
 
 ## Checklist
 
-- [ ] My code follows the project style (explicit names, minimal comments — see `CLAUDE.md`)
+- [ ] My code follows the project style (explicit names, header comment on every new module, brief comments on non-trivial functions — see `CLAUDE.md` / `CONTRIBUTING.md`)
 - [ ] I updated `README.md` / `CHANGELOG.md` if user-facing behaviour changed
 - [ ] My commits have clear, descriptive messages

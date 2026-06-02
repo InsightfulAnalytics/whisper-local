@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
+# main.py
+# Entry point invoked by the `whisper-local` and `wl` console scripts (see
+# pyproject.toml [project.scripts]). Responsible for:
+#   1. CLI argument parsing — every --flag dispatches to a module
+#   2. Logging + crash handler setup
+#   3. Single-instance enforcement (mutex / PID file)
+#   4. Wiring all the components together (audio, whisper, hotkeys, tray)
+#   5. Driving the platform event loop until shutdown
+#
+# Most --flags short-circuit and exit before the heavy app is even constructed,
+# so utility commands like --version, --doctor, --settings stay fast.
 
 from .utils import setup_portaudio_path
+# PortAudio DLLs ship inside the package on Windows; this prepends the right
+# directory to PATH *before* sounddevice tries to load them.
 setup_portaudio_path()
 
 import argparse

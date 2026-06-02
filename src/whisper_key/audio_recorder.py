@@ -1,3 +1,22 @@
+# audio_recorder.py
+# Continuous-stream audio capture with a pre-roll ring buffer. Key design choices:
+#
+#   • A single sd.InputStream runs continuously from app startup. We do NOT
+#     open/close streams per recording — that was the source of "first word
+#     clipped" bugs and added 100-200ms of warmup latency on every press.
+#
+#   • The buffer is a deque trimmed to ~500ms when idle. When the user presses
+#     record, the buffer already contains the recent past, so anything they
+#     started saying before the OS finished routing the hotkey is captured.
+#
+#   • WASAPI on Windows runs at native rate (typically 48 kHz); we resample to
+#     Whisper's 16 kHz only at stop time. This avoids resampling per chunk during
+#     a recording, which would burn CPU.
+#
+#   • Mid-recording USB disconnects trigger a 3-retry recovery loop that falls
+#     back to the system default input. Silent-mic (peak amplitude near zero)
+#     surfaces a console warning on stop.
+
 import collections
 import logging
 import threading

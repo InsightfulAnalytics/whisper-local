@@ -1,3 +1,9 @@
+# selftest.py
+# Automated end-to-end diagnostic invoked by `whisper-local --selftest`.
+# Runs four independent checks (mic capture, model load, transcription, clipboard)
+# and prints each result with a specific fix hint on failure. Returns 0 if every
+# check passes, 1 otherwise — so it can be wired into CI or first-run flows.
+
 import logging
 import sys
 import time
@@ -5,6 +11,10 @@ import time
 logger = logging.getLogger(__name__)
 
 
+# Public entry point — called from main.py when --selftest is passed.
+# Prints a banner, runs each stage in order, and aggregates failures into
+# a single summary so the user sees everything at once instead of having
+# to re-run after each fix.
 def run_selftest() -> int:
     print("\n🔬 Whisper Local — self-test\n" + "─" * 50)
     failures = []
@@ -39,6 +49,8 @@ def run_selftest() -> int:
     return 1
 
 
+# Shared printer used by each stage. On success, msg is a string; on failure,
+# msg is a (reason, fix_hint) tuple so the user always sees an actionable next step.
 def _report(ok, msg, failures, name):
     if ok:
         print(f"    ✓ {msg}")
@@ -48,6 +60,9 @@ def _report(ok, msg, failures, name):
         failures.append((name, reason, fix))
 
 
+# Stage 1 — verify the mic can capture audio. RMS check catches the most common
+# silent-failure mode where Windows/macOS denies mic permission but sounddevice
+# happily reads zeros without throwing.
 def _test_audio_capture():
     try:
         import numpy as np
@@ -74,6 +89,9 @@ def _test_audio_capture():
         return False, (f"Recording failed: {e}", "Check mic permissions and that no other app is holding the device")
 
 
+# Stage 2 — verify the configured Whisper model is resolvable without actually
+# loading it (model load itself happens in stage 3). Catches typos, deleted
+# custom models, and the whisper_cpp-without-pywhispercpp case.
 def _test_model_loadable():
     try:
         from .config_manager import ConfigManager
@@ -102,6 +120,9 @@ def _test_model_loadable():
         return False, (f"Model registry load failed: {e}", "Check user_settings.yaml")
 
 
+# Stage 3 — actually load the model and transcribe 2 seconds of silence. This
+# exercises the full pipeline (model download/cache, CTranslate2 runtime, VAD
+# pre-check) so anything broken downstream surfaces here.
 def _test_end_to_end():
     try:
         import numpy as np
@@ -154,6 +175,8 @@ def _test_end_to_end():
                        "Run --doctor for more detail. Try `whisper-local --setup` if model never loaded.")
 
 
+# Stage 4 — verify clipboard round-trip. The original clipboard contents are
+# restored after the test so the user doesn't lose what they had copied.
 def _test_clipboard():
     try:
         import pyperclip

@@ -1,3 +1,23 @@
+# state_manager.py
+# Central coordinator that owns the dictation pipeline state and routes events
+# between components. Roughly:
+#
+#   HotkeyListener  ─►  StateManager  ─►  AudioRecorder.stop_recording()
+#                            │                       │
+#                            ▼                       ▼
+#                     WhisperEngine.transcribe ──► ClipboardManager.deliver
+#                                                     │
+#                                                     ▼
+#                                            stats + transcripts + audit
+#
+# Also owns the LevelOverlay + FallbackWindow lifecycle and the cross-cutting
+# concerns: profile activation, app-rule application, AI rephrase, command mode,
+# and the continuous-dictation restart loop.
+#
+# Thread safety: most state lives behind self._state_lock. The audio capture
+# thread writes recording-status atomically; everything else mutates state
+# only from the main thread or via the lock.
+
 import collections
 import logging
 import time
