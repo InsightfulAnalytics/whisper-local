@@ -293,7 +293,17 @@ def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, l
         state_manager.shutdown()
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    # Under pythonw.exe (windowless launch — autostart shortcuts, the pyapp .exe
+    # before it allocates a console, etc.) there is no console, so sys.stdout and
+    # sys.stderr are None and every print() in the app would raise AttributeError.
+    # Route them to a null sink; real diagnostics still go to app.log via the
+    # logging handlers configured in setup_logging().
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, 'w', encoding='utf-8', errors='replace')
+    else:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, 'w', encoding='utf-8', errors='replace')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true', help='Run as separate test instance')
