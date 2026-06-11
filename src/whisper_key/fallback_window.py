@@ -19,6 +19,14 @@ ACCENT_HOVER = '#46c155'
 class FallbackWindow:
     def __init__(self):
         self._available = self._check_tk()
+        # Guard against stacking: only one fallback window (and its Tk root) is
+        # alive at a time. This both avoids a window pile-up on repeated failed
+        # deliveries and keeps us to a single transient Tk root coexisting with
+        # the always-on level overlay. The transcript is copied to the clipboard
+        # by the caller BEFORE show() is called, so skipping a duplicate never
+        # loses the text — it's always recoverable with Ctrl+V.
+        self._lock = threading.Lock()
+        self._open = False
 
     def _check_tk(self) -> bool:
         try:
@@ -30,6 +38,12 @@ class FallbackWindow:
     def show(self, transcript: str, reason: Optional[str] = None):
         if not self._available or not transcript:
             return
+        with self._lock:
+            if self._open:
+                logger.info("Fallback window already open; skipping duplicate "
+                            "(transcript is already on the clipboard).")
+                return
+            self._open = True
         thread = threading.Thread(
             target=self._run_window,
             args=(transcript, reason or "No text field was focused — your dictation is safe here."),
@@ -144,3 +158,6 @@ class FallbackWindow:
             root.mainloop()
         except Exception as e:
             logger.warning(f"Fallback window failed: {e}")
+        finally:
+            with self._lock:
+                self._open = False

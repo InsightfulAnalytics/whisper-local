@@ -140,7 +140,32 @@ Recorded so future audits don't re-tread:
 
 ## Cross-cutting recommendation: the multi-Tk-root architecture
 
-The app can have several `Tk()` roots alive at once, each with its own `mainloop` on its own daemon thread (overlay always-on + any of: first-run, fallback, cheat-sheet, dictionary, history). Tkinter tolerates this *only* as long as the roots never touch each other and each stays on its creating thread. It works today but is fragile. The tray already dodges this by launching the big windows (`--settings`, `--history`) as **subprocesses** — that's the robust pattern. Worth considering: route *all* user-facing windows through the subprocess path, leaving only the always-on overlay as an in-process Tk root. Tracked as an architectural note, not a bug.
+The app can have several `Tk()` roots alive at once, each with its own `mainloop` on its own daemon thread (overlay always-on + any of: first-run, fallback, cheat-sheet, dictionary, history). Tkinter tolerates this *only* as long as the roots never touch each other and each stays on its creating thread. It works today but is fragile. The tray already dodges this by launching the big windows (`--settings`, `--history`) as **subprocesses** — that's the robust pattern.
+
+### Researched & decided (2026-06-11)
+
+Mapped every `tk.Tk()` site and how each is launched. Findings:
+
+- Tray-launched windows (`--settings`, `--history`, `--doctor`, `--stats`, `--selftest`) already run as **separate subprocesses** — no shared-root risk.
+- The genuinely in-process roots are the **always-on level overlay** plus transient
+  ones (`fallback`, `cheat_sheet`, `dictionary`, `first_run`). `cheat_sheet`,
+  `dictionary`, and `history` already have **singleton guards**.
+- The only realistic coexistence is **overlay + fallback window**. Each lives entirely
+  on its own daemon thread with its own Tcl interpreter and never touches the other's
+  widgets, which is why it has shipped without incident. The remaining real defect was
+  that `fallback` could **stack multiple windows/roots** on repeated failed deliveries.
+
+**Decision:** the big-bang "single global Tk root + Toplevels with cross-thread event
+marshalling" refactor was considered and **deferred** — it's invasive, touches every
+window + the audio/VAD threads, and can't be validated without a live desktop Tk
+session. Risk ≫ reward for a hazard that hasn't manifested.
+
+**Done instead:** added a singleton guard to `fallback_window` (only one alive at a
+time; the transcript is already on the clipboard before `show()`, so skipping a
+duplicate loses nothing). This removes the one concrete defect (stacking) and caps
+in-process roots at "overlay + at most one transient", which is the safe, proven
+configuration. The single-root refactor remains a documented future option if the
+window set grows.
 
 ---
 
@@ -157,5 +182,5 @@ and the product ideas remain as future, non-blocking improvements.
 
 - Single-`.exe` distribution (PyInstaller/pyapp is scaffolded) + `winget` / Homebrew manifests — biggest reach unlock.
 - Demo GIF in the README (highest single discoverability win; the recorder script exists in `tools/`).
-- Real streaming delivery (partial words to cursor) — `streaming_recognizer.py` scaffolding exists but isn't wired to delivery.
+- Streaming: the live **overlay preview** is now a documented feature (`docs/streaming.md`, opt-in via `streaming.streaming_enabled`). True type-as-you-go to the cursor was researched and intentionally NOT shipped as default — pasting unstable partial tokens corrupts documents. The safe form (commit only finalized/post-endpoint segments, trading Whisper accuracy for latency) is a future opt-in; `streaming_recognizer.is_endpoint()` already exists for it.
 - Windowless autostart is viable (SPAWN-1 was a non-bug); a future installer could create a `pythonw` shortcut for a console-free launch. Recreate the venv first so `pyvenv.cfg` reflects the current path.

@@ -73,7 +73,7 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 
 - 🎙️ **Global push-to-talk hotkey** — start recording from any app with `Ctrl+Win` (Windows) or `Fn+Ctrl` (macOS)
 - ⚡ **Pre-roll buffer + warmup** — captures the 500 ms before you press the key *and* pre-loads Whisper at boot, so the first word is never clipped and the first recording feels instant
-- 🔵 **Floating level overlay** — a small pill at the screen edge shows you're being heard, with the live streaming transcript appearing next to the level bar (Wispr Flow–style)
+- 🔵 **Floating level overlay** — a small pill at the screen edge shows you're being heard, with the transcript appearing next to the level bar (Wispr Flow–style). Optional [real-time streaming preview](docs/streaming.md) shows words *as you speak*.
 - 📝 **Inline voice formatting** — say "comma", "period", "question mark", "new paragraph", "open quote", etc. mid-sentence
 - 🤖 **AI rephrase** — dedicated `Ctrl+Shift+Win` hotkey: select text, hold, speak your instruction, release — local Ollama rewrites it in place
 - 🌐 **Translation mode** — speak any language, get English; tray → Profile → Translate
