@@ -451,6 +451,99 @@ class VersionBumpTests(unittest.TestCase):
         major, minor = version.split('.')[:2]
         self.assertGreaterEqual((int(major), int(minor)), (0, 10))
 
+    def test_citation_matches_pyproject(self):
+        import tomllib
+        with open(ROOT / "pyproject.toml", "rb") as f:
+            pyproject_version = tomllib.load(f)["project"]["version"]
+        citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+        self.assertIn(f"version: {pyproject_version}", citation,
+                      "CITATION.cff version must match pyproject.toml")
+
+
+class _FakeHandler:
+    """Minimal stand-in for BaseHTTPRequestHandler for parser tests."""
+    def __init__(self, body: bytes, boundary: str, content_length=None):
+        import io
+        self.headers = {
+            'Content-Type': f'multipart/form-data; boundary={boundary}',
+            'Content-Length': str(content_length if content_length is not None else len(body)),
+        }
+        self.rfile = io.BytesIO(body)
+
+
+def _build_multipart(boundary: str, file_bytes: bytes) -> bytes:
+    b = boundary.encode()
+    return (
+        b'--' + b + b'\r\n'
+        b'Content-Disposition: form-data; name="file"; filename="a.wav"\r\n'
+        b'Content-Type: application/octet-stream\r\n\r\n'
+        + file_bytes + b'\r\n'
+        b'--' + b + b'--\r\n'
+    )
+
+
+class LocalServerSecurityTests(unittest.TestCase):
+    # SRV-1: binary audio ending in 0x2D ('-') must NOT be truncated.
+    def test_parse_multipart_preserves_trailing_dashes(self):
+        from whisper_key.local_server import _parse_multipart
+        audio = b'\x00\x01\x02\x2d\x2d\x2d'  # ends in three dashes
+        body = _build_multipart('BoUnDaRy123', audio)
+        fields = _parse_multipart(_FakeHandler(body, 'BoUnDaRy123'))
+        self.assertEqual(fields['file']['data'], audio)
+
+    # SRV-2: oversized Content-Length is rejected before the body is read.
+    def test_oversized_content_length_rejected(self):
+        from whisper_key import local_server
+        huge = local_server.MAX_UPLOAD_BYTES + 1
+        handler = _FakeHandler(b'x', 'B', content_length=huge)
+        with self.assertRaises(ValueError):
+            local_server._parse_multipart(handler)
+
+
+class BundleRedactionTests(unittest.TestCase):
+    # PRIV-1: sensitive config fields are masked in user_settings.yaml.
+    def test_redact_yaml_masks_sensitive_fields(self):
+        from whisper_key.bundle_logs import _redact_yaml
+        sample = (
+            "whisper:\n"
+            "  hotwords: [SecretName, CodeWord]\n"
+            "  initial_prompt: my private context\n"
+            "postprocess:\n"
+            "  ollama:\n"
+            "    endpoint: http://user:pass@host:11434\n"
+        )
+        out = _redact_yaml(sample)
+        self.assertNotIn('SecretName', out)
+        self.assertNotIn('CodeWord', out)
+        self.assertNotIn('private context', out)
+        self.assertNotIn('user:pass', out)
+        self.assertIn('<REDACTED>', out)
+
+    def test_redact_yaml_masks_block_hotwords(self):
+        from whisper_key.bundle_logs import _redact_yaml
+        sample = "whisper:\n  hotwords:\n    - Alpha\n    - Bravo\n  model: tiny\n"
+        out = _redact_yaml(sample)
+        self.assertNotIn('Alpha', out)
+        self.assertNotIn('Bravo', out)
+        self.assertIn('model: tiny', out)  # non-sensitive keys untouched
+
+
+class VoiceCommandQuotingTests(unittest.TestCase):
+    # VC-1: clipboard content is shell-quoted when expanded into a run: command.
+    def test_shell_safe_quotes_clipboard(self):
+        try:
+            from whisper_key.voice_commands import VoiceCommandManager
+        except Exception:
+            self.skipTest("voice_commands not importable on this platform")
+        import shlex
+        import unittest.mock as mock
+        vc = VoiceCommandManager.__new__(VoiceCommandManager)
+        with mock.patch('whisper_key.voice_commands.pyperclip.paste', return_value='; rm -rf ~'):
+            safe = vc._expand_template('echo ${clipboard}', shell_safe=True)
+            raw = vc._expand_template('echo ${clipboard}', shell_safe=False)
+        self.assertEqual(safe, 'echo ' + shlex.quote('; rm -rf ~'))
+        self.assertEqual(raw, 'echo ; rm -rf ~')
+
 
 if __name__ == "__main__":
     unittest.main()

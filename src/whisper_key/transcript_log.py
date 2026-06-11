@@ -8,16 +8,21 @@
 import datetime
 import json
 import logging
+import threading
 from pathlib import Path
 
 from .utils import get_user_app_data_path
 
 logger = logging.getLogger(__name__)
 
-# Newline-delimited JSON — one transcript per line. Append-only writes are
-# atomic at typical sizes, so we don't need a lock.
+# Newline-delimited JSON — one transcript per line.
 _LOG_FILE = 'transcripts.jsonl'
 _MAX_ENTRIES = 2000
+
+# Serialise append + rotate. Continuous mode and rapid voice commands can fire
+# deliveries back-to-back from different threads; without this an append could
+# interleave with the read-truncate-rewrite rotation and drop or corrupt lines.
+_write_lock = threading.Lock()
 
 
 # Called from state_manager._transcription_pipeline after every successful
@@ -34,10 +39,11 @@ def record_transcript(text: str, app: str = '', duration_s: float = 0.0):
     }
     path = Path(get_user_app_data_path()) / _LOG_FILE
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
-        _maybe_rotate(path)
+        with _write_lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+            _maybe_rotate(path)
     except Exception as e:
         logger.debug(f"Transcript log write failed: {e}")
 

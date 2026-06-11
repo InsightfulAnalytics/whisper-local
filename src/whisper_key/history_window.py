@@ -42,6 +42,14 @@ def show_history():
         with _lock:
             _instance = root
 
+        # Reset the singleton on close so a later open creates a fresh root
+        # instead of probing a destroyed one.
+        def _clear_ref():
+            global _instance
+            with _lock:
+                _instance = None
+        root.protocol("WM_DELETE_WINDOW", lambda: (_clear_ref(), root.destroy()))
+
         root.title("Transcript History — Whisper Local")
         root.geometry("680x520")
         root.configure(bg='#0d1117')

@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import threading
 from collections import Counter
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,10 @@ from .utils import get_user_app_data_path
 
 STATS_FILE = "stats.jsonl"
 DAILY_NOTIFY_MARKER = "stats-last-notify.txt"
+
+# Serialise appends — back-to-back deliveries (continuous mode) can write from
+# different threads. Append-only, so this is lighter than transcript_log's lock.
+_write_lock = threading.Lock()
 
 GREEN = "\033[32m"
 DIM = "\033[2m"
@@ -46,8 +51,9 @@ def record_transcription(char_count: int, duration_seconds: float, app: Optional
             'app': (app or '').lower(),
         }
         path = Path(get_user_app_data_path()) / STATS_FILE
-        with open(path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry) + '\n')
+        with _write_lock:
+            with open(path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(entry) + '\n')
     except Exception as e:
         logger.debug(f"Stats record failed: {e}")
 

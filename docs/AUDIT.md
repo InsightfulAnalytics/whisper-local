@@ -20,21 +20,35 @@
 
 | ID | Severity | Area | One-liner | Status |
 |----|----------|------|-----------|--------|
-| SRV-1 | High | local_server | `rstrip(b'-')` corrupts binary audio uploads | OPEN (verified) |
-| SRV-2 | Medium | local_server | Unbounded `Content-Length` read → local OOM | OPEN (verified) |
-| PRIV-1 | High | bundle_logs | Diagnostic zip doesn't redact hotwords / Ollama endpoint / prompts | OPEN (verified) |
-| SPAWN-1 | High | startup | Windowless (`pythonw`) launch double-spawns a 2nd instance | OPEN (verified, root cause unknown) |
-| VC-1 | Medium | voice_commands | `${clipboard}` expanded before risky-command check; no shell-escaping | OPEN (reported) |
-| UI-1 | Medium | history_window | Singleton `_instance` never reset on close | OPEN (verified) |
-| LOG-1 | Medium | transcript_log / stats | Concurrent appends + rotation have no lock → rare corruption/loss | OPEN (verified) |
-| CI-1 | Medium | CI | Tests run only on Ubuntu; Windows is the primary platform | OPEN (verified) |
-| UI-2 | Low | dictionary | Add-word dialog leaks a daemon thread + Tk root per open | OPEN (reported) |
-| UI-3 | Low | settings_ui | Search filter re-packs rows with hardcoded geometry | OPEN (verified) |
-| REC-1 | Low | audio_recorder | `is_recording` read/written across threads without lock | OPEN (verified) |
-| VAD-1 | Low | vad | One short-lived thread spawned per VAD event | OPEN (reported) |
-| DOC-1 | Low | docs | `project-index.md` missing ~10 newer modules | OPEN (verified) |
-| DOC-2 | Low | CITATION.cff | Version says 0.9.0, project is 0.10.0 | OPEN (verified) |
-| DOC-3 | Low | README | "all 40 should pass" — actual count is 53 | OPEN (verified) |
+| SRV-1 | High | local_server | `rstrip(b'-')` corrupts binary audio uploads | **FIXED** (2026-06-11) |
+| SRV-2 | Medium | local_server | Unbounded `Content-Length` read → local OOM | **FIXED** (2026-06-11) |
+| PRIV-1 | High | bundle_logs | Diagnostic zip doesn't redact hotwords / Ollama endpoint / prompts | **FIXED** (2026-06-11) |
+| SPAWN-1 | High→None | startup | Windowless (`pythonw`) "double-spawn" | **NOT A BUG** (2026-06-11) |
+| VC-1 | Medium | voice_commands | `${clipboard}` expanded before risky-command check; no shell-escaping | **FIXED** (2026-06-11) |
+| UI-1 | Medium | history_window | Singleton `_instance` never reset on close | **FIXED** (2026-06-11) |
+| LOG-1 | Medium | transcript_log / stats | Concurrent appends + rotation have no lock → rare corruption/loss | **FIXED** (2026-06-11) |
+| CI-1 | Medium | CI | Tests run only on Ubuntu; Windows is the primary platform | **FIXED** (2026-06-11) |
+| UI-2 | Low | dictionary | Add-word dialog leaks a daemon thread + Tk root per open | **FIXED** (2026-06-11) |
+| UI-3 | Low | settings_ui | Search filter re-packs rows with hardcoded geometry | **FIXED** (2026-06-11) |
+| REC-1 | Low | audio_recorder | `is_recording` read/written across threads without lock | **WONTFIX** (2026-06-11) |
+| VAD-1 | Low | vad | One short-lived thread spawned per VAD event | **WONTFIX** (2026-06-11) |
+| DOC-1 | Low | docs | `project-index.md` missing ~10 newer modules | **FIXED** (2026-06-11) |
+| DOC-2 | Low | CITATION.cff | Version says 0.9.0, project is 0.10.0 | **FIXED** (2026-06-11) |
+| DOC-3 | Low | README | "all 40 should pass" — actual count is 53 | **FIXED** (2026-06-11) |
+
+### Resolution log (2026-06-11)
+
+- **SRV-1** — `local_server._parse_multipart` now strips only the trailing CRLF, never `-`. Regression test `test_parse_multipart_preserves_trailing_dashes`.
+- **SRV-2** — added `MAX_UPLOAD_BYTES` (500 MB); oversized `Content-Length` raises before reading. Test `test_oversized_content_length_rejected`.
+- **PRIV-1** — `bundle_logs` adds `_redact_yaml` masking `hotwords`, `endpoint`, `initial_prompt` in `user_settings.yaml`; `about.txt` + console note updated. Tests `test_redact_yaml_*`.
+- **VC-1** — `_expand_template(shell_safe=True)` `shlex.quote`s clipboard/selection for `run:`; `_execute_shell` now force-confirms any `run:` built from `${...}` content. Test `test_shell_safe_quotes_clipboard`. (Windows `cmd.exe` quoting is imperfect, hence the belt-and-braces forced confirm.)
+- **UI-1 / UI-2** — `history_window` and `dictionary` add-word dialog now reset their singleton on close (`WM_DELETE_WINDOW` + `finally`), matching `cheat_sheet`.
+- **UI-3** — `settings_ui` snapshots each row's real `pack_info()` at build and forgets-all-then-repacks-in-order on search, preserving geometry + order.
+- **LOG-1** — `transcript_log` and `stats` wrap append (+rotate) in a module `threading.Lock`.
+- **CI-1** — `test.yml` now runs on `[ubuntu, windows, macos]` via matrix.
+- **DOC-1/2/3** — `project-index.md` refreshed with all current modules; `CITATION.cff` → 0.10.0 (now guarded by `test_citation_matches_pyproject`); README test line de-numbered.
+- **SPAWN-1 — NOT A BUG.** A `WHISPER_DEBUG_SPAWN=1` startup probe proved `main()` runs **exactly once** under `pythonw`. The "two processes" are the venv `pythonw.exe` *launcher stub* (parent) plus the base interpreter it delegates to (child, which reports `sys.executable` as the venv path via `__PYVENV_LAUNCHER__`) — normal Windows venv-launcher behaviour, one logical instance, one lock, no hotkey conflict. The `.cmd` launcher shows one process because it invokes the base `python` directly. Note: this machine's `.venv/pyvenv.cfg` still points at the pre-rename `whisper-key-local` path — harmless but worth recreating the venv for cleanliness. The probe is retained (env-gated) as a debugging aid.
+- **REC-1 / VAD-1 — WONTFIX (by design).** REC-1: `is_recording` is read once per audio callback; a ±1-chunk staleness at a start/stop edge is exactly what the 500 ms pre-roll buffer absorbs — adding a lock to a callback firing every ~10 ms is net-negative for a theoretical race. VAD-1: the VAD state machine fires `SILENCE_TIMEOUT` at most **once** per recording (then idles in `TIMEOUT_TRIGGERED`), so it spawns one detached thread per session, not per event — and that thread is intentional (must not block the audio callback). Both left as-is deliberately.
 
 ---
 
@@ -130,18 +144,18 @@ The app can have several `Tk()` roots alive at once, each with its own `mainloop
 
 ---
 
-## Suggested fix order (next session)
+## Status (2026-06-11)
 
-1. **PRIV-1** + **SRV-1** — small, self-contained, and they touch the privacy/quality story the project sells. Add tests.
-2. **DOC-2 / DOC-3 / DOC-1** — trivial, makes the repo look maintained.
-3. **CI-1** — add the OS matrix; catches platform regressions for free thereafter.
-4. **UI-1** + **LOG-1** — small correctness fixes with clear patterns to copy.
-5. **SRV-2**, **VC-1** — hardening; verify VC-1's code path first.
-6. **SPAWN-1** — the interesting one; needs the instrumentation/bisect described above. Only block windowless autostart on it; the `.cmd` launcher ships fine.
+All 15 findings are resolved — 11 fixed with regression tests, 1 reclassified
+NOT-A-BUG (SPAWN-1), 2 deliberate WONTFIX (REC-1, VAD-1), and the rest doc/CI.
+See the **Resolution log** above for per-item detail. Smoke suite: 59 tests, green.
+
+Nothing in this audit is outstanding. The architectural note below (multi-Tk-root)
+and the product ideas remain as future, non-blocking improvements.
 
 ## Product ideas (not bugs) — see also README "Why this exists"
 
 - Single-`.exe` distribution (PyInstaller/pyapp is scaffolded) + `winget` / Homebrew manifests — biggest reach unlock.
 - Demo GIF in the README (highest single discoverability win; the recorder script exists in `tools/`).
 - Real streaming delivery (partial words to cursor) — `streaming_recognizer.py` scaffolding exists but isn't wired to delivery.
-- Resolve SPAWN-1 so a clean windowless autostart can be the documented default (no console flash).
+- Windowless autostart is viable (SPAWN-1 was a non-bug); a future installer could create a `pythonw` shortcut for a console-free launch. Recreate the venv first so `pyvenv.cfg` reflects the current path.

@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from typing import Optional
@@ -91,13 +92,22 @@ class VoiceCommandManager:
 
         return None
 
-    def _expand_template(self, value: str) -> str:
+    # Expand ${clipboard} / ${selection} template vars. When shell_safe is True
+    # (i.e. the result is headed for a shell `run:` command), each substituted
+    # value is shlex.quote()'d so injected metacharacters can't break out of an
+    # argument. shlex.quote is POSIX-correct; on Windows cmd.exe it isn't a
+    # complete defence, which is why _execute_shell ALSO forces a confirmation
+    # whenever a run: command contains template vars (see _execute_action).
+    def _expand_template(self, value: str, shell_safe: bool = False) -> str:
         if not value or '${' not in value:
             return value
         try:
             clipboard_text = pyperclip.paste() or ''
         except Exception:
             clipboard_text = ''
+
+        def _sub(text: str) -> str:
+            return shlex.quote(text) if shell_safe else text
 
         if '${selection}' in value:
             import time
@@ -109,14 +119,14 @@ class VoiceCommandManager:
             except Exception:
                 selection_text = ''
             if selection_text and selection_text != original:
-                value = value.replace('${selection}', selection_text)
+                value = value.replace('${selection}', _sub(selection_text))
                 try: pyperclip.copy(original)
                 except Exception: pass
             else:
-                value = value.replace('${selection}', '')
+                value = value.replace('${selection}', _sub(''))
 
         if '${clipboard}' in value:
-            value = value.replace('${clipboard}', clipboard_text)
+            value = value.replace('${clipboard}', _sub(clipboard_text))
         return value
 
     def _read_mtime(self) -> float:
@@ -157,8 +167,14 @@ class VoiceCommandManager:
 
     def _execute_action(self, command: dict, trigger: str, use_auto_enter: bool = False):
         if 'run' in command:
-            self._execute_shell(self._expand_template(command['run']), trigger,
-                                 require_confirm=command.get('confirm', None))
+            # If the command pulls in clipboard/selection content, that content is
+            # untrusted — force a confirmation so the user always sees the final
+            # command before it runs, regardless of the risky-pattern heuristic.
+            had_untrusted = '${' in (command['run'] or '')
+            expanded = self._expand_template(command['run'], shell_safe=True)
+            self._execute_shell(expanded, trigger,
+                                 require_confirm=command.get('confirm', None),
+                                 force_confirm=had_untrusted)
         elif 'hotkey' in command:
             self._send_hotkey(command['hotkey'], trigger)
         elif 'type' in command:
@@ -228,9 +244,15 @@ class VoiceCommandManager:
         self.logger.info(f"Rephrased via '{trigger}': {len(selection)} → {len(polished)} chars")
         print(f"   ✓ Rephrased: {trigger}")
 
-    def _execute_shell(self, run_str: str, trigger: str, require_confirm: Optional[bool] = None):
+    def _execute_shell(self, run_str: str, trigger: str, require_confirm: Optional[bool] = None,
+                       force_confirm: bool = False):
         is_risky = bool(RISKY_PATTERNS.search(run_str))
-        needs_confirm = require_confirm if require_confirm is not None else is_risky
+        # Explicit confirm: setting wins; otherwise confirm if risky OR if the
+        # command was built from untrusted clipboard/selection content.
+        if require_confirm is not None:
+            needs_confirm = require_confirm or force_confirm
+        else:
+            needs_confirm = is_risky or force_confirm
         if needs_confirm and not self._confirm_risky_command(trigger, run_str):
             self.logger.info(f"User declined risky command '{trigger}'")
             print(f"   ✗ Cancelled: {trigger}")

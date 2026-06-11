@@ -373,7 +373,7 @@ Contributions of all kinds are welcome — bug fixes, new features, docs improve
 ```bash
 git clone https://github.com/drajb/whisper-local.git
 pip install -e .
-python -m unittest tests.test_smoke   # all 40 should pass
+python -m unittest tests.test_smoke   # smoke suite — should report OK
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards. By contributing you agree your code will be MIT licensed. Found a security issue? See [SECURITY.md](SECURITY.md) — please don't open a public issue.

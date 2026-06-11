@@ -10,6 +10,11 @@ from .utils import get_user_app_data_path
 logger = logging.getLogger(__name__)
 USER_SETTINGS = "user_settings.yaml"
 
+# Singleton guard for the add-word dialog: re-invoking (tray click / repeated
+# CLI) raises the existing window instead of stacking new Tk roots + threads.
+_dialog_lock = threading.Lock()
+_dialog_root = None
+
 
 def list_hotwords() -> List[str]:
     user_path = Path(get_user_app_data_path()) / USER_SETTINGS
@@ -89,7 +94,18 @@ def show_dictionary() -> int:
 
 
 def show_add_word_dialog(on_added=None):
+    global _dialog_root
+    with _dialog_lock:
+        try:
+            if _dialog_root is not None and _dialog_root.winfo_exists():
+                _dialog_root.lift()
+                _dialog_root.focus_force()
+                return
+        except Exception:
+            pass
+
     def run():
+        global _dialog_root
         try:
             import tkinter as tk
         except ImportError:
@@ -97,6 +113,8 @@ def show_add_word_dialog(on_added=None):
             return
         try:
             root = tk.Tk()
+            with _dialog_lock:
+                _dialog_root = root
             root.title("Whisper Local — Add Word")
             root.configure(bg='#0d1117')
             try:
@@ -156,6 +174,9 @@ def show_add_word_dialog(on_added=None):
                     status_var.set(f"'{word}' is already in the dictionary.")
 
             def close(_=None):
+                global _dialog_root
+                with _dialog_lock:
+                    _dialog_root = None
                 try: root.destroy()
                 except Exception: pass
 
@@ -173,10 +194,14 @@ def show_add_word_dialog(on_added=None):
                       bd=0, relief='flat', padx=14, pady=6,
                       font=('Segoe UI Semibold', 9), cursor='hand2').pack(side='right')
 
+            root.protocol("WM_DELETE_WINDOW", close)
             root.bind('<Return>', commit)
             root.bind('<Escape>', close)
             root.mainloop()
         except Exception as e:
             logger.warning(f"Add-word dialog failed: {e}")
+        finally:
+            with _dialog_lock:
+                _dialog_root = None
 
     threading.Thread(target=run, daemon=True, name='add-word-dialog').start()

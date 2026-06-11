@@ -29,6 +29,23 @@ _REDACTIONS = [
     (re.compile(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b'), '<EMAIL>'),
 ]
 
+# Config fields that can carry personal or sensitive data. These are scrubbed
+# from user_settings.yaml specifically, because the bundle is meant to be
+# attached to public GitHub issues. Users routinely put names, codewords, and
+# occasionally secrets in hotwords; Ollama endpoints may embed user:pass or
+# ?token=; initial_prompt can contain private instructions.
+#  - hotwords:        a YAML list, possibly inline [a, b] or block over lines
+#  - endpoint:        scalar URL
+#  - initial_prompt:  scalar (possibly quoted) string
+_YAML_REDACTIONS = [
+    # inline list form: hotwords: [a, b, c]
+    (re.compile(r'(^\s*hotwords\s*:\s*)\[[^\]]*\]', re.MULTILINE), r'\1[<REDACTED>]'),
+    # block list form: hotwords: followed by "- item" lines
+    (re.compile(r'(^\s*hotwords\s*:\s*)\n(\s*-\s.*\n?)+', re.MULTILINE), r'\1 [<REDACTED>]\n'),
+    (re.compile(r'(^\s*endpoint\s*:\s*).+$', re.MULTILINE), r'\1<REDACTED>'),
+    (re.compile(r'(^\s*initial_prompt\s*:\s*).+$', re.MULTILINE), r'\1<REDACTED>'),
+]
+
 
 # Build the diagnostic archive. If output_path is None, write to the cwd with
 # a timestamped name. Returns 0 always (the operation is opportunistic — partial
@@ -68,8 +85,8 @@ def bundle_logs(output_path: str = None) -> int:
         settings = app_data / 'user_settings.yaml'
         if settings.exists():
             try:
-                zf.writestr('user_settings.yaml',
-                            _redact(settings.read_text(encoding='utf-8', errors='replace')))
+                raw = settings.read_text(encoding='utf-8', errors='replace')
+                zf.writestr('user_settings.yaml', _redact_yaml(_redact(raw)))
                 bundled.append('user_settings.yaml')
             except Exception:
                 pass
@@ -92,7 +109,8 @@ def bundle_logs(output_path: str = None) -> int:
     print(f"   {len(bundled)} files included:")
     for f in bundled:
         print(f"   • {f}")
-    print("\n   ℹ Personal paths (usernames, email addresses) have been redacted.")
+    print("\n   ℹ Redacted: usernames in paths, emails, and sensitive settings")
+    print("     (hotwords, Ollama endpoint, initial_prompt).")
     print("   ℹ Review the zip before sharing if you've enabled log_transcriptions.\n")
     return 0
 
@@ -115,8 +133,10 @@ def _build_about() -> str:
         "  crashes/*        — last 10 crash reports from the past 7 days\n\n"
         "Privacy:\n"
         "  Usernames in paths and any email-shaped strings have been replaced\n"
-        "  with placeholders. Transcript text is NOT in the log unless you\n"
-        "  enabled `logging.log_transcriptions: true`. Please review before sharing.\n"
+        "  with placeholders. In user_settings.yaml, hotwords, the Ollama endpoint,\n"
+        "  and initial_prompt are masked with <REDACTED>. Transcript text is NOT in\n"
+        "  the log unless you enabled `logging.log_transcriptions: true`. Please\n"
+        "  review before sharing.\n"
     )
 
 
@@ -151,5 +171,13 @@ def _tail_lines(path: Path, n: int) -> str:
 # operates on disjoint regions of typical log content.
 def _redact(text: str) -> str:
     for pattern, replacement in _REDACTIONS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+# Extra scrub applied only to user_settings.yaml: masks config fields that may
+# hold personal data or secrets (hotwords, Ollama endpoint, initial_prompt).
+def _redact_yaml(text: str) -> str:
+    for pattern, replacement in _YAML_REDACTIONS:
         text = pattern.sub(replacement, text)
     return text

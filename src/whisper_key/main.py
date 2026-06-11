@@ -305,6 +305,17 @@ def main():
     if sys.stderr is None:
         sys.stderr = open(os.devnull, 'w', encoding='utf-8', errors='replace')
 
+    # Opt-in spawn probe (set WHISPER_DEBUG_SPAWN=1) — records pid/ppid/interpreter
+    # at every main() entry so a duplicate-instance/relaunch can be diagnosed.
+    if os.environ.get('WHISPER_DEBUG_SPAWN'):
+        try:
+            import datetime as _dt
+            with open(os.path.join(get_user_app_data_path(), 'spawn-debug.log'), 'a', encoding='utf-8') as _f:
+                _f.write(f"{_dt.datetime.now().isoformat()} pid={os.getpid()} "
+                         f"ppid={os.getppid()} exe={sys.executable} argv={sys.argv}\n")
+        except Exception:
+            pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true', help='Run as separate test instance')
     parser.add_argument('--doctor', action='store_true', help='Run diagnostics and exit')

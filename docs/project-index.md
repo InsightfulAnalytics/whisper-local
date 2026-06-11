@@ -1,6 +1,6 @@
 Local faster-whisper speech-to-text app with global hotkeys for Windows 10+ and macOS
 
-Personal fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local), maintained as `drajb/whisper-local`. Internal Python module name remains `whisper_key`.
+Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local), maintained as `drajb/whisper-local` by Rohit Burani. Internal Python module name remains `whisper_key`; the config directory remains `%APPDATA%\whisperkey` (`~/.whisperkey` on macOS).
 
 - Start here: `state_manager.py` coordinates all components workflow
 
@@ -26,6 +26,29 @@ Personal fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-lo
 | **Hardware Detection** | `hardware_detection.py` | Platform GPU detection wrapper | - |
 | **Terminal UI** | `terminal_ui.py` | Interactive terminal prompts | - |
 | **Utilities** | `utils.py` | Common utility functions | - |
+| **Diagnostics** | `doctor.py` | `--doctor` health checks across all subsystems | - |
+| **Self-Test** | `selftest.py` | `--selftest` automated mic/model/transcribe/clipboard check | sounddevice |
+| **Log Bundler** | `bundle_logs.py` | `--bundle-logs` redacted diagnostic zip for bug reports | zipfile, re |
+| **Local API Server** | `local_server.py` | `--serve` OpenAI-compatible Whisper HTTP endpoint | http.server |
+| **Settings GUI** | `settings_ui.py` | `--settings` Tkinter settings editor with search | tkinter |
+| **Transcript History** | `history_window.py` + `transcript_log.py` | `--history` searchable journal of past transcriptions | tkinter, json |
+| **Hotkey Cheat Sheet** | `cheat_sheet.py` | Window listing currently configured hotkeys | tkinter |
+| **First-Run Welcome** | `first_run.py` | One-time onboarding window on first launch | tkinter |
+| **Level Overlay** | `level_overlay.py` | Floating level meter + streaming text pill | tkinter |
+| **Fallback Window** | `fallback_window.py` | Capture window when no text field is focused | tkinter |
+| **Transforms** | `transforms.py` | Wispr-style AI text transforms via Ollama | ruamel.yaml |
+| **Dictionary** | `dictionary.py` | Hotword add/remove/list + add-word dialog | tkinter, ruamel.yaml |
+| **Profiles** | `profiles.py` | Dictation/Chat/Code/Notes/Translate presets | ruamel.yaml |
+| **Per-App Rules** | `app_rules.py` | Foreground-app-specific behaviour overrides | ruamel.yaml |
+| **Text Post-Process** | `text_postprocess.py` | Inline formatting + optional Ollama polish | urllib |
+| **Streaming** | `streaming_manager.py` + `streaming_recognizer.py` | Real-time partial transcription (experimental) | sherpa-onnx |
+| **Noise Suppression** | `noise_suppression.py` | Optional spectral-gating noise reduction | noisereduce |
+| **Stats** | `stats.py` | Usage stats, streaks, daily summary | json |
+| **Audit Log** | `audit_log.py` | Optional append-only delivery audit trail | - |
+| **Update Check** | `update_check.py` | Opt-in daily GitHub release check | urllib |
+| **Settings I/O** | `settings_io.py` | `--export-settings` / `--import-settings` | shutil |
+| **Vocab Import** | `vocab_import.py` | `--import-vocab` hotword mining from a folder | - |
+| **Setup Wizard** | `setup_wizard.py` | `--setup` interactive first-time configuration | - |
 
 ## Project Structure
 
@@ -91,4 +114,4 @@ whisper-local/
 
 ---
 
-*Last Updated: 2026-03-16 | Project Status: Active Development*
+*Last Updated: 2026-06-11 | Project Status: Active Development*

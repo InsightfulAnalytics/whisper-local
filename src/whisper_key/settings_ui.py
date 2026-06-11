@@ -182,31 +182,50 @@ def run_settings_window():
               bg=BG3, fg=FG, relief='flat',
               padx=18, pady=5, font=('Segoe UI', 9)).pack(side='right')
 
+    # Snapshot each row widget's real pack geometry now, while everything is laid
+    # out exactly as the builders intended. The search filter restores from this
+    # instead of guessing at padx/pady (footnotes and note-rows differ), and
+    # re-packs in creation order so filtering never reshuffles rows.
+    pack_specs = {}
+    for rec in row_index.values():
+        for w in rec['widgets']:
+            try:
+                info = {k: v for k, v in w.pack_info().items() if k != 'in'}
+                pack_specs[w] = info
+            except Exception:
+                pack_specs[w] = {'fill': 'x', 'padx': (12, 12), 'pady': 2}
+
+    def _show(w):
+        try:
+            w.pack(**pack_specs.get(w, {'fill': 'x', 'padx': (12, 12), 'pady': 2}))
+        except Exception:
+            pass
+
     def on_search(*_):
         query = search_var.get().lower().strip()
+        # Forget everything first, then re-pack the visible rows in their original
+        # creation order — guarantees stable ordering regardless of match set.
+        for rec in row_index.values():
+            for w in rec['widgets']:
+                try: w.pack_forget()
+                except Exception: pass
+
         if not query:
             hint_var.set('')
             for rec in row_index.values():
                 for w in rec['widgets']:
-                    try: w.pack(fill='x', padx=(12, 12), pady=2)
-                    except Exception: pass
+                    _show(w)
             return
+
         matched_count = 0
         matched_tabs = set()
         for path, rec in row_index.items():
             haystack = (path + ' ' + rec.get('label', '')).lower()
-            visible = query in haystack
-            if visible:
+            if query in haystack:
                 matched_count += 1
                 matched_tabs.add(rec['tab_index'])
-            for w in rec['widgets']:
-                try:
-                    if visible:
-                        w.pack(fill='x', padx=(12, 12), pady=2)
-                    else:
-                        w.pack_forget()
-                except Exception:
-                    pass
+                for w in rec['widgets']:
+                    _show(w)
         if matched_tabs:
             try:
                 nb.select(min(matched_tabs))

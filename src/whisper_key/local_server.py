@@ -25,6 +25,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_HOST = '127.0.0.1'
 DEFAULT_PORT = 7777
 
+# Hard cap on request body size. Even bound to loopback, a buggy or hostile
+# local client could send a huge Content-Length and exhaust memory, so we
+# refuse anything larger than this before reading the body. 500 MB is far
+# beyond any realistic audio upload (an hour of 16 kHz mono WAV is ~115 MB).
+MAX_UPLOAD_BYTES = 500 * 1024 * 1024
+
 
 # Public entry point. Builds the Whisper engine once at startup (warm cache,
 # fast subsequent transcriptions), then enters the http.server forever loop.
@@ -220,6 +226,10 @@ def _parse_multipart(handler):
         raise ValueError('No boundary in Content-Type')
 
     length = int(handler.headers.get('Content-Length', '0'))
+    if length > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f'Payload too large: {length} bytes exceeds the {MAX_UPLOAD_BYTES}-byte limit'
+        )
     raw = handler.rfile.read(length)
     sep = b'--' + boundary.encode('latin-1')
     fields = {}
@@ -244,7 +254,11 @@ def _parse_multipart(handler):
                     break
             if not name:
                 continue
-            body = body.rstrip(b'\r\n').rstrip(b'-')
+            # Strip ONLY the trailing CRLF that separates the body from the next
+            # boundary. Do NOT strip trailing '-' — split(sep) already isolated
+            # this part, and the closing "--" lives in its own trailing chunk.
+            # Stripping '-' here silently truncated binary audio ending in 0x2D.
+            body = body[:-2] if body.endswith(b'\r\n') else body
             entry = {'value': body.decode('utf-8', 'replace'), 'data': body}
             fields[name] = entry
         except Exception:

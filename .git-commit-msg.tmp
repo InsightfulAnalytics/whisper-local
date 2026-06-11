@@ -1,0 +1,42 @@
+fix: resolve all audit findings (SRV/PRIV/VC/UI/LOG/CI/DOC)
+
+Addresses every item in docs/AUDIT.md. 59 smoke tests pass (was 53).
+
+Security / correctness:
+- SRV-1 (High): local_server._parse_multipart stripped trailing '-' from every
+  field body, silently truncating binary audio ending in 0x2D. Now strips only
+  the trailing CRLF. Regression test added.
+- SRV-2 (Med): cap request body at MAX_UPLOAD_BYTES (500 MB); reject oversized
+  Content-Length before reading. Test added.
+- PRIV-1 (High): bundle_logs now masks hotwords / Ollama endpoint / initial_prompt
+  in user_settings.yaml (was leaking them into zips meant for public issues).
+  about.txt + console note updated. Tests added.
+- VC-1 (Med): voice_commands shell-quotes ${clipboard}/${selection} for run:
+  commands (shell_safe) and force-confirms any run: built from untrusted template
+  content. Test added.
+
+UI lifecycle:
+- UI-1: history_window resets its singleton on close (was probing a destroyed root).
+- UI-2: add-word dialog gets the same singleton guard + close/finally cleanup.
+- UI-3: settings_ui search snapshots real pack_info() and forgets-all-then-repacks
+  in creation order, preserving geometry and row order.
+
+Concurrency:
+- LOG-1: transcript_log and stats wrap append (+rotate) in a threading.Lock.
+
+CI / docs:
+- CI-1: test.yml runs on [ubuntu, windows, macos] matrix.
+- DOC-1: project-index.md refreshed with all current modules.
+- DOC-2: CITATION.cff -> 0.10.0, now guarded by test_citation_matches_pyproject.
+- DOC-3: README test line de-numbered.
+
+Investigated, no code change needed:
+- SPAWN-1 (NOT A BUG): a WHISPER_DEBUG_SPAWN probe proved main() runs once under
+  pythonw. The "two processes" are the venv pythonw launcher stub + the base
+  interpreter it delegates to — normal Windows venv behaviour, one logical
+  instance. Added the env-gated probe to main.py as a debugging aid.
+- REC-1 / VAD-1 (WONTFIX by design): is_recording staleness is absorbed by the
+  pre-roll buffer; VAD fires SILENCE_TIMEOUT at most once per recording. Adding
+  locks to the realtime audio path would be net-negative for theoretical races.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
