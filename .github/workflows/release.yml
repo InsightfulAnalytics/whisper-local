@@ -89,6 +89,9 @@ jobs:
 
   publish-pypi:
     needs: build
+    # Skip PyPI for prerelease tags (anything with a hyphen, e.g. v0.10.1-rc1).
+    # Those are for testing the pipeline / sharing early builds, not for release.
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -120,6 +123,8 @@ jobs:
             dist/*
             exe/*
           generate_release_notes: true
+          # Hyphenated tags (v0.10.1-rc1, v0.11.0-beta) are marked prerelease.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
             ## Install
 
