@@ -13,9 +13,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruamel.yaml
+      - run: pip install ruamel.yaml numpy pyperclip
       - run: python -m unittest tests.test_smoke -v
 
+  # Build the Python wheel + sdist. This artifact feeds both PyPI publishing
+  # and the standalone .exe build below (so the .exe is built from the exact
+  # same wheel, with no dependency on PyPI propagation).
   build:
     needs: test
     runs-on: ubuntu-latest
@@ -35,6 +38,55 @@ jobs:
           name: dist
           path: dist/
 
+  # Build a standalone Windows .exe with pyapp (https://ofek.dev/pyapp).
+  # The .exe is tiny: on first run it downloads a standalone CPython and
+  # pip-installs the embedded wheel + its dependencies, then runs the app.
+  # PYAPP_PROJECT_PATH embeds our local wheel, so this needs no PyPI.
+  build-exe:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # GitHub's Windows runners ship a Rust toolchain (cargo) preinstalled.
+      - name: Fetch pyapp source
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/ofek/pyapp/releases/latest/download/source.tar.gz" -OutFile pyapp.tar.gz
+          tar -xzf pyapp.tar.gz
+          $dir = Get-ChildItem -Directory -Filter "pyapp-v*" | Select-Object -First 1
+          if (-not $dir) { $dir = Get-ChildItem -Directory -Filter "pyapp-*" | Select-Object -First 1 }
+          "PYAPP_DIR=$($dir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build whisper-local.exe
+        shell: pwsh
+        env:
+          PYAPP_PYTHON_VERSION: '3.12'
+          PYAPP_EXEC_CODE: 'from whisper_key.main import main; main()'
+          PYAPP_PASS_LOCATION: '1'
+        run: |
+          $wheel = (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+          $env:PYAPP_PROJECT_PATH = $wheel
+          Write-Host "Embedding wheel: $wheel"
+          Push-Location $env:PYAPP_DIR
+          cargo build --release
+          if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
+          Pop-Location
+          New-Item -ItemType Directory -Force -Path exe | Out-Null
+          Copy-Item "$env:PYAPP_DIR\target\release\pyapp.exe" "exe\whisper-local.exe" -Force
+          Get-Item "exe\whisper-local.exe" | Format-List Name, Length
+      - name: Compute checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash exe\whisper-local.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  whisper-local.exe" | Out-File -FilePath exe\whisper-local.exe.sha256 -Encoding ascii
+          Write-Host "SHA256: $hash"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: exe/
+
   publish-pypi:
     needs: build
     runs-on: ubuntu-latest
@@ -49,7 +101,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    needs: build
+    needs: [build, build-exe]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -58,22 +110,30 @@ jobs:
         with:
           name: dist
           path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: exe
+          path: exe/
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*
+            exe/*
           generate_release_notes: true
           body: |
             ## Install
 
+            **Option 1 — Standalone Windows app (no Python needed)**
+            Download `whisper-local.exe` below and double-click it. On first launch
+            it sets itself up (downloads a private Python runtime + the app), then
+            downloads the default Whisper `tiny` model (~75 MB). After that it runs
+            **100% offline**.
+
+            **Option 2 — pip (Windows / macOS, needs Python 3.11+)**
             ```bash
             pip install whisper-local==${{ needs.build.outputs.version }}
             ```
+            Update later with `pip install --upgrade whisper-local`.
 
-            Update an existing installation:
-
-            ```bash
-            pip install --upgrade whisper-local
-            ```
-
-            First launch downloads the default Whisper `tiny` model (~75 MB).
-            After that everything runs **100% offline**.
+            ---
+            Verify the .exe download with `whisper-local.exe.sha256`.

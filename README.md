@@ -358,6 +358,7 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 
 - **[docs/troubleshooting.md](docs/troubleshooting.md)** — symptom → cause → fix table for the most common issues
 - **[docs/faq.md](docs/faq.md)** — privacy, comparisons (Whisper.cpp / WSR / Wispr Flow / Dragon), model picks, GPU notes
+- **[docs/distribution.md](docs/distribution.md)** — how releases work (standalone `.exe`, PyPI, winget, Homebrew) and how to ship one
 - **[docs/voice-commands.md](docs/voice-commands.md)** — the full voice command DSL
 - **[docs/gpu-setup.md](docs/gpu-setup.md)** — manual GPU setup for NVIDIA / AMD
 - **[CHANGELOG.md](CHANGELOG.md)** — release notes
