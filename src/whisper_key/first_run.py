@@ -110,11 +110,29 @@ def _run_welcome(on_close, hotkey_label):
              text="No audio or transcripts ever leave your machine. Promise.",
              bg=BG, fg=FG_DIM, font=('Segoe UI', 9, 'italic')).pack(anchor='w', pady=(14, 0))
 
+    # Opt-in autostart: offered here, off unless the user ticks it. Only shown on
+    # platforms where we can actually wire it up (Windows / macOS).
+    from . import autostart
+    autostart_var = tk.BooleanVar(value=False)
+    if autostart.is_supported():
+        cb = tk.Checkbutton(
+            container, variable=autostart_var,
+            text="  Start Whisper Local automatically when I log in",
+            bg=BG, fg=FG, selectcolor=BG2, activebackground=BG, activeforeground=FG,
+            font=('Segoe UI', 9), anchor='w', bd=0, highlightthickness=0,
+        )
+        cb.pack(anchor='w', pady=(10, 0))
+
     btn_frame = tk.Frame(container, bg=BG)
     btn_frame.pack(fill='x', pady=(14, 0))
 
     def _done():
         mark_first_run_complete()
+        if autostart_var.get():
+            try:
+                autostart.enable()
+            except Exception as e:
+                logger.debug(f"Autostart enable from welcome failed: {e}")
         try:
             root.destroy()
         except Exception:

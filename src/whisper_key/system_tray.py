@@ -288,10 +288,19 @@ class SystemTray:
                 menu_items.append(pystray.MenuItem("Show Console", self._show_console, default=True))
                 menu_items.append(pystray.Menu.SEPARATOR)
 
+            from . import autostart
             menu_items += [
                 pystray.MenuItem("Settings...", self._open_settings_window),
                 pystray.MenuItem("Hotkey cheat sheet...", self._open_cheat_sheet),
                 pystray.MenuItem("Transcript history...", self._open_history_window),
+            ]
+            if autostart.is_supported():
+                menu_items.append(pystray.MenuItem(
+                    "Start on login",
+                    self._toggle_autostart,
+                    checked=lambda item: autostart.is_enabled(),
+                ))
+            menu_items += [
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log file...", self._open_log_file),
                 pystray.MenuItem("Open model cache...", self._open_model_cache),
@@ -472,6 +481,15 @@ class SystemTray:
 
     def _open_history_window(self, icon=None, item=None):
         self._run_module_in_window('--history')
+
+    def _toggle_autostart(self, icon=None, item=None):
+        try:
+            from . import autostart
+            now_on = autostart.toggle()
+            self.notify("Will start on login" if now_on else "Won't start on login")
+            self.refresh_menu()
+        except Exception as e:
+            self.logger.error(f"Failed to toggle autostart: {e}")
 
     def _open_cheat_sheet(self, icon=None, item=None):
         try:

@@ -4,6 +4,22 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.11.0]
+
+### Added
+- **Start on login (autostart)** — opt-in, built in. New `autostart` module (Windows
+  `HKCU\...\Run` via stdlib `winreg`; macOS LaunchAgent). Enable via the tray
+  **Start on login** checkbox, the first-run welcome checkbox, or
+  `whisper-local --enable-autostart` / `--disable-autostart`. Launches windowless
+  (no console flash). Off until you choose it.
+
+### Changed
+- **Default Whisper model is now `base`** (was `tiny`) — noticeably more accurate out
+  of the box and still real-time on CPU (~141 MB first download).
+- **Default recording mode is now `push_to_talk`** (was `toggle`) — hold the hotkey to
+  talk, release to transcribe. This matches the onboarding/setup-wizard guidance
+  (previously the welcome screens said "hold" while the default was toggle).
+
 ## [0.10.0]
 
 ### Added

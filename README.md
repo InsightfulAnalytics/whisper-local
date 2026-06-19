@@ -122,7 +122,7 @@ pip install -e .
 |---|---|
 | **Terminal** | `whisper-local` (or `wl` for short) |
 | **Double-click** | `whisper-local.cmd` (Windows) |
-| **Start Menu / Startup** | Create a shortcut to `whisper-local.cmd`, drop it in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\` for autostart |
+| **Start on login** | Tick **Start on login** in the tray menu (or the first-run welcome), or run `whisper-local --enable-autostart`. Disable anytime the same way. |
 
 First launch downloads the [`tiny`](https://huggingface.co/Systran/faster-whisper-tiny) Whisper model (~75 MB) into your HuggingFace cache. After that, **everything runs offline**.
 
@@ -305,6 +305,7 @@ whisper-local --cheat-sheet        # Show your currently configured hotkeys
 whisper-local --selftest           # Run an automated self-test (mic, model, transcription)
 whisper-local --bundle-logs        # Create a redacted diagnostic zip for bug reports
 whisper-local --serve              # Run a local OpenAI-compatible Whisper API on :7777
+whisper-local --enable-autostart   # Launch automatically at login (--disable-autostart to undo)
 whisper-local --test               # Run a separate test instance (own mutex)
 ```
 

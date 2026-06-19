@@ -332,6 +332,8 @@ def main():
     parser.add_argument('--list-dictionary', action='store_true', help='Show all words in your hotwords dictionary')
     parser.add_argument('--settings', action='store_true', help='Open the settings window')
     parser.add_argument('--history', action='store_true', help='Browse transcript history')
+    parser.add_argument('--enable-autostart', action='store_true', help='Launch Whisper Local automatically at login')
+    parser.add_argument('--disable-autostart', action='store_true', help='Stop launching at login')
     parser.add_argument('--selftest', action='store_true', help='Run automated self-test (mic, model, transcription, clipboard)')
     parser.add_argument('--cheat-sheet', action='store_true', help='Show your currently configured hotkeys in a window')
     parser.add_argument('--bundle-logs', metavar='PATH', nargs='?', const='', help='Create a redacted diagnostic zip for bug reports')
@@ -397,6 +399,20 @@ def main():
         show_history()
         import time
         time.sleep(0.5)
+        sys.exit(0)
+
+    if args.enable_autostart:
+        from . import autostart
+        if autostart.enable():
+            print("✓ Whisper Local will now start automatically when you log in.")
+            sys.exit(0)
+        print("✗ Could not enable autostart on this platform. See docs/distribution.md.")
+        sys.exit(1)
+
+    if args.disable_autostart:
+        from . import autostart
+        autostart.disable()
+        print("✓ Whisper Local will no longer start automatically at login.")
         sys.exit(0)
 
     if args.selftest:

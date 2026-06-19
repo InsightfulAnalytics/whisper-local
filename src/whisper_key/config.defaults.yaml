@@ -17,7 +17,10 @@ whisper: # Whisper AI Model Settings
 
     # Model selection
     # See "models" below for more information
-    model: tiny
+    # 'base' (~141 MB) is the default: noticeably more accurate than 'tiny' and
+    # still real-time on CPU. Switch to 'tiny' for the smallest/fastest download,
+    # or 'small'/'medium'/'large' for higher accuracy (GPU recommended for large).
+    model: base
 
     # Transcription device
     # Options: cpu, cuda (for both NVIDIA and AMD)
@@ -167,9 +170,9 @@ hotkey: # Hotkey Configuration
     cancel_combination: "esc | macos: shift"
 
     # Recording mode
-    # "toggle" = press hotkey to start, press stop key to stop (default)
-    # "push_to_talk" = hold hotkey to record, release to stop and transcribe
-    recording_mode: toggle
+    # "push_to_talk" = hold hotkey to record, release to stop and transcribe (default)
+    # "toggle" = press hotkey to start, press stop key to stop
+    recording_mode: push_to_talk
 
     # Key combination for voice command mode
     # Records speech and matches against user-defined commands

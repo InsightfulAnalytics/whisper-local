@@ -545,5 +545,55 @@ class VoiceCommandQuotingTests(unittest.TestCase):
         self.assertEqual(raw, 'echo ; rm -rf ~')
 
 
+class AutostartTests(unittest.TestCase):
+    def test_module_and_api(self):
+        from whisper_key import autostart
+        for fn in ('is_supported', 'is_enabled', 'enable', 'disable', 'toggle'):
+            self.assertTrue(callable(getattr(autostart, fn, None)), f"missing {fn}")
+
+    def test_is_supported_matches_platform(self):
+        import sys
+        from whisper_key import autostart
+        self.assertEqual(autostart.is_supported(), sys.platform in ('win32', 'darwin'))
+
+    def test_launch_command_nonempty(self):
+        from whisper_key import autostart
+        cmd = autostart._launch_command()
+        self.assertIsInstance(cmd, list)
+        self.assertTrue(cmd and cmd[0])
+
+    def test_macos_plist_roundtrip(self):
+        import tempfile
+        import unittest.mock as mock
+        from pathlib import Path
+        from whisper_key import autostart
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'agent.plist'
+            with mock.patch('whisper_key.autostart._mac_plist_path', return_value=p):
+                self.assertFalse(autostart._mac_is_enabled())
+                autostart._mac_enable()
+                self.assertTrue(autostart._mac_is_enabled())
+                content = p.read_text(encoding='utf-8')
+                self.assertIn('RunAtLoad', content)
+                self.assertIn('com.drajb.whisper-local', content)
+                autostart._mac_disable()
+                self.assertFalse(autostart._mac_is_enabled())
+
+    def test_main_registers_autostart_flags(self):
+        main_src = (ROOT / "src" / "whisper_key" / "main.py").read_text(encoding="utf-8")
+        self.assertIn('--enable-autostart', main_src)
+        self.assertIn('--disable-autostart', main_src)
+
+
+class DefaultsTests(unittest.TestCase):
+    def test_default_model_and_recording_mode(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "config.defaults.yaml"
+        with open(path, encoding="utf-8") as f:
+            cfg = YAML().load(f)
+        self.assertEqual(cfg["whisper"]["model"], "base")
+        self.assertEqual(cfg["hotkey"]["recording_mode"], "push_to_talk")
+
+
 if __name__ == "__main__":
     unittest.main()
