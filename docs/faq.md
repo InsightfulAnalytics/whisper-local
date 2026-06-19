@@ -41,7 +41,7 @@ Dragon is a paid product (~$500 perpetual or subscription), Windows-only, with g
 
 ### Which Whisper model should I use?
 - **`tiny` (~75 MB)** — fast, OK for short commands. Bad for long dictation.
-- **`base` (~141 MB)** — reasonable for most users. **Recommended default for CPU.**
+- **`base` (~141 MB)** — reasonable for most users. **This is the default.**
 - **`small` (~464 MB)** — much better accuracy, still real-time on most CPUs.
 - **`medium` (~1.4 GB)** — recommended for GPUs. Excellent accuracy.
 - **`large-v3` (~2.9 GB)** — best, GPU strongly recommended.

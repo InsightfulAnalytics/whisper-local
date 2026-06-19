@@ -124,7 +124,7 @@ pip install -e .
 | **Double-click** | `whisper-local.cmd` (Windows) |
 | **Start on login** | Tick **Start on login** in the tray menu (or the first-run welcome), or run `whisper-local --enable-autostart`. Disable anytime the same way. |
 
-First launch downloads the [`tiny`](https://huggingface.co/Systran/faster-whisper-tiny) Whisper model (~75 MB) into your HuggingFace cache. After that, **everything runs offline**.
+First launch downloads the default [`base`](https://huggingface.co/Systran/faster-whisper-base) Whisper model (~141 MB) into your HuggingFace cache. After that, **everything runs offline**. (Prefer a smaller/faster download? Set `whisper.model: tiny` — ~75 MB.)
 
 ### Use it
 
@@ -269,13 +269,13 @@ Delete the file and restart to reset to defaults. Highlights:
 
 | Option | Default | Notes |
 |---|---|---|
-| `whisper.model` | `tiny` | Any model from `whisper.models`. Larger = more accurate, slower |
+| `whisper.model` | `base` | Any model from `whisper.models`. `tiny` = smallest/fastest, larger = more accurate/slower |
 | `whisper.device` | `cpu` | `cpu` or `cuda` (NVIDIA/AMD) |
 | `whisper.compute_type` | `int8` | `int8`/`float16`/`float32` |
 | `whisper.language` | `auto` | Auto-detect or specific language code |
 | `whisper.hotwords` | `[]` | Words the model should favour — names, jargon |
 | `hotkey.recording_hotkey` | `ctrl+win` | Configurable |
-| `hotkey.recording_mode` | `toggle` | `toggle` or `push_to_talk` |
+| `hotkey.recording_mode` | `push_to_talk` | `push_to_talk` (hold to talk) or `toggle` |
 | `vad.vad_realtime_enabled` | `true` | Auto-stop on silence |
 | `clipboard.auto_paste` | `true` | `false` = copy only |
 | `clipboard.delivery_method` | `paste` | `paste` (Ctrl+V) or `type` (direct injection) |

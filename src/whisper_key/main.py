@@ -247,6 +247,15 @@ def run_gpu_onboarding(config_manager, whisper_config):
     gpu_status = config_manager.config.get('onboarding', {}).get('gpu', 'pending')
     if gpu_status != 'pending':
         return whisper_config
+    # GPU onboarding is interactive (reads a keypress). Under a windowless launch
+    # (pythonw / autostart, no console) there's no way to answer the prompt, so
+    # defer it — leave status 'pending' and let the next normal (console) launch
+    # handle it. Without this, a first-ever windowless launch on a GPU machine
+    # could hang on the prompt. (sys.stdout is reassigned to devnull earlier under
+    # pythonw, so sys.stdin is the reliable no-console signal here.)
+    if sys.stdin is None:
+        logging.getLogger(__name__).info("Skipping GPU onboarding prompt (no console); deferring to next launch")
+        return whisper_config
     gpu_class, gpu_name, ct2_works = detect_hardware(whisper_config['device'])
     check_gpu(gpu_class, gpu_name, ct2_works, whisper_config['device'], config_manager)
     return config_manager.get_whisper_config()
