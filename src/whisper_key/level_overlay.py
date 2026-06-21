@@ -47,6 +47,10 @@ class LevelOverlay:
         self._streaming_text = ''
         self._displayed_chars = 0
         self._flash_color = None
+        # Tracks the pending _update_loop after() callback so a new mode switch
+        # cancels the old animation loop instead of stacking a second one (which
+        # would multiply redraw/CPU load over many record cycles).
+        self._update_after_id = None
         self._available = self._check_tk()
 
     def _check_tk(self) -> bool:
@@ -143,6 +147,11 @@ class LevelOverlay:
             self._smoothed = 0.0
             if mode == 'recording':
                 self._displayed_chars = 0
+            # Cancel any in-flight loop before starting a fresh one.
+            if self._update_after_id is not None:
+                try: self.root.after_cancel(self._update_after_id)
+                except Exception: pass
+                self._update_after_id = None
             self._update_loop()
             self._refresh_text()
 
@@ -269,9 +278,9 @@ class LevelOverlay:
         self._draw(self._smoothed)
 
         try:
-            self.root.after(int(1000 / self.UPDATE_HZ), self._update_loop)
+            self._update_after_id = self.root.after(int(1000 / self.UPDATE_HZ), self._update_loop)
         except Exception:
-            pass
+            self._update_after_id = None
 
     def _draw(self, level: float, override_color: Optional[str] = None):
         if not self._level_canvas:

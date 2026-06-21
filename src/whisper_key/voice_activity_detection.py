@@ -190,6 +190,16 @@ class ContinuousVoiceDetector:
 
         try:
             audio_int16 = convert_audio_for_ten_vad(audio_chunk)
+            # TEN VAD requires exactly VAD_CHUNK_SIZE (256) samples. Realtime chunks
+            # are normally 256, but resampling from non-48kHz mics can land a sample
+            # or two off — slice/pad to exactly 256 (mirrors check_audio_for_speech)
+            # so the silence-timeout doesn't silently die on those devices.
+            if len(audio_int16) != VAD_CHUNK_SIZE:
+                if len(audio_int16) > VAD_CHUNK_SIZE:
+                    audio_int16 = audio_int16[:VAD_CHUNK_SIZE]
+                else:
+                    audio_int16 = np.pad(audio_int16, (0, VAD_CHUNK_SIZE - len(audio_int16)),
+                                         mode='constant', constant_values=0)
             probability, _ = self.ten_vad.process(audio_int16)
             speech_detected = self.hysteresis.detect_speech(probability)
             self.probability_buffer.append(probability)

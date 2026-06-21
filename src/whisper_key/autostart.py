@@ -94,8 +94,11 @@ def _mac_is_enabled() -> bool:
 
 
 def _mac_enable() -> bool:
+    from xml.sax.saxutils import escape
     args = _launch_command()
-    args_xml = "\n".join(f"        <string>{a}</string>" for a in args)
+    # Escape &, <, > — a username/path containing them would otherwise produce an
+    # invalid plist that launchd silently refuses to load.
+    args_xml = "\n".join(f"        <string>{escape(a)}</string>" for a in args)
     plist = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -170,8 +173,10 @@ def disable() -> bool:
 
 
 def toggle() -> bool:
+    # Returns the achieved state, not the intended one — if enable()/disable()
+    # fails (e.g. permissions), the caller sees the truth.
     if is_enabled():
         disable()
-        return False
+        return is_enabled()
     enable()
-    return True
+    return is_enabled()

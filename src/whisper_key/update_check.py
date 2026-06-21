@@ -71,12 +71,16 @@ def _check_in_background(notify_callback):
         logger.debug(f"Update check failed: {e}")
 
 
-# Compare two semver strings. Tuple-of-ints comparison is good enough — we
-# never publish pre-release tags via this channel.
+# Compare two semver strings. Strips any pre-release/build suffix first — notably
+# get_version() returns "X.Y.Z-dev" for source/dev installs, which would otherwise
+# make int() throw and silently disable update checks forever.
 def _is_newer(latest: str, current: str) -> bool:
     try:
         def _parts(v):
-            return tuple(int(x) for x in v.split('.')[:3])
+            core = v.lstrip('v').split('-')[0].split('+')[0]
+            nums = [int(x) for x in core.split('.')[:3]]
+            nums += [0] * (3 - len(nums))  # pad short versions (e.g. "1.2" -> 1.2.0)
+            return tuple(nums)
         return _parts(latest) > _parts(current)
     except Exception:
         return False

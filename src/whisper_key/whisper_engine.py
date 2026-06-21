@@ -84,11 +84,13 @@ class WhisperEngine:
                           new_model_key: str,
                           progress_callback: Optional[Callable[[str], None]] = None):
         def _background_loader():
+            # Capture before any callback so the except handler can always restore
+            # it (a progress_callback that raises must not cause UnboundLocalError).
+            old_model_key = self.model_key
             try:
                 if progress_callback:
                     progress_callback("Checking model cache...")
 
-                old_model_key = self.model_key
                 was_cached = self._is_model_cached(new_model_key)
 
                 if progress_callback:

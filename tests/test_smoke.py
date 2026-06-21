@@ -594,6 +594,47 @@ class DefaultsTests(unittest.TestCase):
         self.assertEqual(cfg["whisper"]["model"], "base")
         self.assertEqual(cfg["hotkey"]["recording_mode"], "push_to_talk")
 
+    def test_profiles_no_tiny_downgrade(self):
+        from ruamel.yaml import YAML
+        path = ROOT / "src" / "whisper_key" / "profiles.defaults.yaml"
+        with open(path, encoding="utf-8") as f:
+            data = YAML().load(f)
+        for name, prof in data["profiles"].items():
+            model = (prof.get("overrides", {}).get("whisper") or {}).get("model")
+            self.assertNotEqual(model, "tiny", f"profile '{name}' still pins tiny")
+
+
+class ReviewFixTests(unittest.TestCase):
+    # update_check must not crash on a "-dev" suffixed local version.
+    def test_is_newer_handles_dev_suffix(self):
+        from whisper_key.update_check import _is_newer
+        self.assertTrue(_is_newer("0.12.0", "0.11.0-dev"))
+        self.assertFalse(_is_newer("0.11.0", "0.11.0-dev"))   # same core, not newer
+        self.assertFalse(_is_newer("1.2", "1.2.0"))           # padded equal
+        self.assertTrue(_is_newer("v1.3.0", "1.2.9"))         # leading v tolerated
+
+    # settings_ui._coerce must keep free-text settings as strings even when numeric-looking.
+    def test_coerce_is_type_aware(self):
+        from whisper_key.settings_ui import _coerce
+        sentinel = object()  # not a BooleanVar
+        self.assertEqual(_coerce(sentinel, "2024", "whisper.initial_prompt"), "2024")
+        self.assertEqual(_coerce(sentinel, "3", "postprocess.ollama.model"), "3")
+        self.assertEqual(_coerce(sentinel, "5", "whisper.beam_size"), 5)
+        self.assertAlmostEqual(_coerce(sentinel, "0.75", "audio.noise_suppression.strength"), 0.75)
+
+    # autostart.toggle returns the achieved state (macOS path, temp plist).
+    def test_autostart_toggle_returns_state(self):
+        import sys
+        if sys.platform != "darwin":
+            self.skipTest("toggle round-trip exercised via macOS plist path only")
+        import tempfile, unittest.mock as mock
+        from pathlib import Path
+        from whisper_key import autostart
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch("whisper_key.autostart._mac_plist_path", return_value=Path(d) / "a.plist"):
+                self.assertTrue(autostart.toggle())
+                self.assertFalse(autostart.toggle())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -111,7 +111,8 @@ def hide():
 def show():
     hwnd = _get_hwnd()
     if hwnd:
-        user32.ShowWindow(hwnd, SW_HIDE)
+        # Just restore + foreground. (A stray SW_HIDE here — copy-pasted from
+        # hide() — made the console flicker hidden-then-visible every time.)
         user32.ShowWindow(hwnd, SW_RESTORE)
         user32.SetForegroundWindow(hwnd)
 

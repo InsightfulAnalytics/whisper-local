@@ -526,7 +526,7 @@ def _save_all(cm, vars_):
 
     for path, var in vars_.items():
         raw = var.get()
-        value = _coerce(var, raw)
+        value = _coerce(var, raw, path)
         parts = path.split('.')
 
         if len(parts) == 2:
@@ -549,19 +549,33 @@ def _save_all(cm, vars_):
             logger.warning(f"Could not save {section}.{sub_key}: {e}")
 
 
-# Turn the string-based Tkinter value back into the right Python type. Order
-# matters: bool first (some BooleanVars return strings on some Tk builds), then
-# int, then float, then fallback to the raw string.
-def _coerce(var, raw):
+# Settings whose values are genuinely numeric. ONLY these are int/float-coerced;
+# everything else stays a string so free-text fields (initial_prompt, hotkeys,
+# ollama model/endpoint) aren't silently turned into numbers when they happen to
+# look numeric — e.g. initial_prompt "2024" must stay the string "2024".
+_NUMERIC_PATHS = {
+    'whisper.beam_size',
+    'audio.max_duration',
+    'audio.noise_suppression.strength',
+    'vad.vad_silence_timeout_seconds',
+    'postprocess.ollama.timeout',
+}
+
+
+# Turn the string-based Tkinter value back into the right Python type, keyed by
+# the setting's path so coercion is by declared type, not by guessing from the
+# string contents.
+def _coerce(var, raw, path):
     import tkinter as tk
     if isinstance(var, tk.BooleanVar):
         return bool(raw)
-    try:
-        return int(raw)
-    except (ValueError, TypeError):
-        pass
-    try:
-        return float(raw)
-    except (ValueError, TypeError):
-        pass
+    if path in _NUMERIC_PATHS:
+        try:
+            return int(raw)
+        except (ValueError, TypeError):
+            pass
+        try:
+            return float(raw)
+        except (ValueError, TypeError):
+            pass
     return raw

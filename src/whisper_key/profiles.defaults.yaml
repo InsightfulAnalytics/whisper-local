@@ -16,7 +16,7 @@ profiles:
         auto_paste: true
         delivery_method: paste
       whisper:
-        model: tiny
+        model: base
         task: transcribe
         initial_prompt: ""
       voice_commands:
@@ -52,7 +52,7 @@ profiles:
       clipboard:
         auto_paste: false
       whisper:
-        model: tiny
+        model: base
         task: transcribe
         initial_prompt: "Note-taking. Markdown formatting. Bullet points."
       voice_commands:

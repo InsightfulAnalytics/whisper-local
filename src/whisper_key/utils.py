@@ -22,7 +22,7 @@ def beautify_hotkey(hotkey_string: str) -> str:
     if not hotkey_string:
         return ""
 
-    return hotkey_string.replace('+', '+').upper()
+    return hotkey_string.upper()
 
 def parse_hotkey(hotkey_string: str) -> list:
     if not hotkey_string:

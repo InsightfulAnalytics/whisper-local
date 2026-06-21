@@ -85,6 +85,12 @@ class AudioRecorder:
         chunk_seconds = self._vad_blocksize / self._recording_rate
         self._preroll_max_chunks = max(1, int(self.PREROLL_SECONDS / chunk_seconds))
         self._buffer = collections.deque()
+        # Guards the ring buffer. The PortAudio callback appends/trims on its own
+        # thread while stop/cancel/max-duration snapshot+clear from other threads;
+        # list(deque) raises RuntimeError if the deque mutates mid-iteration, so
+        # every buffer access is serialized through this lock. Held only for fast
+        # ops (append, snapshot, clear), so it won't stall the audio callback.
+        self._buffer_lock = threading.Lock()
 
         self._capture_running = False
         self._capture_thread = None
@@ -210,8 +216,9 @@ class AudioRecorder:
                     self.logger.warning(f"Audio stream lost ({e}); recovering to default device (attempt {retry_count}/{max_retries})")
                     print(f"⚠ Audio device disconnected — falling back to default input")
                     if self.is_recording:
-                        self.is_recording = False
-                        self._buffer.clear()
+                        with self._buffer_lock:
+                            self.is_recording = False
+                            self._buffer.clear()
                     self.device = None
                     try:
                         self._resolve_hostapi(None)
@@ -234,7 +241,13 @@ class AudioRecorder:
         else:
             self._current_level = 0.0
 
-        self._buffer.append(chunk)
+        with self._buffer_lock:
+            self._buffer.append(chunk)
+            # Trim to pre-roll size while idle. (VAD/streaming below operate on the
+            # local `chunk` copy, not the buffer, so they stay outside the lock.)
+            if not recording:
+                while len(self._buffer) > self._preroll_max_chunks:
+                    self._buffer.popleft()
 
         if recording:
             if self.continuous_vad and frames == self._vad_blocksize:
@@ -246,9 +259,6 @@ class AudioRecorder:
 
             if self.continuous_streaming:
                 self.continuous_streaming.process_chunk(chunk)
-        else:
-            while len(self._buffer) > self._preroll_max_chunks:
-                self._buffer.popleft()
 
         if status:
             self.logger.debug(f"Audio callback status: {status}")
@@ -273,9 +283,10 @@ class AudioRecorder:
     def stop_recording(self) -> Optional[np.ndarray]:
         if not self.is_recording:
             return None
-        snapshot = list(self._buffer)
-        self.is_recording = False
-        self._buffer.clear()
+        with self._buffer_lock:
+            snapshot = list(self._buffer)
+            self.is_recording = False
+            self._buffer.clear()
         return self._build_audio_array(snapshot)
 
     def _build_audio_array(self, chunks) -> Optional[np.ndarray]:
@@ -381,8 +392,9 @@ class AudioRecorder:
     def cancel_recording(self):
         if not self.is_recording:
             return
-        self.is_recording = False
-        self._buffer.clear()
+        with self._buffer_lock:
+            self.is_recording = False
+            self._buffer.clear()
         self.recording_start_time = None
 
     def shutdown(self):
@@ -399,9 +411,10 @@ class AudioRecorder:
         self.logger.info(f"Maximum recording duration of {self.max_duration}s reached")
         print(f"⏰ Maximum recording duration of {self.max_duration}s reached - stopping recording")
 
-        snapshot = list(self._buffer)
-        self.is_recording = False
-        self._buffer.clear()
+        with self._buffer_lock:
+            snapshot = list(self._buffer)
+            self.is_recording = False
+            self._buffer.clear()
         audio_data = self._build_audio_array(snapshot)
         if self.on_max_duration_reached:
             self.on_max_duration_reached(audio_data)
