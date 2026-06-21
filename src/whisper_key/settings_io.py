@@ -4,7 +4,16 @@ from pathlib import Path
 
 from .utils import get_user_app_data_path
 
-EXPORTABLE_FILES = ["user_settings.yaml", "commands.yaml"]
+# Every user-editable config file. Anything the user can customize must be here
+# or backup/restore silently loses it. (Hotwords/dictionary live inside
+# user_settings.yaml, so they're already covered.)
+EXPORTABLE_FILES = [
+    "user_settings.yaml",
+    "commands.yaml",
+    "profiles.yaml",
+    "app_rules.yaml",
+    "transforms.yaml",
+]
 
 
 def export_settings(dest: str) -> int:

@@ -603,6 +603,13 @@ class DefaultsTests(unittest.TestCase):
             model = (prof.get("overrides", {}).get("whisper") or {}).get("model")
             self.assertNotEqual(model, "tiny", f"profile '{name}' still pins tiny")
 
+    def test_export_covers_all_user_files(self):
+        # backup/restore must include every user-editable config file.
+        from whisper_key.settings_io import EXPORTABLE_FILES
+        for f in ("user_settings.yaml", "commands.yaml", "profiles.yaml",
+                  "app_rules.yaml", "transforms.yaml"):
+            self.assertIn(f, EXPORTABLE_FILES)
+
 
 class ReviewFixTests(unittest.TestCase):
     # update_check must not crash on a "-dev" suffixed local version.
