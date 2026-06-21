@@ -71,7 +71,7 @@ Yes! `whisper-local --serve` starts a **local OpenAI-compatible HTTP server** on
 Windows 10/11 hides tray icons by default. Click the `^` arrow on the right of the taskbar and **drag** the Whisper Local icon out into the visible tray area to pin it.
 
 ### How do I autostart on login?
-**Windows:** Create a shortcut to `whisper-local.cmd` and drop it in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\`. **macOS:** System Settings → General → Login Items → add `whisper-local`.
+It's built in (since v0.11.0). Tick **Start on login** in the tray menu, check the box on the first-run welcome window, or run `whisper-local --enable-autostart` (`--disable-autostart` to undo). It launches windowless — no console window at boot. On Windows this uses an `HKCU\…\Run` entry; on macOS a LaunchAgent.
 
 ### Can I customize hotkeys?
 Yes — Settings → Hotkeys. Or edit `hotkey.*` in `user_settings.yaml` directly. Changes take effect on next app restart.

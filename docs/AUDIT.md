@@ -1,10 +1,62 @@
 # Whisper Local — Code Audit & Improvement Backlog
 
-**Last updated:** 2026-06-10
-**Audited version:** 0.10.0
-**Method:** Four parallel subsystem reviews (core pipeline, UI, utility/feature modules, packaging/docs) + manual verification of the highest-severity findings.
+**Last updated:** 2026-06-13
+**Audited versions:** 0.10.0 (Round 1, below) and 0.11.x (Round 2, next section)
+**Method:** Parallel subsystem reviews + manual verification of every finding before fixing.
 
 > This is a living document. Each issue has a stable ID (e.g. `SRV-1`) so commits and PRs can reference it. When you fix one, change its **Status** to `FIXED (<commit>)` rather than deleting it, so history stays readable.
+
+---
+
+## Round 2 (0.11.x) — intensive word-by-word review
+
+Six parallel reviewers swept the whole repo; every claimed bug was hand-verified in the
+code before fixing (many agent "findings" were over-reported and dropped).
+
+### Fixed (confirmed, with tests where applicable)
+- **R2-1 (Med, race)** `audio_recorder.py` — pre-roll `deque` had no lock; `list(deque)`
+  during a concurrent callback append could raise `RuntimeError: deque mutated during
+  iteration`. Added `_buffer_lock` around append/trim and every snapshot+clear.
+- **R2-2 (Med)** `voice_activity_detection.py` — realtime `process_chunk` fed a full chunk
+  to TEN VAD, which asserts exactly 256 samples; off-by-a-few chunks from non-48 kHz mics
+  silently killed the silence-timeout. Now slices/pads to 256 like the pre-check path.
+- **R2-3 (Med)** `settings_ui._coerce` — coerced ALL numeric-looking strings to int/float,
+  corrupting free-text settings (`initial_prompt`, hotkeys, ollama model/endpoint). Now
+  type-aware (only known numeric paths). +test.
+- **R2-4 (Med)** `update_check._is_newer` — `int("0-dev")` threw on source installs,
+  permanently disabling update checks; now strips pre-release/build suffix + pads. +test.
+- **R2-5 (Low)** `whisper_engine.py` — `old_model_key` could be unbound in the async-load
+  error path (UnboundLocalError masking the real error); captured before any callback.
+- **R2-6 (Low)** `level_overlay.py` — mode switches stacked multiple self-rescheduling
+  `after()` animation loops; now cancels the prior loop first.
+- **R2-7 (Low)** `autostart.py` — macOS plist now XML-escaped; `toggle()` returns achieved
+  state, not intended.
+- **R2-8 (Low)** `platform/windows/console.py` — `show()` did `SW_HIDE` then `SW_RESTORE`
+  (copy-paste from `hide()`), causing a flicker; removed the stray hide.
+- **R2-9 (Med, config)** `profiles.defaults.yaml` — `dictation`/`notes` pinned `model:tiny`,
+  silently downgrading the new `base` default; now `base`. +test.
+- **R2-10 (Low)** `utils.beautify_hotkey` no-op `.replace('+','+')` removed.
+- **R2-11 (Low, consistency)** `main.py` / `hotkey_listener.py` `recording_mode` code
+  fallback was still `toggle`; now `push_to_talk` to match the shipped default.
+- **R2-12 (docs)** `faq.md` autostart answer rewritten to the built-in feature;
+  `project-index.md` gained the missing module rows; six modules got header comments.
+
+### Deferred (real but intentionally not changed this pass — risk > reward)
+- **R2-D1** Transcription runs synchronously on the hotkey/release thread
+  (`state_manager.stop_recording` → `_transcription_pipeline`). Moving it to a worker
+  thread is a real architecture change (re-entrancy, the `is_processing` guard, cancel
+  semantics) and the current design works; left as a deliberate design note.
+- **R2-D2** Cross-thread Tk access + singleton spawn race in `history_window` /
+  `cheat_sheet` / `dictionary` (caller thread calls `winfo_exists/lift/focus_force` on
+  another thread's root; lock released before the root is assigned). Real but
+  low-frequency; the correct fix (marshal via `root.after` + reserve sentinel under lock)
+  touches working code in 3 files — scheduled, not done blind.
+- **R2-D3** `platform/windows/gpu.py:_test_ct2_gpu` ignores its `ct2_variant` arg and
+  hardcodes `device='cuda'`. Flagged as an AMD-demotion bug, but CTranslate2's ROCm build
+  also uses the `'cuda'` device string, so this is likely correct — left unchanged pending
+  confirmation on real AMD hardware rather than acting on an unverified claim.
+- **R2-D4** `text_postprocess` filler-word stripping removes "like"/"you know"
+  unconditionally (opt-in, off by default) — destructive but by-design; documented risk.
 
 ---
 

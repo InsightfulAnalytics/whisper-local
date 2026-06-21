@@ -49,6 +49,11 @@ Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key
 | **Settings I/O** | `settings_io.py` | `--export-settings` / `--import-settings` | shutil |
 | **Vocab Import** | `vocab_import.py` | `--import-vocab` hotword mining from a folder | - |
 | **Setup Wizard** | `setup_wizard.py` | `--setup` interactive first-time configuration | - |
+| **Autostart** | `autostart.py` | Opt-in launch-on-login (Windows Run key / macOS LaunchAgent) | winreg |
+| **Console Welcome** | `onboarding_tutorial.py` | One-time first-launch console welcome banner | - |
+| **Whisper.cpp Backend** | `whisper_engine_cpp.py` | Opt-in `whisper_cpp` backend mirroring WhisperEngine's API | pywhispercpp |
+| **Foreground App** | `platform/*/foreground.py` | Detects the active window/app for per-app rules | pywin32 / pyobjc |
+| **Console Control** | `platform/windows/console.py` | Show/hide/own the console window (pyapp builds) | ctypes |
 
 ## Project Structure
 

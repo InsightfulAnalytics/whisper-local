@@ -1,3 +1,8 @@
+# doctor.py
+# `whisper-local --doctor` health check. Walks runtime, dependencies, config,
+# audio devices, Whisper model cache, hotkeys, post-process/Ollama, transforms,
+# and recent log errors, printing a per-section report. Exit 0 = clean, 1 = issues.
+
 import importlib
 import os
 import platform

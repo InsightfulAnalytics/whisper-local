@@ -1,3 +1,8 @@
+# whisper_engine_cpp.py
+# Opt-in whisper.cpp backend (pip install 'whisper-local[whispercpp]'), selected
+# via whisper.backend: whisper_cpp. Mirrors WhisperEngine's public API so the rest
+# of the app is backend-agnostic. Better on Apple Silicon; uses GGUF models.
+
 import logging
 import os
 import time

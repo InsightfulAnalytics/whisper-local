@@ -287,7 +287,7 @@ def setup_hotkey_listener(hotkey_config, state_manager, voice_commands_enabled=T
         rephrase_hotkey=hotkey_config.get('rephrase_hotkey'),
         pause_hotkey=hotkey_config.get('pause_hotkey'),
         transforms_manager=getattr(state_manager, 'transforms_manager', None),
-        recording_mode=hotkey_config.get('recording_mode', 'toggle')
+        recording_mode=hotkey_config.get('recording_mode', 'push_to_talk')
     )
 
 def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, logger: logging.Logger):

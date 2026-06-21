@@ -1,3 +1,9 @@
+# hotkey_listener.py
+# Registers global hotkeys and maps them to StateManager actions: record (toggle
+# or push-to-talk), stop, auto-send, cancel, command mode, AI rephrase, pause-all,
+# and per-transform hotkeys. Handles PTT press/release and re-registration when
+# transforms or hotkey config change. Backed by the platform.hotkeys layer.
+
 import logging
 
 from .platform import hotkeys
@@ -8,7 +14,7 @@ class HotkeyListener:
                  auto_send_key: str = None, cancel_combination: str = None,
                  command_hotkey: str = None, rephrase_hotkey: str = None,
                  pause_hotkey: str = None, transforms_manager=None,
-                 recording_mode: str = "toggle"):
+                 recording_mode: str = "push_to_talk"):
         self.state_manager = state_manager
         self.recording_hotkey = recording_hotkey
         self.stop_key = stop_key

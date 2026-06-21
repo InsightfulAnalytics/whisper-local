@@ -1,3 +1,8 @@
+# onboarding_tutorial.py
+# One-time console welcome banner shown on first launch (gated by a marker file
+# in the app-data dir). Prints the core hotkeys + tips. Distinct from first_run.py,
+# which shows the graphical welcome window.
+
 import logging
 from pathlib import Path
 from typing import Callable, Optional

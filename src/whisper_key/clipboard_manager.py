@@ -1,3 +1,8 @@
+# clipboard_manager.py
+# Delivers transcribed text to the active app: either pastes (clipboard + Ctrl/Cmd+V,
+# restoring the user's prior clipboard) or types it directly via SendInput, with an
+# optional auto-Enter for chat apps. Cross-platform through the platform.keyboard layer.
+
 import logging
 import time
 from typing import Optional

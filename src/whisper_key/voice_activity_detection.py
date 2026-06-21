@@ -1,3 +1,9 @@
+# voice_activity_detection.py
+# Voice activity detection via TEN VAD. Two modes: a one-shot pre-check that
+# scans a whole recording for speech, and a continuous realtime detector that
+# processes 256-sample chunks on the audio thread and fires a SILENCE_TIMEOUT
+# event (once) when the user stops talking. Hysteresis smooths on/off flapping.
+
 import logging
 import threading
 import time
