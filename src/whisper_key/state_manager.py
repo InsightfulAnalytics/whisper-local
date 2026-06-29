@@ -37,7 +37,7 @@ from .utils import OptionalComponent
 from .voice_activity_detection import VadEvent, VadManager
 from .voice_commands import VoiceCommandManager
 from .profiles import ProfileManager
-from .app_rules import AppRules
+from .app_rules import AppRules, formatting_overrides as app_rules_formatting_overrides
 from .transforms import TransformsManager
 from .text_postprocess import postprocess
 from .stats import record_transcription
@@ -46,6 +46,27 @@ from .transcript_log import record_transcript
 from .platform import foreground
 from .level_overlay import LevelOverlay
 from .fallback_window import FallbackWindow
+
+# Pure decision: should this recording stream finalized phrases to the cursor?
+# Kept module-level and side-effect-free so it's unit-testable without a mic.
+def decide_stream_delivery(streaming_cfg: dict, streaming_available: bool,
+                           auto_paste: bool, foreground_textable: bool,
+                           rule: Optional[dict]) -> bool:
+    if not (streaming_cfg or {}).get('deliver_to_cursor', False):
+        return False
+    if not streaming_available:
+        return False
+    if not auto_paste:                 # copy-only mode: don't type live
+        return False
+    if not foreground_textable:        # no text field: use the normal fallback flow
+        return False
+    if rule:
+        if rule.get('suppress'):
+            return False
+        if rule.get('auto_paste') is False:
+            return False
+    return True
+
 
 class StateManager:
     def __init__(self,
@@ -82,6 +103,10 @@ class StateManager:
         self._command_mode = False
         self._state_lock = threading.Lock()
         self._streaming_display_active = False
+        # Commit-on-endpoint streaming delivery (opt-in). Active only for the
+        # current recording when conditions are met; default off → zero impact.
+        self._streaming_delivery_active = False
+        self.streaming_delivery = None
 
         self.logger = logging.getLogger(__name__)
         self._current_audio_host = None
@@ -132,11 +157,16 @@ class StateManager:
             audio_data = self.audio_recorder.stop_recording()
             self._transcription_pipeline(audio_data, use_auto_enter=False)
 
+    # Called on the audio thread for each streaming result. Updates the overlay
+    # preview always; when commit-on-endpoint delivery is active, hands FINALIZED
+    # phrases to the delivery worker (never the revising partials).
     def handle_streaming_result(self, text: str, is_final: bool):
         if is_final:
             if self._streaming_display_active:
                 print(f"\r   {text:<70}")
                 self._streaming_display_active = False
+            if self._streaming_delivery_active and self.streaming_delivery:
+                self.streaming_delivery.submit_final(text)
         else:
             display_text = text if len(text) < 67 else "..." + text[-64:]
             print(f"\r   {display_text:<70}", end="", flush=True)
@@ -162,6 +192,15 @@ class StateManager:
     
     def cancel_active_recording(self):
         self._clear_streaming_display()
+        # Tear down the streaming-delivery worker (already-typed text stays — you
+        # can't un-type live output, same as Wispr).
+        if self.streaming_delivery:
+            try:
+                self.streaming_delivery.stop()
+            except Exception:
+                pass
+            self.streaming_delivery = None
+        self._streaming_delivery_active = False
         with self._state_lock:
             self._command_mode = False
             self._rephrase_mode = False
@@ -234,6 +273,8 @@ class StateManager:
             print("   Speak instructions, then release to apply.")
 
         self._rephrase_mode = True
+        self._streaming_delivery_active = False  # rephrase is never live-typed
+        self.streaming_delivery = None
         if self.audio_recorder.start_recording():
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
@@ -246,6 +287,8 @@ class StateManager:
 
         with self._state_lock:
             self._command_mode = True
+        self._streaming_delivery_active = False  # command mode is never live-typed
+        self.streaming_delivery = None
 
         self.logger.info("Starting command mode recording")
         success = self.audio_recorder.start_recording()
@@ -263,12 +306,89 @@ class StateManager:
         success = self.audio_recorder.start_recording()
 
         if success:
+            # Only spin up the streaming-delivery worker once recording is
+            # confirmed — otherwise a failed start would leak the worker thread.
+            self._setup_streaming_delivery()
             print("\n🎤 Recording started! Speak now...")
             self.config_manager.print_stop_instructions_based_on_config()
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
             if self.level_overlay:
                 self.level_overlay.show_recording()
+
+    # Decide whether this (plain dictation) recording should stream finalized
+    # phrases to the cursor live, and if so spin up the delivery worker. Only the
+    # plain-dictation path calls this; command/rephrase never stream-deliver.
+    def _setup_streaming_delivery(self):
+        self._streaming_delivery_active = False
+        self.streaming_delivery = None
+        streaming_available = bool(getattr(self.audio_recorder, 'continuous_streaming', None))
+        active = decide_stream_delivery(
+            self.config_manager.get_streaming_config(),
+            streaming_available,
+            bool(self.clipboard_manager.auto_paste),
+            self._foreground_is_textable(),
+            self.app_rules.match_for_foreground(),
+        )
+        if not active:
+            return
+        from .streaming_delivery import StreamingDelivery
+        self.streaming_delivery = StreamingDelivery(
+            deliver_fn=lambda seg: self.clipboard_manager.deliver_transcription(seg, use_auto_enter=False)
+        )
+        self.streaming_delivery.start()
+        self._streaming_delivery_active = True
+        self.logger.info("Streaming commit-on-endpoint delivery active for this recording")
+
+    # Flush the trailing in-progress phrase, wait for the worker to finish typing
+    # everything, then record + (optionally) press Enter. Returns the delivered
+    # text, or '' if nothing was finalized (caller then falls back to Whisper).
+    def _finalize_streaming_delivery(self, use_auto_enter: bool, duration: float) -> str:
+        sd = self.streaming_delivery
+        self._streaming_delivery_active = False
+        self.streaming_delivery = None
+        if sd is None:
+            return ''
+
+        # Deliver the un-endpointed remainder, if any.
+        try:
+            cont = getattr(self.audio_recorder, 'continuous_streaming', None)
+            if cont:
+                trailing = cont.finalize()
+                if trailing:
+                    sd.submit_final(trailing)
+        except Exception as e:
+            self.logger.debug(f"Streaming flush failed: {e}")
+
+        text = sd.stop()  # drains + joins the worker: all text is on screen now
+        if not text:
+            return ''
+
+        # If a segment failed to type, some words may be missing. We can't re-run
+        # Whisper (it would duplicate what's already typed), so warn instead.
+        if sd.had_failure:
+            self.logger.warning("Streaming delivery had a failed segment; some words may be missing")
+            self.system_tray.notify("Some dictated words may not have typed — please review.")
+
+        if use_auto_enter:
+            self.clipboard_manager.send_enter_key()
+
+        self.last_transcription = text
+        self.recent_transcriptions.appendleft(text)
+        self.system_tray.refresh_menu()
+        self.audio_feedback.play_transcription_complete_sound()
+        if self.level_overlay:
+            self.level_overlay.flash_success()
+
+        fg = foreground.get_foreground_app() or {}
+        record_transcription(char_count=len(text), duration_seconds=duration, app=fg.get('exe', ''))
+        record_transcript(text, app=fg.get('exe', ''), duration_s=duration)
+        audit_enabled = (self.config_manager.config.get('audit') or {}).get('enabled', False)
+        audit_record('delivered', text, fg.get('exe', ''), audit_enabled)
+
+        self.logger.info(f"Streaming delivery complete: {len(text)} chars")
+        self._maybe_restart_continuous()
+        return text
 
     def _maybe_restart_continuous(self):
         audio_cfg = self.config_manager.config.get('audio', {})
@@ -370,6 +490,15 @@ class StateManager:
                 return
 
             duration = self.audio_recorder.get_audio_duration(audio_data)
+
+            # Commit-on-endpoint streaming: if finalized phrases were already typed
+            # live during this recording, flush the trailing phrase, record it, and
+            # skip the (now redundant) Whisper pass. Falls through to Whisper if
+            # nothing was actually finalized (e.g. a very short utterance).
+            if self._streaming_delivery_active and self.streaming_delivery:
+                if self._finalize_streaming_delivery(use_auto_enter, duration):
+                    return
+
             print(f"   ✓ Recorded {duration:.1f} seconds, transcribing...")
 
             self.system_tray.update_state("processing")
@@ -397,10 +526,17 @@ class StateManager:
                 self._handle_rephrase(rephrase_selection, transcribed_text)
                 return
 
+            # Match the foreground app once, before post-processing, so a rule can
+            # override formatting (e.g. code editors: verbatim, no auto-caps/periods)
+            # in addition to the delivery behaviour handled further down.
+            rule = self.app_rules.match_for_foreground()
             postprocess_cfg = self.config_manager.get_postprocess_config()
+            fmt_overrides = app_rules_formatting_overrides(rule)
+            if fmt_overrides:
+                postprocess_cfg = {**postprocess_cfg, **fmt_overrides}
+                self.logger.info(f"App rule {rule.get('match')} → formatting overrides {fmt_overrides}")
             transcribed_text = postprocess(transcribed_text, postprocess_cfg)
 
-            rule = self.app_rules.match_for_foreground()
             if rule and rule.get('suppress'):
                 self.logger.info(f"Delivery suppressed by app rule: {rule.get('match')}")
                 self.clipboard_manager.copy_text(transcribed_text)
@@ -477,6 +613,18 @@ class StateManager:
                 self.level_overlay.flash_failure()
 
         finally:
+            # Safety net: if a streaming-delivery worker is still around (e.g. the
+            # audio came back None and we returned before _finalize_streaming_delivery,
+            # or an exception fired), stop+join it here so no path can leak the
+            # worker thread or leave _streaming_delivery_active stuck True.
+            if self.streaming_delivery is not None:
+                try:
+                    self.streaming_delivery.stop()
+                except Exception:
+                    pass
+                self.streaming_delivery = None
+            self._streaming_delivery_active = False
+
             with self._state_lock:
                 self.is_processing = False
                 pending_model = self._pending_model_change

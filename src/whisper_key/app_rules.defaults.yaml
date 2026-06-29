@@ -12,6 +12,14 @@
 #                                 (concatenated after your global initial_prompt)
 #   language:    "en"|"es"|...  - force a transcription language for this app
 #   task:        "transcribe"   - or "translate" (Whisper outputs English)
+#   capitalize_first:     true | false  - override global postprocess for this app
+#   ensure_punctuation:   true | false  - "
+#   strip_trailing_period:true | false  - "
+#   inline_formatting:    true | false  - "
+#
+# The four formatting overrides let you adapt the writing style per app — e.g.
+# verbatim/no-capitalization in a code editor, full sentences in email. Only the
+# keys you set override your global postprocess config; others are inherited.
 #
 # Rules are matched top-down; first match wins. Edit this file freely;
 # it hot-reloads on the next transcription.
@@ -27,10 +35,13 @@ rules:
     initial_prompt: "Professional email body. Polite, clear sentences."
 
   # Code editors: never auto-send, never paste — copy only so the user
-  # decides where it lands; identifier/path bias
+  # decides where it lands; identifier/path bias. Keep it verbatim: no forced
+  # capitalization or trailing period (code isn't prose).
   - match: ["code.exe", "cursor.exe", "windsurf.exe", "rider64.exe", "pycharm64.exe", "idea64.exe"]
     auto_paste: false
     initial_prompt: "Programming context. Identifiers, snake_case, camelCase, file paths, regex."
+    capitalize_first: false
+    ensure_punctuation: false
 
   # Password managers: never deliver dictation into a password field
   - match: ["1password.exe", "1password-7.exe", "lastpass.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe"]

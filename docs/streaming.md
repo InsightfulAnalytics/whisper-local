@@ -50,19 +50,32 @@ undo history, and fighting your cursor. The *final* Whisper pass is also more
 accurate than the small streaming model, so committing partials would actually
 *lower* quality.
 
-So Whisper Local deliberately shows partials only in the **overlay** (safe,
-disposable) and delivers the single accurate Whisper result to your cursor.
+By default Whisper Local shows partials only in the **overlay** (safe, disposable)
+and delivers the single accurate Whisper result to your cursor.
 
-## Want true progressive delivery? (future opt-in)
+## Type-as-you-go: commit-on-endpoint delivery (opt-in)
 
-There *is* a safe way to type-as-you-go: commit only **finalized** segments —
-i.e. when the streaming model detects a phrase boundary (an "endpoint"), type
-that settled chunk to the cursor and move on. No revisions reach your document
-because only post-endpoint text is delivered.
+If you want text to land *as you speak*, turn on:
 
-The tradeoff: you'd get the streaming model's accuracy (lower than the full
-Whisper pass), and it's a whole alternative delivery mode with its own edge cases
-(cancel, auto-send, per-app rules, the fallback window). It's a real feature, just
-a substantial and accuracy-trading one — tracked as a future opt-in (`docs/AUDIT.md`
-product ideas) rather than the default. The endpoint detection it would need
-(`streaming_recognizer.is_endpoint()`) already exists.
+```yaml
+streaming:
+    streaming_enabled: true
+    deliver_to_cursor: true
+```
+
+Now, each time the streaming model detects a phrase boundary (an "endpoint"), that
+**finalized** chunk is typed to the cursor and the run continues. Only post-endpoint
+text is delivered, so a word is never typed and then corrected — no revision spam in
+your document. When you stop, the trailing phrase is flushed and the full Whisper
+pass is skipped (it would just duplicate what's already there).
+
+**Trade-offs and scope, plainly:**
+- You get the lighter streaming model's accuracy, not the full Whisper transcription.
+- It only kicks in for **plain dictation into a real text field with auto-paste on**.
+  Command mode, AI rephrase, copy-only apps, and `suppress` app-rules are unaffected
+  and keep using the normal Whisper flow.
+- Like any live-typing tool, text already typed can't be un-typed if you cancel.
+- Smoothest with `clipboard.delivery_method: type` (direct injection, no clipboard churn).
+
+It's experimental and off by default. The full Whisper path remains the default and
+recommended experience for accuracy.

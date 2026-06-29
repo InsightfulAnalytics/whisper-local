@@ -180,6 +180,36 @@ class AppRulesShapeTests(unittest.TestCase):
             self.assertIn('match', rule)
 
 
+class AppRulesFormattingTests(unittest.TestCase):
+    def test_formatting_overrides_extracts_only_format_keys(self):
+        from whisper_key.app_rules import formatting_overrides
+        rule = {
+            'match': ['code.exe'],
+            'auto_paste': False,          # delivery key, not a formatting key
+            'capitalize_first': False,
+            'ensure_punctuation': False,
+        }
+        self.assertEqual(
+            formatting_overrides(rule),
+            {'capitalize_first': False, 'ensure_punctuation': False},
+        )
+
+    def test_formatting_overrides_empty_and_none(self):
+        from whisper_key.app_rules import formatting_overrides
+        self.assertEqual(formatting_overrides(None), {})
+        self.assertEqual(formatting_overrides({'match': ['x'], 'auto_send': True}), {})
+
+    def test_merge_overrides_global_postprocess(self):
+        # Simulate the pipeline merge: rule formatting overrides global config.
+        from whisper_key.app_rules import formatting_overrides
+        global_cfg = {'capitalize_first': True, 'ensure_punctuation': True, 'inline_formatting': True}
+        rule = {'capitalize_first': False, 'ensure_punctuation': False}
+        merged = {**global_cfg, **formatting_overrides(rule)}
+        self.assertFalse(merged['capitalize_first'])
+        self.assertFalse(merged['ensure_punctuation'])
+        self.assertTrue(merged['inline_formatting'])  # untouched key inherited
+
+
 class TransformsShapeTests(unittest.TestCase):
     def test_defaults_yaml_is_valid(self):
         from ruamel.yaml import YAML
@@ -675,6 +705,101 @@ class ReviewFixTests(unittest.TestCase):
             with mock.patch("whisper_key.autostart._mac_plist_path", return_value=Path(d) / "a.plist"):
                 self.assertTrue(autostart.toggle())
                 self.assertFalse(autostart.toggle())
+
+
+class StreamingDeliveryDecisionTests(unittest.TestCase):
+    def _cfg(self, on=True):
+        return {'deliver_to_cursor': on}
+
+    def test_off_by_default(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertFalse(decide_stream_delivery({}, True, True, True, None))
+
+    def test_all_conditions_met(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertTrue(decide_stream_delivery(self._cfg(), True, True, True, None))
+
+    def test_requires_streaming_available(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertFalse(decide_stream_delivery(self._cfg(), False, True, True, None))
+
+    def test_requires_auto_paste(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertFalse(decide_stream_delivery(self._cfg(), True, False, True, None))
+
+    def test_requires_textable_foreground(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertFalse(decide_stream_delivery(self._cfg(), True, True, False, None))
+
+    def test_respects_app_rule_suppress_and_copyonly(self):
+        from whisper_key.state_manager import decide_stream_delivery
+        self.assertFalse(decide_stream_delivery(self._cfg(), True, True, True, {'suppress': True}))
+        self.assertFalse(decide_stream_delivery(self._cfg(), True, True, True, {'auto_paste': False}))
+        # a rule that doesn't touch delivery is fine
+        self.assertTrue(decide_stream_delivery(self._cfg(), True, True, True, {'initial_prompt': 'x'}))
+
+
+class StreamingDeliveryWorkerTests(unittest.TestCase):
+    def test_segments_delivered_in_order_and_recorded(self):
+        from whisper_key.streaming_delivery import StreamingDelivery
+        delivered = []
+        sd = StreamingDelivery(deliver_fn=delivered.append)
+        sd.start()
+        sd.submit_final("hello")
+        sd.submit_final("world")
+        full = sd.stop()
+        self.assertEqual(delivered, ["hello ", "world "])
+        self.assertEqual(full, "hello world")
+        self.assertTrue(sd.submitted_any)
+
+    def test_blank_segments_ignored(self):
+        from whisper_key.streaming_delivery import StreamingDelivery
+        delivered = []
+        sd = StreamingDelivery(deliver_fn=delivered.append)
+        sd.start()
+        sd.submit_final("   ")
+        sd.submit_final("")
+        self.assertEqual(sd.stop(), "")
+        self.assertEqual(delivered, [])
+        self.assertFalse(sd.submitted_any)
+
+    def test_stop_is_idempotent(self):
+        from whisper_key.streaming_delivery import StreamingDelivery
+        sd = StreamingDelivery(deliver_fn=lambda s: None)
+        sd.start()
+        sd.submit_final("x")
+        self.assertEqual(sd.stop(), "x")
+        self.assertEqual(sd.stop(), "x")  # second stop returns same, no error
+
+    def test_deliver_fn_exception_does_not_crash_and_flags_failure(self):
+        from whisper_key.streaming_delivery import StreamingDelivery
+        def boom(_):
+            raise RuntimeError("boom")
+        sd = StreamingDelivery(deliver_fn=boom)
+        sd.start()
+        sd.submit_final("x")
+        # stop() must still return cleanly even though delivery raised
+        self.assertEqual(sd.stop(), "")
+        self.assertTrue(sd.had_failure)
+
+    def test_no_failure_flag_on_clean_delivery(self):
+        from whisper_key.streaming_delivery import StreamingDelivery
+        sd = StreamingDelivery(deliver_fn=lambda s: None)
+        sd.start()
+        sd.submit_final("ok")
+        sd.stop()
+        self.assertFalse(sd.had_failure)
+
+    def test_submit_after_stop_is_ignored(self):
+        # Closes the submit/stop race: a late segment after stop is dropped, not enqueued.
+        from whisper_key.streaming_delivery import StreamingDelivery
+        delivered = []
+        sd = StreamingDelivery(deliver_fn=delivered.append)
+        sd.start()
+        sd.submit_final("a")
+        sd.stop()
+        sd.submit_final("late")
+        self.assertEqual(delivered, ["a "])
 
 
 if __name__ == "__main__":

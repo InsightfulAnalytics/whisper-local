@@ -47,6 +47,18 @@ class ContinuousStreamingRecognizer:
             self.last_text = ""
             self.recognizer.reset()
 
+    # Return any trailing text that hasn't hit an endpoint yet (the in-progress
+    # phrase at the moment recording stopped) and reset. Used by streaming
+    # commit-on-endpoint delivery to flush the final partial on stop.
+    def finalize(self) -> str:
+        if not self.recognizer.is_loaded():
+            return ""
+        with self._lock:
+            text = self.recognizer.get_partial_result()
+            self.recognizer.reset()
+            self.last_text = ""
+        return text or ""
+
     def set_recording_rate(self, rate: int) -> None:
         self.recognizer.set_recording_rate(rate)
 

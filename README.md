@@ -87,7 +87,8 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 - 🔁 **Hot-reload** — edit `commands.yaml` and your change applies on the next transcription, no restart
 - 🩺 **Built-in diagnostics** — `whisper-local --doctor` checks audio devices, model cache, hotkeys, and recent errors
 - 🎛️ **Profiles** — switch between Dictation / Chat / Code / Notes presets from the tray
-- 🪟 **Per-app rules** — different behaviour per foreground app (auto-send in Slack, copy-only in VS Code, suppress in 1Password)
+- 🪟 **Per-app rules** — different behaviour *and* formatting per foreground app: auto-send in Slack, copy-only + verbatim (no auto-caps/periods) in VS Code, full sentences in email, suppress in 1Password
+- ⌨️ **Type-as-you-speak** *(experimental, opt-in)* — `streaming.deliver_to_cursor` commits finalized phrases to the cursor live, Wispr-Flow style (trades full-Whisper accuracy for latency; see [docs/streaming.md](docs/streaming.md))
 - 🧹 **Optional LLM cleanup** — pipe transcripts through a local [Ollama](https://ollama.ai) model for punctuation / capitalisation polish (off by default, fully local)
 - 📜 **Recent transcriptions** — last 10 results in the tray menu, click to copy back
 - 🔧 **Settings backup/restore** — `--export-settings` / `--import-settings` for portability
@@ -228,16 +229,21 @@ rules:
   - match: ["slack.exe", "discord.exe"]
     auto_send: true
 
-  # Code editors: never auto-send, copy only
+  # Code editors: copy only, and keep it verbatim (no auto-caps or trailing period)
   - match: ["code.exe", "cursor.exe"]
     auto_paste: false
+    capitalize_first: false
+    ensure_punctuation: false
 
   # Password managers: skip delivery entirely
   - match: ["1password.exe", "bitwarden.exe"]
     suppress: true
 ```
 
-Hot-reloads — edit and the next transcription picks it up.
+A rule can override delivery (`auto_send`, `auto_paste`, `suppress`), Whisper
+context (`initial_prompt`, `language`, `task`), **and** formatting
+(`capitalize_first`, `ensure_punctuation`, `strip_trailing_period`,
+`inline_formatting`). Hot-reloads — edit and the next transcription picks it up.
 
 ## 🧹 Optional LLM cleanup
 

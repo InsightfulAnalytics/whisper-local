@@ -123,9 +123,17 @@ whisper: # Whisper AI Model Settings
             group: custom
             enabled: true
 
-streaming: # Real-time STT (Experimental, speech preview only)
+streaming: # Real-time STT (Experimental)
     # Real-time streaming speech recognition using sherpa-onnx
     streaming_enabled: false
+
+    # Commit-on-endpoint delivery (experimental). When true AND streaming_enabled,
+    # finalized phrases are typed to the cursor AS you speak (Wispr-Flow style),
+    # and the final Whisper pass is skipped for that recording. Trade-off: you get
+    # the lighter streaming model's accuracy, not the full Whisper transcription.
+    # Only applies to plain dictation into a real text field with auto-paste on;
+    # command/rephrase modes and copy-only/suppressed apps are unaffected.
+    deliver_to_cursor: false
 
     # Streaming model type
     streaming_model: zipformer.tiny.en

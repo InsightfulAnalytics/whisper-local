@@ -11,6 +11,18 @@ from .utils import get_user_app_data_path, resolve_asset_path
 USER_FILE = "app_rules.yaml"
 DEFAULTS_FILE = "app_rules.defaults.yaml"
 
+# Post-processing toggles a rule may override per app (e.g. code editors: no
+# auto-capitalization or trailing periods; email: full sentences). Only keys
+# present in the rule override the global postprocess config.
+FORMATTING_KEYS = ('capitalize_first', 'ensure_punctuation',
+                   'strip_trailing_period', 'inline_formatting')
+
+
+def formatting_overrides(rule) -> dict:
+    if not rule:
+        return {}
+    return {k: bool(rule[k]) for k in FORMATTING_KEYS if k in rule}
+
 
 class AppRules:
     def __init__(self):

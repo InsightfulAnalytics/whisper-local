@@ -4,6 +4,23 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.13.0]
+
+### Added
+- **Per-app formatting overrides** — app rules (`app_rules.yaml`) can now set
+  `capitalize_first`, `ensure_punctuation`, `strip_trailing_period`, and
+  `inline_formatting` per app, on top of the existing prompt/language/delivery
+  controls. Adapt the writing style by context: verbatim in a code editor, full
+  sentences in email. Ships with a sensible code-editor default.
+- **Streaming commit-on-endpoint delivery (experimental, opt-in)** —
+  `streaming.deliver_to_cursor: true` (requires `streaming_enabled`). Finalized
+  phrases are typed to the cursor *as you speak* (Wispr-Flow style) and the final
+  Whisper pass is skipped for that recording. Delivery runs on a dedicated worker
+  thread so the audio callback never blocks. Only applies to plain dictation into
+  a real text field with auto-paste on; command/rephrase modes and
+  copy-only/suppressed apps are unaffected. Trade-off: the lighter streaming
+  model's accuracy instead of the full Whisper transcription.
+
 ## [0.12.0]
 
 ### Added
