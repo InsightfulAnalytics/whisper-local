@@ -38,6 +38,7 @@ from .voice_activity_detection import VadEvent, VadManager
 from .voice_commands import VoiceCommandManager
 from .profiles import ProfileManager
 from .app_rules import AppRules, formatting_overrides as app_rules_formatting_overrides
+from .streaming_delivery import StreamingDelivery, decide_stream_delivery
 from .transforms import TransformsManager
 from .text_postprocess import postprocess
 from .stats import record_transcription
@@ -46,27 +47,6 @@ from .transcript_log import record_transcript
 from .platform import foreground
 from .level_overlay import LevelOverlay
 from .fallback_window import FallbackWindow
-
-# Pure decision: should this recording stream finalized phrases to the cursor?
-# Kept module-level and side-effect-free so it's unit-testable without a mic.
-def decide_stream_delivery(streaming_cfg: dict, streaming_available: bool,
-                           auto_paste: bool, foreground_textable: bool,
-                           rule: Optional[dict]) -> bool:
-    if not (streaming_cfg or {}).get('deliver_to_cursor', False):
-        return False
-    if not streaming_available:
-        return False
-    if not auto_paste:                 # copy-only mode: don't type live
-        return False
-    if not foreground_textable:        # no text field: use the normal fallback flow
-        return False
-    if rule:
-        if rule.get('suppress'):
-            return False
-        if rule.get('auto_paste') is False:
-            return False
-    return True
-
 
 class StateManager:
     def __init__(self,
@@ -332,7 +312,6 @@ class StateManager:
         )
         if not active:
             return
-        from .streaming_delivery import StreamingDelivery
         self.streaming_delivery = StreamingDelivery(
             deliver_fn=lambda seg: self.clipboard_manager.deliver_transcription(seg, use_auto_enter=False)
         )

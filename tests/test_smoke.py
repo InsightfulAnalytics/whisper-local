@@ -712,27 +712,27 @@ class StreamingDeliveryDecisionTests(unittest.TestCase):
         return {'deliver_to_cursor': on}
 
     def test_off_by_default(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertFalse(decide_stream_delivery({}, True, True, True, None))
 
     def test_all_conditions_met(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertTrue(decide_stream_delivery(self._cfg(), True, True, True, None))
 
     def test_requires_streaming_available(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertFalse(decide_stream_delivery(self._cfg(), False, True, True, None))
 
     def test_requires_auto_paste(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertFalse(decide_stream_delivery(self._cfg(), True, False, True, None))
 
     def test_requires_textable_foreground(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertFalse(decide_stream_delivery(self._cfg(), True, True, False, None))
 
     def test_respects_app_rule_suppress_and_copyonly(self):
-        from whisper_key.state_manager import decide_stream_delivery
+        from whisper_key.streaming_delivery import decide_stream_delivery
         self.assertFalse(decide_stream_delivery(self._cfg(), True, True, True, {'suppress': True}))
         self.assertFalse(decide_stream_delivery(self._cfg(), True, True, True, {'auto_paste': False}))
         # a rule that doesn't touch delivery is fine

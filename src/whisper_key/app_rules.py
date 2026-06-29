@@ -5,7 +5,10 @@ from typing import Optional
 
 from ruamel.yaml import YAML
 
-from .platform import foreground
+# `foreground` is imported lazily inside match_for_foreground: the .platform
+# chain pulls in OS-specific deps (pywin32 / pyobjc) that lean environments
+# (CI smoke tests, dev checkouts) don't have. Keeping it lazy lets app_rules —
+# and its pure formatting_overrides() helper — import anywhere.
 from .utils import get_user_app_data_path, resolve_asset_path
 
 USER_FILE = "app_rules.yaml"
@@ -71,6 +74,7 @@ class AppRules:
         self._reload_if_changed()
         if not self.rules:
             return None
+        from .platform import foreground
         info = foreground.get_foreground_app()
         if not info:
             return None
