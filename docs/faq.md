@@ -73,6 +73,26 @@ Windows 10/11 hides tray icons by default. Click the `^` arrow on the right of t
 ### How do I autostart on login?
 It's built in (since v0.11.0). Tick **Start on login** in the tray menu, check the box on the first-run welcome window, or run `whisper-local --enable-autostart` (`--disable-autostart` to undo). It launches windowless — no console window at boot. On Windows this uses an `HKCU\…\Run` entry; on macOS a LaunchAgent.
 
+### Can I use voice punctuation in another language (e.g. Polish)?
+Yes. The built-in "comma / period / open paren" triggers are English, but you can
+define your own under `postprocess.inline_formatting_replacements` in
+`user_settings.yaml`:
+
+```yaml
+postprocess:
+  inline_formatting: true
+  inline_formatting_replacements:
+    - phrase: przecinek      # comma
+      replacement: ","
+    - phrase: strzałka       # arrow
+      replacement: "→"
+```
+
+By default your list *replaces* the English one; set `inline_formatting_extend: true`
+to keep the English defaults and add yours on top. Matching is whole-word and
+case-insensitive. This runs after Whisper and before any optional Ollama cleanup,
+so it's a reliable, deterministic step regardless of which local LLM you use.
+
 ### Can I customize hotkeys?
 Yes — Settings → Hotkeys. Or edit `hotkey.*` in `user_settings.yaml` directly. Changes take effect on next app restart.
 

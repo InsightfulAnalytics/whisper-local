@@ -33,7 +33,7 @@ def postprocess(text: str, config: dict) -> str:
         return text
 
     if config.get('inline_formatting', False):
-        text = _apply_inline_formatting(text)
+        text = _apply_inline_formatting(text, config)
 
     if config.get('strip_filler_words', False):
         text = _strip_fillers(text)
@@ -66,9 +66,37 @@ def _strip_trailing_period(text: str) -> str:
     return text
 
 
-def _apply_inline_formatting(text: str) -> str:
-    for pattern, replacement in INLINE_FORMAT_REPLACEMENTS:
-        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+# Build the (pattern, replacement) list to apply. With no user config, this is
+# just the built-in English map. A user can supply their own phrases via
+# postprocess.inline_formatting_replacements — essential for non-English dictation
+# (e.g. Polish), where Whisper won't emit the English trigger words. By default a
+# user list REPLACES the English defaults; set inline_formatting_extend: true to
+# append to them instead. User phrases are matched as whole, case-insensitive,
+# regex-escaped words, so no regex injection or ReDoS is possible.
+def _resolve_inline_replacements(config: dict):
+    cfg = config or {}
+    custom = cfg.get('inline_formatting_replacements') or []
+
+    entries = []
+    if not custom or cfg.get('inline_formatting_extend', False):
+        entries.extend(INLINE_FORMAT_REPLACEMENTS)
+
+    for item in custom:
+        if not isinstance(item, dict):
+            continue
+        phrase = str(item.get('phrase', '')).strip()
+        if not phrase:
+            continue
+        replacement = str(item.get('replacement', ''))
+        entries.append((r'\b' + re.escape(phrase) + r'\b', replacement))
+    return entries
+
+
+def _apply_inline_formatting(text: str, config: dict = None) -> str:
+    for pattern, replacement in _resolve_inline_replacements(config):
+        # Literal replacement via a function repl: avoids re interpreting \1, \g<>,
+        # or stray backslashes in user-provided replacement strings.
+        text = re.sub(pattern, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)
     text = re.sub(r' +([.,!?:;])', r'\1', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)

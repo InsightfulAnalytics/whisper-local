@@ -391,6 +391,25 @@ postprocess: # Transcription post-processing pipeline
     # "close quote", "open paren", "close paren", "dash", "hyphen"
     inline_formatting: true
 
+    # Custom phrase -> symbol replacements for inline_formatting. Runs after Whisper
+    # and before any Ollama step. Essential for NON-ENGLISH dictation: when Whisper
+    # transcribes (say) Polish, the built-in English triggers above won't appear, so
+    # define your own. Matching is whole-word and case-insensitive.
+    #
+    # By default your list REPLACES the English built-ins. To keep the English
+    # defaults AND add your own, set inline_formatting_extend: true below.
+    #
+    # Example (Polish):
+    # inline_formatting_replacements:
+    #   - phrase: przecinek      # comma
+    #     replacement: ","
+    #   - phrase: strzałka       # arrow
+    #     replacement: "→"
+    #   - phrase: otwórz nawias  # open paren
+    #     replacement: " ("
+    inline_formatting_replacements: []
+    inline_formatting_extend: false
+
     # Strip "um", "uh", "like", "you know" filler words
     strip_filler_words: false
 

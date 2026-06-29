@@ -118,6 +118,40 @@ class TextPostprocessTests(unittest.TestCase):
         self.assertEqual(postprocess("hello comma world period", cfg), "hello, world.")
         self.assertEqual(postprocess("what time is it question mark", cfg), "what time is it?")
 
+    def test_inline_formatting_custom_replaces_defaults(self):
+        # Custom list replaces the English defaults (non-English use case).
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_replacements': [
+                {'phrase': 'przecinek', 'replacement': ','},
+                {'phrase': 'strzałka', 'replacement': '→'},
+            ],
+        }
+        self.assertEqual(postprocess("tekst przecinek dalej", cfg), "tekst, dalej")
+        self.assertEqual(postprocess("a strzałka b", cfg), "a → b")
+        # English defaults are NOT active in replace mode.
+        self.assertEqual(postprocess("hello comma world", cfg), "hello comma world")
+
+    def test_inline_formatting_extend_keeps_defaults(self):
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_extend': True,
+            'inline_formatting_replacements': [{'phrase': 'arrow', 'replacement': '→'}],
+        }
+        # both the English default AND the custom phrase apply
+        self.assertEqual(postprocess("hello comma arrow there", cfg), "hello, → there")
+
+    def test_inline_formatting_replacement_is_literal(self):
+        # A replacement containing regex-special chars must be inserted literally.
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_replacements': [{'phrase': 'backref', 'replacement': r'\1\g<0>'}],
+        }
+        self.assertEqual(postprocess("x backref y", cfg), r"x \1\g<0> y")
+
     def test_ollama_polish_handles_curly_braces_in_text(self):
         from whisper_key.text_postprocess import _ollama_polish
         cfg = {'enabled': True, 'endpoint': 'http://127.0.0.1:0', 'timeout': 0.1,

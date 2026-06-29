@@ -4,6 +4,16 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.12.0]
+
+### Added
+- **Customizable inline voice formatting** (`postprocess.inline_formatting_replacements`)
+  — define your own spoken-phrase → symbol map, essential for non-English dictation
+  (e.g. Polish) where Whisper won't emit the built-in English triggers. Runs after
+  Whisper and before any Ollama step; whole-word, case-insensitive, regex-safe. By
+  default replaces the English defaults; `inline_formatting_extend: true` keeps them
+  and appends yours. (Requested in Discussion #1 by @mz8i.)
+
 ## [0.11.0]
 
 ### Added
