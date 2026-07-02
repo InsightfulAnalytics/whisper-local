@@ -4,6 +4,17 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.14.0]
+
+### Added
+- **`inline_formatting_absorb_punctuation`** (opt-in) — when you speak cue words,
+  Whisper inserts its own prosody punctuation around them ("hello comma world" →
+  "Hello, comma, world."), which a literal swap left as artifacts ("Hello,, world.").
+  With this on, each cue phrase also absorbs the runs of commas/periods/whitespace
+  hugging it, and the replacement's own spacing wins (define e.g. `", "` / `" → "`).
+  Pure-`re`, regex-escaped, word-boundary guarded — no ReDoS/injection. Fixes the
+  polluted-output bug reported in Discussion #1 by @mz8i. Default off (no regression).
+
 ## [0.13.0]
 
 ### Added

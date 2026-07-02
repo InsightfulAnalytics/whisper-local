@@ -143,6 +143,43 @@ class TextPostprocessTests(unittest.TestCase):
         # both the English default AND the custom phrase apply
         self.assertEqual(postprocess("hello comma arrow there", cfg), "hello, → there")
 
+    def test_absorb_cleans_whisper_prosody_punctuation(self):
+        # Whisper adds its own commas/periods around spoken cue words; absorb should
+        # eat them so the output isn't polluted (Discussion #1 bug report).
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_absorb_punctuation': True,
+            'inline_formatting_replacements': [
+                {'phrase': 'comma', 'replacement': ', '},
+                {'phrase': 'arrow', 'replacement': ' → '},
+            ],
+        }
+        whisper_out = "Hello, comma, and welcome, arrow. Common greeting."
+        self.assertEqual(postprocess(whisper_out, cfg),
+                         "Hello, and welcome → Common greeting.")
+
+    def test_absorb_off_leaves_prosody_artifacts(self):
+        # Documents that WITHOUT absorb the artifacts remain (opt-in, no regression).
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_replacements': [{'phrase': 'comma', 'replacement': ','}],
+        }
+        self.assertIn(",,", postprocess("a, comma, b", cfg))
+
+    def test_absorb_respects_word_boundary(self):
+        # "comma" must not fire inside "commander"/"Common".
+        from whisper_key.text_postprocess import postprocess
+        cfg = {
+            'inline_formatting': True,
+            'inline_formatting_absorb_punctuation': True,
+            'inline_formatting_replacements': [{'phrase': 'comma', 'replacement': ', '}],
+        }
+        out = postprocess("the commander said comma done", cfg)
+        self.assertIn("commander", out)
+        self.assertNotIn("commaander", out)
+
     def test_inline_formatting_replacement_is_literal(self):
         # A replacement containing regex-special chars must be inserted literally.
         from whisper_key.text_postprocess import postprocess

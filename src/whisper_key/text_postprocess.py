@@ -93,10 +93,18 @@ def _resolve_inline_replacements(config: dict):
 
 
 def _apply_inline_formatting(text: str, config: dict = None) -> str:
-    for pattern, replacement in _resolve_inline_replacements(config):
+    cfg = config or {}
+    # When you SPEAK a cue word, Whisper also inserts its own punctuation around it
+    # based on prosody (e.g. "hello comma world" → "Hello, comma, world."), so a bare
+    # swap leaves artifacts ("Hello,, world."). With absorb on, each phrase also eats
+    # the runs of commas/periods/whitespace hugging it, and the replacement's own
+    # spacing wins — so define replacements like ", " or " → ". Off by default.
+    absorb = cfg.get('inline_formatting_absorb_punctuation', False)
+    for pattern, replacement in _resolve_inline_replacements(cfg):
+        effective = r'[,.\s]*(?:' + pattern + r')[,.\s]*' if absorb else pattern
         # Literal replacement via a function repl: avoids re interpreting \1, \g<>,
         # or stray backslashes in user-provided replacement strings.
-        text = re.sub(pattern, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)
+        text = re.sub(effective, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)
     text = re.sub(r' +([.,!?:;])', r'\1', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)

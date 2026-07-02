@@ -93,6 +93,27 @@ to keep the English defaults and add yours on top. Matching is whole-word and
 case-insensitive. This runs after Whisper and before any optional Ollama cleanup,
 so it's a reliable, deterministic step regardless of which local LLM you use.
 
+**Spoken cue words get extra punctuation from Whisper.** When you say "comma",
+Whisper hears speech and adds its own commas/periods around it based on prosody, so
+`hello comma world` often transcribes as `Hello, comma, world.` — and a plain swap
+leaves `Hello,, world.` Turn on `inline_formatting_absorb_punctuation: true` and each
+cue phrase also eats the commas/periods/whitespace hugging it; put the spacing you
+want into the replacement string:
+
+```yaml
+postprocess:
+  inline_formatting: true
+  inline_formatting_absorb_punctuation: true
+  inline_formatting_replacements:
+    - phrase: przecinek
+      replacement: ", "
+    - phrase: strzałka
+      replacement: " → "
+```
+
+`Hello, comma, and welcome, arrow. Common greeting.` then comes out as
+`Hello, and welcome → Common greeting.`
+
 ### Can I customize hotkeys?
 Yes — Settings → Hotkeys. Or edit `hotkey.*` in `user_settings.yaml` directly. Changes take effect on next app restart.
 

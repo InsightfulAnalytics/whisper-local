@@ -418,6 +418,21 @@ postprocess: # Transcription post-processing pipeline
     inline_formatting_replacements: []
     inline_formatting_extend: false
 
+    # When you speak a cue word ("comma", "arrow", ...), Whisper adds its OWN
+    # punctuation around it from prosody, e.g. "hello comma world" is transcribed
+    # "Hello, comma, world." A plain swap then leaves artifacts ("Hello,, world.").
+    # Turn this on to also eat the commas/periods/whitespace hugging each cue word,
+    # letting the replacement string carry its own spacing. Pair it with
+    # replacements that bake in spacing, e.g. ", " / " → " / " (".
+    # Example:
+    # inline_formatting_absorb_punctuation: true
+    # inline_formatting_replacements:
+    #   - phrase: przecinek
+    #     replacement: ", "
+    #   - phrase: strzałka
+    #     replacement: " → "
+    inline_formatting_absorb_punctuation: false
+
     # Strip "um", "uh", "like", "you know" filler words
     strip_filler_words: false
 
