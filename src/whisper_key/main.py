@@ -533,8 +533,16 @@ def main():
 
         try:
             from .onboarding_tutorial import needs_tutorial, show_console_welcome
+            from .utils import beautify_hotkey
             if needs_tutorial():
-                show_console_welcome(notify=lambda msg: system_tray.notify(msg))
+                hk = {
+                    'record': beautify_hotkey(hotkey_config.get('recording_hotkey', '')),
+                    'rephrase': beautify_hotkey(hotkey_config.get('rephrase_hotkey', '')),
+                    'command': beautify_hotkey(hotkey_config.get('command_hotkey', '')) if voice_commands_config['enabled'] else '',
+                    'cancel': beautify_hotkey(hotkey_config.get('cancel_combination', '')),
+                    'pause': beautify_hotkey(hotkey_config.get('pause_hotkey', '')),
+                }
+                show_console_welcome(hotkeys=hk, notify=lambda msg: system_tray.notify(msg))
         except Exception as e:
             logger.debug(f"Onboarding skipped: {e}")
 

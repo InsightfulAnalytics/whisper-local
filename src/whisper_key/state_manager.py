@@ -464,8 +464,9 @@ class StateManager:
 
             if audio_data is None:
                 self.system_tray.notify("No audio captured — was the mic muted?")
+                # Flash the overlay too — tray balloons are often suppressed by Windows.
                 if self.level_overlay:
-                    self.level_overlay.hide()
+                    self.level_overlay.flash_failure("No audio — mic muted?")
                 return
 
             duration = self.audio_recorder.get_audio_duration(audio_data)
@@ -489,7 +490,7 @@ class StateManager:
             if not transcribed_text:
                 self.system_tray.notify("Transcription was empty (silence or noise only).")
                 if self.level_overlay:
-                    self.level_overlay.hide()
+                    self.level_overlay.flash_failure("No speech detected")
                 return
 
             if command_mode:

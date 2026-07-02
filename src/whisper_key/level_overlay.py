@@ -80,8 +80,11 @@ class LevelOverlay:
     def flash_success(self):
         self._flash(self.BAR)
 
-    def flash_failure(self):
-        self._flash(self.BAR_ERROR)
+    # message: shown in the pill during the flash (held longer so it's readable).
+    # Used to surface failures where the user is already looking, since Windows
+    # often suppresses tray balloons.
+    def flash_failure(self, message: str = None):
+        self._flash(self.BAR_ERROR, message)
 
     def set_streaming_text(self, text: str):
         new_text = (text or '').strip()
@@ -168,7 +171,7 @@ class LevelOverlay:
         else:
             self._text_var.set('Listening…')
 
-    def _flash(self, color: str):
+    def _flash(self, color: str, message: str = None):
         if not self._available:
             return
 
@@ -177,11 +180,16 @@ class LevelOverlay:
                 return
             self._mode = 'flash'
             self._flash_color = color
+            if message and self._text_var:
+                try: self._text_var.set(message)
+                except Exception: pass
             try: self.root.deiconify()
             except Exception: pass
             self._draw(1.0, override_color=color)
+            # Hold a message flash longer so it's actually readable.
+            hold = 2000 if message else self.FLASH_MS
             try:
-                self.root.after(self.FLASH_MS, lambda: self._set_mode('hidden'))
+                self.root.after(hold, lambda: self._set_mode('hidden'))
             except Exception:
                 pass
         self._call(do)

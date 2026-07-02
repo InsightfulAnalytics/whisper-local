@@ -302,18 +302,19 @@ class SystemTray:
                 ))
             menu_items += [
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Open log file...", self._open_log_file),
-                pystray.MenuItem("Open model cache...", self._open_model_cache),
-                pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
-                pystray.MenuItem("Run self-test...", self._run_selftest_in_window),
-                pystray.MenuItem("Bundle logs for bug report...", self._bundle_logs_action),
-                pystray.MenuItem("View stats...", self._run_stats_in_window),
                 pystray.MenuItem("Add word to dictionary...", self._open_add_word_dialog),
-                pystray.MenuItem("Edit hotwords / settings...", self._open_config_file),
-                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Edit settings file...", self._open_config_file),
                 pystray.MenuItem("Open config folder...", self._open_config_folder),
-                pystray.MenuItem("Open settings file...", self._open_config_file),
                 pystray.MenuItem("Open commands file...", self._open_commands_file) if voice_commands_enabled else None,
+                # Diagnostics folded into a submenu so the top level stays scannable.
+                pystray.MenuItem("Help & diagnostics", pystray.Menu(
+                    pystray.MenuItem("Run diagnostics...", self._run_doctor_in_window),
+                    pystray.MenuItem("Run self-test...", self._run_selftest_in_window),
+                    pystray.MenuItem("Bundle logs for bug report...", self._bundle_logs_action),
+                    pystray.MenuItem("View stats...", self._run_stats_in_window),
+                    pystray.MenuItem("Open log file...", self._open_log_file),
+                    pystray.MenuItem("Open model cache...", self._open_model_cache),
+                )),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
                     "Audio Host",
@@ -366,6 +367,7 @@ class SystemTray:
 
             menu_items.extend([
                 pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Restart Whisper Local", self._restart_application_from_tray),
                 pystray.MenuItem("Exit", self._quit_application_from_tray)
             ])
 
@@ -468,6 +470,25 @@ class SystemTray:
         console.start_minimize_monitor(console.hide)
 
     def _quit_application_from_tray(self, icon=None, item=None):
+        os.kill(os.getpid(), signal.SIGINT)
+
+    def _restart_application_from_tray(self, icon=None, item=None):
+        # Relaunch, then quit this instance — the new one's single-instance guard
+        # takes over the lock. Prefer the pyapp .exe when present (the standalone
+        # build); otherwise re-exec the current interpreter + argv. Only quit if
+        # the relaunch actually spawned, so a failed restart can't just kill the app.
+        import subprocess
+        import sys
+        try:
+            pyapp = os.environ.get('PYAPP', '')
+            if pyapp and os.path.isfile(pyapp):
+                subprocess.Popen([pyapp])
+            else:
+                subprocess.Popen([sys.executable] + sys.argv)
+        except Exception as e:
+            self.logger.error(f"Restart failed to relaunch: {e}")
+            self.notify("Restart failed — please relaunch manually.")
+            return
         os.kill(os.getpid(), signal.SIGINT)
 
     def _run_doctor_in_window(self, icon=None, item=None):

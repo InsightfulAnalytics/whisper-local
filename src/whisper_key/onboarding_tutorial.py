@@ -36,20 +36,33 @@ def mark_complete():
         logger.debug(f"Could not write onboarding marker: {e}")
 
 
-def show_console_welcome(hotkey_summary: Optional[str] = None,
+# hotkeys: dict of the user's ACTUAL configured, display-formatted hotkeys
+# (keys: record, rephrase, command, cancel, pause). Falls back to the Windows
+# defaults only if not supplied — so the banner is correct after customization
+# and on macOS, not hardcoded.
+def show_console_welcome(hotkeys: Optional[dict] = None,
                          notify: Optional[Callable[[str], None]] = None):
+    hk = hotkeys or {}
+    rec = hk.get('record', 'Ctrl+Win')
+    reph = hk.get('rephrase', 'Ctrl+Shift+Win')
+    cmd = hk.get('command', 'Alt+Win')
+    cancel = hk.get('cancel', 'Esc')
+    pause = hk.get('pause', 'Ctrl+Alt+Win')
     print()
     print(f"{CYAN}{BOLD}╔══════════════════════════════════════════════════════════════╗{RESET}")
     print(f"{CYAN}{BOLD}║                  Welcome to Whisper Local!                   ║{RESET}")
     print(f"{CYAN}{BOLD}╚══════════════════════════════════════════════════════════════╝{RESET}")
     print()
     print(f"  {BOLD}First time using this?{RESET} Here's everything you need.\n")
-    print(f"  {GREEN}▸{RESET} {BOLD}Hold Ctrl+Win{RESET} → record")
+    print(f"  {GREEN}▸{RESET} {BOLD}Hold {rec}{RESET} → record")
     print(f"  {GREEN}▸{RESET} {BOLD}Release the keys{RESET} → text appears at your cursor")
-    print(f"  {GREEN}▸{RESET} {BOLD}Hold Ctrl+Shift+Win{RESET} → AI rephrase (after selecting text)")
-    print(f"  {GREEN}▸{RESET} {BOLD}Press Alt+Win{RESET} → voice command mode")
-    print(f"  {GREEN}▸{RESET} {BOLD}Press Esc{RESET} → cancel current recording")
-    print(f"  {GREEN}▸{RESET} {BOLD}Press Ctrl+Alt+Win{RESET} → pause all Whisper Local hotkeys\n")
+    if reph:
+        print(f"  {GREEN}▸{RESET} {BOLD}Hold {reph}{RESET} → AI rephrase (after selecting text)")
+    if cmd:
+        print(f"  {GREEN}▸{RESET} {BOLD}Press {cmd}{RESET} → voice command mode")
+    print(f"  {GREEN}▸{RESET} {BOLD}Press {cancel}{RESET} → cancel current recording")
+    if pause:
+        print(f"  {GREEN}▸{RESET} {BOLD}Press {pause}{RESET} → pause all Whisper Local hotkeys\n")
     print(f"  {DIM}{BOLD}Tips{RESET}{DIM}:{RESET}")
     print(f"  {DIM}• Say \"comma\", \"period\", \"new paragraph\" mid-sentence{RESET}")
     print(f"  {DIM}• Right-click the tray icon for Profile, Language, Recent transcripts{RESET}")
@@ -59,7 +72,7 @@ def show_console_welcome(hotkey_summary: Optional[str] = None,
 
     if notify:
         try:
-            notify("Welcome! Hold Ctrl+Win to start dictating.")
+            notify(f"Welcome! Hold {rec} to start dictating.")
         except Exception:
             pass
 

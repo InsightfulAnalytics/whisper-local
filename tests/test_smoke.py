@@ -399,6 +399,55 @@ class SettingsUiModuleTests(unittest.TestCase):
         self.assertTrue(hasattr(settings_ui, 'run_settings_window'))
 
 
+class OnboardingBannerTests(unittest.TestCase):
+    # UX #4b: the first-launch banner must reflect the user's ACTUAL configured
+    # hotkeys (and notify message), not hardcoded Windows defaults.
+    def test_banner_uses_supplied_hotkeys(self):
+        import io
+        import contextlib
+        import unittest.mock as mock
+        from whisper_key import onboarding_tutorial
+        seen = {}
+
+        def fake_notify(msg):
+            seen['notify'] = msg
+
+        buf = io.StringIO()
+        with mock.patch.object(onboarding_tutorial, 'mark_complete', lambda: None):
+            with contextlib.redirect_stdout(buf):
+                onboarding_tutorial.show_console_welcome(
+                    hotkeys={'record': 'F9', 'rephrase': 'F10', 'command': 'F11',
+                             'cancel': 'F12', 'pause': 'F8'},
+                    notify=fake_notify,
+                )
+        out = buf.getvalue()
+        self.assertIn('F9', out)
+        self.assertIn('F10', out)
+        self.assertNotIn('Ctrl+Win', out)  # no leaked default
+        self.assertEqual(seen.get('notify'), 'Welcome! Hold F9 to start dictating.')
+
+
+class PostprocessHotReloadTests(unittest.TestCase):
+    # UX #1/#3: editing postprocess in user_settings.yaml applies on next dictation
+    # (get_postprocess_config) without an app restart.
+    def test_postprocess_reloads_on_file_change(self):
+        import os
+        import tempfile
+        import unittest.mock as mock
+        from ruamel.yaml import YAML
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch('whisper_key.config_manager.get_user_app_data_path', return_value=d):
+                from whisper_key.config_manager import ConfigManager
+                cm = ConfigManager(quiet=True)
+                self.assertFalse(cm.get_postprocess_config().get('strip_filler_words'))
+                sp = os.path.join(d, 'user_settings.yaml')
+                base = cm._postprocess_mtime or os.path.getmtime(sp)
+                with open(sp, 'w', encoding='utf-8') as f:
+                    YAML().dump({'postprocess': {'strip_filler_words': True}}, f)
+                os.utime(sp, (base + 10, base + 10))  # guarantee a newer mtime
+                self.assertTrue(cm.get_postprocess_config().get('strip_filler_words'))
+
+
 class SettingsResetTests(unittest.TestCase):
     # SEC #1: "Reset to defaults" promises hotwords survive — verify they do.
     def test_reset_preserves_hotwords(self):

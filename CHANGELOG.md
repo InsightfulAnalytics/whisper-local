@@ -4,6 +4,41 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.15.0]
+
+### Added
+- **Formatting changes now apply on your next dictation — no restart needed.**
+  Editing the post-processing section (inline formatting, filler-word stripping,
+  cue-word phrases) in `user_settings.yaml` or the settings window used to require
+  a full app restart. The config now hot-reloads that section on file change, so
+  tweaks to how your speech is punctuated take effect immediately.
+- **"Restart Whisper Local" tray item.** Hotkey, model, and audio-device changes
+  still need a restart to take effect; you can now do it from the tray in one
+  click instead of hunting down the process. Relaunches the standalone `.exe`
+  when running as one, otherwise re-execs the current interpreter.
+- **Errors now flash where you're looking.** When a dictation produces no audio
+  ("No audio — mic muted?") or no speech ("No speech detected"), the level
+  overlay shows the reason for two seconds instead of silently vanishing — tray
+  balloon notifications are often suppressed by Windows focus-assist, so the
+  failure was easy to miss.
+- **Two new checkboxes in the settings window's Post-process tab** for
+  `inline_formatting_absorb_punctuation` (fixes doubled punctuation like
+  "hello,, world") and `inline_formatting_extend`, with a pointer to the
+  `inline_formatting_replacements` map in the settings file.
+
+### Changed
+- **First-launch console banner shows your actual hotkeys.** It previously
+  hardcoded the Windows defaults (`Ctrl+Win`, etc.), which were wrong on macOS
+  and after any customization; it now interpolates the configured record,
+  rephrase, command, cancel, and pause keys.
+- **Tray menu decluttered.** Removed the duplicate "Open settings file..." entry
+  (it did the same thing as "Edit hotwords / settings..."), renamed the survivor
+  to "Edit settings file...", and folded the six diagnostic actions into a
+  "Help & diagnostics" submenu.
+- **Honest Save dialog.** The settings-window save confirmation no longer implies
+  every change is instant; it spells out that formatting applies on the next
+  dictation while hotkey/model/audio changes need a restart.
+
 ## [0.14.1]
 
 ### Fixed (security sweep)

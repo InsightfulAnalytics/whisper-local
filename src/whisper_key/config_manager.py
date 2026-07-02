@@ -93,6 +93,15 @@ class ConfigManager:
         self.config_path = self._determine_config_path(use_user_settings, config_path)
         
         self.config = self._load_config()
+
+        # Baseline mtime for postprocess hot-reload (see get_postprocess_config).
+        self._postprocess_mtime = None
+        if self.use_user_settings:
+            try:
+                self._postprocess_mtime = os.path.getmtime(self.user_settings_path)
+            except OSError:
+                pass
+
         if not quiet:
             self._print_config_status()
 
@@ -309,7 +318,37 @@ class ConfigManager:
         return self.config.get('console', {}).copy()
 
     def get_postprocess_config(self) -> Dict[str, Any]:
+        # Hot-reload the postprocess section if user_settings.yaml changed on disk,
+        # so Settings-GUI/manual edits to formatting (filler words, inline
+        # replacements, absorb, Ollama) apply on the NEXT dictation without an app
+        # restart. Scoped to postprocess only — the one section read fresh per
+        # delivery with no separately-cached consumer.
+        self._reload_postprocess_if_changed()
         return self.config.get('postprocess', {}).copy()
+
+    def _reload_postprocess_if_changed(self):
+        if not self.use_user_settings:
+            return
+        try:
+            mtime = os.path.getmtime(self.user_settings_path)
+        except OSError:
+            return
+        if mtime == getattr(self, '_postprocess_mtime', None):
+            return
+        self._postprocess_mtime = mtime
+        try:
+            default_config = self._load_default_config()
+            yaml = YAML()
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                user_config = yaml.load(f) or {}
+            merged = deep_merge_config(default_config, user_config)
+            resolved = _resolve_platform_values(merged)
+            new_pp = resolved.get('postprocess')
+            if new_pp is not None:
+                self.config['postprocess'] = new_pp
+                self.logger.debug("Reloaded postprocess config from disk")
+        except Exception as e:
+            self.logger.debug(f"postprocess hot-reload failed: {e}")
 
     def get_streaming_config(self) -> Dict[str, Any]:
         return self.config.get('streaming', {}).copy()

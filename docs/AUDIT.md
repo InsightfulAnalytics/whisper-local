@@ -1,10 +1,36 @@
 # Whisper Local — Code Audit & Improvement Backlog
 
-**Last updated:** 2026-06-13
+**Last updated:** 2026-07-01
 **Audited versions:** 0.10.0 (Round 1, below) and 0.11.x (Round 2, next section)
 **Method:** Parallel subsystem reviews + manual verification of every finding before fixing.
 
 > This is a living document. Each issue has a stable ID (e.g. `SRV-1`) so commits and PRs can reference it. When you fix one, change its **Status** to `FIXED (<commit>)` rather than deleting it, so history stays readable.
+
+---
+
+## Round 4 (0.15.0) — user-friendliness pass (2026-07)
+
+UX review of the running product. Four code-level friction points, all fixed with
+tests where testable.
+
+- **UX-1 (settings apply latency)** Formatting/post-process edits required a full app
+  restart to take effect, but the Save dialog implied changes were instant. `config_manager`
+  now hot-reloads the `postprocess` section on file mtime change (`get_postprocess_config`
+  re-reads + re-merges), so tweaks apply on the next dictation. Save dialog reworded to be
+  honest about what is instant vs restart-gated. +test (`PostprocessHotReloadTests`).
+- **UX-2 (silent failures)** A no-audio or no-speech dictation just hid the overlay; tray
+  balloons are frequently suppressed by Windows focus-assist, so users saw nothing.
+  `level_overlay.flash_failure(message)` now shows the reason ("No audio — mic muted?",
+  "No speech detected") in the overlay for 2 s where the user is already looking.
+- **UX-3 (discoverability)** Added Post-process-tab checkboxes for
+  `inline_formatting_absorb_punctuation` and `inline_formatting_extend` (previously
+  file-only), with a footnote pointing at `inline_formatting_replacements`.
+- **UX-4 (tray + onboarding)** (a) Removed the duplicate "Open settings file..." tray item,
+  folded six diagnostics into a "Help & diagnostics" submenu, and added a "Restart Whisper
+  Local" item so hotkey/model/device changes can be applied without hunting the process.
+  (b) First-launch console banner now interpolates the user's actual configured hotkeys
+  instead of hardcoded Windows defaults (wrong on macOS / after customization).
+  +test (`OnboardingBannerTests`).
 
 ---
 

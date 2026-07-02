@@ -116,7 +116,10 @@ def run_settings_window():
         _save_all(cm, vars_)
         messagebox.showinfo(
             "Saved",
-            "Settings saved.\n\nHotkey and device changes take effect on the next app restart.",
+            "Settings saved.\n\n"
+            "• Formatting / post-processing changes apply on your next dictation.\n"
+            "• Hotkey, model, and audio-device changes take effect after you "
+            "restart Whisper Local (tray → Restart).",
             parent=root,
         )
         root.destroy()
@@ -507,11 +510,18 @@ def _build_postprocess_tab(nb, cm, vars_, row_index):
         ('postprocess.ensure_punctuation', 'Ensure sentence ends with punctuation', 'ensure_punctuation'),
         ('postprocess.strip_trailing_period', 'Strip trailing period', 'strip_trailing_period'),
         ('postprocess.inline_formatting', 'Inline voice formatting  (say "comma", "period")', 'inline_formatting'),
+        ('postprocess.inline_formatting_absorb_punctuation',
+         'Absorb Whisper punctuation around spoken cues  (fixes "hello,, world")', 'inline_formatting_absorb_punctuation'),
+        ('postprocess.inline_formatting_extend',
+         'Keep English cue words when adding your own', 'inline_formatting_extend'),
     ]
     for path, label, cfg_key in checks:
         v = tk.BooleanVar(value=bool(pp.get(cfg_key, False)))
         vars_[path] = v
         _check(tab, path, label, v, row_index)
+
+    _footnote(tab, 'Custom phrase→symbol mappings (for other languages) live under '
+                   'inline_formatting_replacements in the settings file — see the FAQ.')
 
     _separator(tab)
 
