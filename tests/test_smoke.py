@@ -435,10 +435,13 @@ class PostprocessHotReloadTests(unittest.TestCase):
         import tempfile
         import unittest.mock as mock
         from ruamel.yaml import YAML
+        # Import the submodule object so patch.object resolves it without relying
+        # on it already being an attribute of the package (string-target patches
+        # fail under a fresh `unittest` run where nothing imported it first).
+        from whisper_key import config_manager as cm_mod
         with tempfile.TemporaryDirectory() as d:
-            with mock.patch('whisper_key.config_manager.get_user_app_data_path', return_value=d):
-                from whisper_key.config_manager import ConfigManager
-                cm = ConfigManager(quiet=True)
+            with mock.patch.object(cm_mod, 'get_user_app_data_path', return_value=d):
+                cm = cm_mod.ConfigManager(quiet=True)
                 self.assertFalse(cm.get_postprocess_config().get('strip_filler_words'))
                 sp = os.path.join(d, 'user_settings.yaml')
                 base = cm._postprocess_mtime or os.path.getmtime(sp)
