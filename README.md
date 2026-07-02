@@ -109,7 +109,20 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 
 ## 🚀 Quick Start
 
-### Install (Python 3.11–3.13)
+### Option 1 — Standalone Windows app (no Python needed)
+
+1. Download **`whisper-local.exe`** from the [latest release](https://github.com/drajb/whisper-local/releases/latest).
+2. Double-click it. Windows SmartScreen will warn because the app isn't code-signed (a paid certificate) — click **More info → Run anyway**. The source is fully open if you'd rather audit first.
+3. First launch takes a few minutes: it sets up a private Python runtime, then downloads the Whisper model. Every launch after that is instant.
+
+### Option 2 — pip (Windows / macOS, Python 3.11–3.13)
+
+```bash
+pip install whisper-local
+whisper-local
+```
+
+### Option 3 — from source
 
 ```bash
 git clone https://github.com/drajb/whisper-local.git

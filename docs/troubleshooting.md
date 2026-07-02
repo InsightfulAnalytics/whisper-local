@@ -14,6 +14,8 @@ This creates a zip with redacted logs, `--doctor` output, and recent crashes. At
 
 | Symptom | Most likely cause | Fix |
 |---|---|---|
+| "Windows protected your PC" (SmartScreen) when running the `.exe` | The app is open-source but not code-signed (certificates cost money) | Click **More info → Run anyway**. Verify the download with the `.sha256` file from the release if you want certainty |
+| First `.exe` launch sits for minutes with no window | pyapp is bootstrapping a private Python + installing the app (one-time) | Wait it out — subsequent launches are instant. Then the Whisper model download (~141 MB) follows |
 | Recording starts but no text appears | Default Whisper task changed accidentally | Settings → General → Language = `auto` (or your language); Profile = `Dictation` |
 | First word is cut off | (Should be fixed by pre-roll) Mic was slow to wake | Check `audio.host` is set to `WASAPI` on Windows |
 | Hotkey does nothing | Another app holds the same combination | Change `hotkey.recording_hotkey` in Settings; restart |

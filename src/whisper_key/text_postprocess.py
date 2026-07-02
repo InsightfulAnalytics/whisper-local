@@ -11,12 +11,15 @@ _SENTENCE_END = ('.', '!', '?', '"', "'", ')', ']', ':', ';', ',', '…')
 INLINE_FORMAT_REPLACEMENTS = [
     (r'\bnew paragraph\b', '\n\n'),
     (r'\bnew line\b', '\n'),
-    (r'\b(?:full stop|period)\b', '.'),
-    (r'\bcomma\b', ','),
-    (r'\bquestion mark\b', '?'),
-    (r'\bexclamation (?:mark|point)\b', '!'),
-    (r'\bcolon\b', ':'),
-    (r'\bsemi[- ]?colon\b', ';'),
+    # Trailing space baked in so absorb mode doesn't glue words together
+    # ("hello comma world" → "hello, world", not "hello,world"). With absorb OFF
+    # the extra space is normalized away by the cleanup pass below.
+    (r'\b(?:full stop|period)\b', '. '),
+    (r'\bcomma\b', ', '),
+    (r'\bquestion mark\b', '? '),
+    (r'\bexclamation (?:mark|point)\b', '! '),
+    (r'\bcolon\b', ': '),
+    (r'\bsemi[- ]?colon\b', '; '),
     (r'\bopen (?:quote|quotes)\b', ' "'),
     (r'\bclose (?:quote|quotes)\b', '" '),
     (r'\bopen paren(?:thesis)?\b', ' ('),
@@ -101,7 +104,9 @@ def _apply_inline_formatting(text: str, config: dict = None) -> str:
     # spacing wins — so define replacements like ", " or " → ". Off by default.
     absorb = cfg.get('inline_formatting_absorb_punctuation', False)
     for pattern, replacement in _resolve_inline_replacements(cfg):
-        effective = r'[,.\s]*(?:' + pattern + r')[,.\s]*' if absorb else pattern
+        # Absorb only spaces/tabs/commas/periods around the cue — NOT newlines, so
+        # "new paragraph"/"new line" (\n) breaks survive a following cue's absorb.
+        effective = r'[ \t,.]*(?:' + pattern + r')[ \t,.]*' if absorb else pattern
         # Literal replacement via a function repl: avoids re interpreting \1, \g<>,
         # or stray backslashes in user-provided replacement strings.
         text = re.sub(effective, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)

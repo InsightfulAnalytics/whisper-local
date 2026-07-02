@@ -168,6 +168,15 @@ class TextPostprocessTests(unittest.TestCase):
         }
         self.assertIn(",,", postprocess("a, comma, b", cfg))
 
+    def test_absorb_with_builtins_does_not_glue_or_eat_breaks(self):
+        # SEC #4: absorb + built-in English cue words must keep spacing and newlines.
+        from whisper_key.text_postprocess import postprocess
+        cfg = {'inline_formatting': True, 'inline_formatting_absorb_punctuation': True}
+        self.assertEqual(postprocess("Hello, comma, world.", cfg), "Hello, world.")
+        # "new paragraph" break must survive a following cue's absorb
+        out = postprocess("first new paragraph second period", cfg)
+        self.assertIn("\n\n", out)
+
     def test_absorb_respects_word_boundary(self):
         # "comma" must not fire inside "commander"/"Common".
         from whisper_key.text_postprocess import postprocess
@@ -390,6 +399,38 @@ class SettingsUiModuleTests(unittest.TestCase):
         self.assertTrue(hasattr(settings_ui, 'run_settings_window'))
 
 
+class SettingsResetTests(unittest.TestCase):
+    # SEC #1: "Reset to defaults" promises hotwords survive — verify they do.
+    def test_reset_preserves_hotwords(self):
+        import tempfile, os
+        from ruamel.yaml import YAML
+        from whisper_key.settings_ui import reset_settings_preserving_hotwords
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'user_settings.yaml')
+            with open(path, 'w', encoding='utf-8') as f:
+                YAML().dump({'whisper': {'model': 'small', 'hotwords': ['Kubernetes', 'drajb']},
+                             'clipboard': {'auto_paste': False}}, f)
+            preserved = reset_settings_preserving_hotwords(path)
+            self.assertEqual(preserved, ['Kubernetes', 'drajb'])
+            with open(path, encoding='utf-8') as f:
+                after = YAML().load(f)
+            # hotwords kept, everything else gone (back to defaults)
+            self.assertEqual(list(after['whisper']['hotwords']), ['Kubernetes', 'drajb'])
+            self.assertNotIn('clipboard', after)
+            self.assertNotIn('model', after['whisper'])
+
+    def test_reset_with_no_hotwords_removes_file(self):
+        import tempfile, os
+        from ruamel.yaml import YAML
+        from whisper_key.settings_ui import reset_settings_preserving_hotwords
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'user_settings.yaml')
+            with open(path, 'w', encoding='utf-8') as f:
+                YAML().dump({'clipboard': {'auto_paste': False}}, f)
+            self.assertEqual(reset_settings_preserving_hotwords(path), [])
+            self.assertFalse(os.path.exists(path))  # clean wipe when nothing to keep
+
+
 class HistoryWindowModuleTests(unittest.TestCase):
     def test_module_importable(self):
         from whisper_key import history_window
@@ -600,8 +641,26 @@ class LocalServerSecurityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             local_server._parse_multipart(handler)
 
+    # SEC #3: negative Content-Length must be rejected (read(-1) would drain socket).
+    def test_negative_content_length_rejected(self):
+        from whisper_key import local_server
+        handler = _FakeHandler(b'x', 'B', content_length=-1)
+        with self.assertRaises(ValueError):
+            local_server._parse_multipart(handler)
+
 
 class BundleRedactionTests(unittest.TestCase):
+    # SEC #2: URL credentials + secret query params masked in ALL bundled files
+    # (this is what protects doctor.txt, not just user_settings.yaml).
+    def test_redact_masks_url_credentials_and_tokens(self):
+        from whisper_key.bundle_logs import _redact
+        out = _redact("Ollama post-edit: http://user:s3cret@ollama.host:11434 reachable")
+        self.assertNotIn("s3cret", out)
+        self.assertIn("<REDACTED>@", out)
+        out2 = _redact("GET https://api.example.com/x?token=abc123&z=1")
+        self.assertNotIn("abc123", out2)
+        self.assertIn("<REDACTED>", out2)
+
     # PRIV-1: sensitive config fields are masked in user_settings.yaml.
     def test_redact_yaml_masks_sensitive_fields(self):
         from whisper_key.bundle_logs import _redact_yaml

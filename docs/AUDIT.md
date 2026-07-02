@@ -8,6 +8,29 @@
 
 ---
 
+## Round 3 (0.14.x) — security-focused sweep (2026-07)
+
+Agent security sweep + hand-verified. Four confirmed, all fixed with tests.
+
+- **SEC-1 (Med, data loss)** `settings_ui` "Reset to defaults" deleted `user_settings.yaml`,
+  wiping `whisper.hotwords` despite the dialog promising the dictionary survives. Now
+  preserves hotwords across the reset (`reset_settings_preserving_hotwords`). +test.
+- **SEC-2 (Med, privacy)** `bundle_logs` masked the Ollama endpoint only in
+  user_settings.yaml, but `doctor.txt` (same public-issue zip) printed it verbatim —
+  reopening PRIV-1 for `user:pass@`/`?token=` endpoints. Added URL-credential + secret-
+  query-param scrubbing to the general `_redact()` (covers doctor.txt AND logs). +test.
+- **SEC-3 (Low)** `--serve` accepted a negative `Content-Length`, bypassing the SRV-2
+  cap (`read(-1)` drains the socket). Now rejects `< 0`. +test. Loopback-only.
+- **SEC-4 (Low)** `inline_formatting_absorb_punctuation` with the built-in English cue
+  words glued words ("hello,world") and ate `new paragraph`/`new line` breaks. Fixed:
+  built-in punctuation replacements bake a trailing space; absorb class excludes
+  newlines (`[ \t,.]*`). +test.
+
+Everything else re-verified CLEAN (subprocess/shell, full network inventory, YAML
+loaders, streaming worker lifecycle, autostart writes, VC-1/SRV-1/PRIV-1/LOG-1/R2 fixes).
+
+---
+
 ## Round 2 (0.11.x) — intensive word-by-word review
 
 Six parallel reviewers swept the whole repo; every claimed bug was hand-verified in the

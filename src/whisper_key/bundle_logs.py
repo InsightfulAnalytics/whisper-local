@@ -26,6 +26,13 @@ _REDACTIONS = [
     (re.compile(r'(C:\\Users\\)([^\\]+)', re.IGNORECASE), r'\1<USER>'),
     (re.compile(r'(/Users/)([^/]+)'), r'\1<USER>'),
     (re.compile(r'(/home/)([^/]+)'), r'\1<USER>'),
+    # URL credentials (scheme://user:pass@host) — applied to EVERY bundled file, so
+    # a custom Ollama endpoint with embedded creds is masked in doctor.txt and logs
+    # too, not just user_settings.yaml (which _redact_yaml handles separately).
+    (re.compile(r'(\bhttps?://)[^/\s:@]+:[^/\s@]+@', re.IGNORECASE), r'\1<REDACTED>@'),
+    # Secret-ish query params.
+    (re.compile(r'([?&](?:token|key|api[_-]?key|password|secret|access[_-]?token)=)[^&\s]+',
+                re.IGNORECASE), r'\1<REDACTED>'),
     (re.compile(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b'), '<EMAIL>'),
 ]
 

@@ -226,9 +226,10 @@ def _parse_multipart(handler):
         raise ValueError('No boundary in Content-Type')
 
     length = int(handler.headers.get('Content-Length', '0'))
-    if length > MAX_UPLOAD_BYTES:
+    # Reject negative too: read(-1) would drain the whole socket, defeating the cap.
+    if length < 0 or length > MAX_UPLOAD_BYTES:
         raise ValueError(
-            f'Payload too large: {length} bytes exceeds the {MAX_UPLOAD_BYTES}-byte limit'
+            f'Invalid/oversized payload: {length} bytes (limit {MAX_UPLOAD_BYTES})'
         )
     raw = handler.rfile.read(length)
     sep = b'--' + boundary.encode('latin-1')

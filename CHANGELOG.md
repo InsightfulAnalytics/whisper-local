@@ -4,6 +4,22 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.14.1]
+
+### Fixed (security sweep)
+- **Reset to defaults no longer wipes your dictionary.** The `--settings` reset
+  promised hotwords survive but deleted the file they live in; it now preserves
+  `whisper.hotwords` across the reset.
+- **Diagnostic bundle no longer leaks Ollama credentials.** A custom endpoint with
+  `user:pass@` or `?token=` was masked in `user_settings.yaml` but printed verbatim
+  in `doctor.txt` in the same public-issue zip; URL credentials and secret query
+  params are now scrubbed from every bundled file.
+- **`--serve` rejects negative `Content-Length`** (previously bypassed the upload cap).
+- **Inline-formatting absorb mode** no longer glues words or eats paragraph/line
+  breaks when used with the built-in English cue words.
+- README now documents the standalone `.exe` install path + SmartScreen note;
+  troubleshooting covers the unsigned-app warning and first-launch bootstrap wait.
+
 ## [0.14.0]
 
 ### Added

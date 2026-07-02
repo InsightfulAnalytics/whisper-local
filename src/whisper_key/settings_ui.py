@@ -25,6 +25,27 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+# Reset user settings to defaults while PRESERVING whisper.hotwords, which live
+# inside user_settings.yaml. The reset dialog promises the dictionary survives, so
+# we can't just delete the file. Module-level (not a Tk closure) so it's testable.
+def reset_settings_preserving_hotwords(settings_path) -> list:
+    from ruamel.yaml import YAML
+    import os
+    preserved = []
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, encoding='utf-8') as f:
+                existing = YAML().load(f) or {}
+            preserved = list((existing.get('whisper') or {}).get('hotwords') or [])
+        except Exception:
+            preserved = []
+        os.remove(settings_path)
+    if preserved:
+        with open(settings_path, 'w', encoding='utf-8') as f:
+            YAML().dump({'whisper': {'hotwords': preserved}}, f)
+    return preserved
+
 BG = '#0d1117'
 BG2 = '#161b22'
 BG3 = '#21262d'
@@ -111,11 +132,11 @@ def run_settings_window():
             from .utils import get_user_app_data_path
             import os
             settings_path = os.path.join(get_user_app_data_path(), 'user_settings.yaml')
-            if os.path.exists(settings_path):
-                os.remove(settings_path)
+            reset_settings_preserving_hotwords(settings_path)
             messagebox.showinfo(
                 "Reset complete",
-                "Settings cleared. Next launch will use defaults.",
+                "Settings reset to defaults (your dictionary was kept). "
+                "Restart Whisper Local to apply.",
                 parent=root,
             )
             root.destroy()

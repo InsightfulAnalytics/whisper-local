@@ -129,10 +129,11 @@ jobs:
             ## Install
 
             **Option 1 — Standalone Windows app (no Python needed)**
-            Download `whisper-local.exe` below and double-click it. On first launch
-            it sets itself up (downloads a private Python runtime + the app), then
-            downloads the default Whisper `tiny` model (~75 MB). After that it runs
-            **100% offline**.
+            Download `whisper-local.exe` below and double-click it. Windows
+            SmartScreen will warn (unsigned app) — click **More info → Run anyway**.
+            First launch takes a few minutes: it sets up a private Python runtime,
+            then downloads the default Whisper `base` model (~141 MB). After that
+            it runs **100% offline**.
 
             **Option 2 — pip (Windows / macOS, needs Python 3.11+)**
             ```bash
