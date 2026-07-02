@@ -438,7 +438,12 @@ class PostprocessHotReloadTests(unittest.TestCase):
         # Import the submodule object so patch.object resolves it without relying
         # on it already being an attribute of the package (string-target patches
         # fail under a fresh `unittest` run where nothing imported it first).
-        from whisper_key import config_manager as cm_mod
+        # config_manager pulls `.platform`, which eagerly imports the OS-specific
+        # backend (win32api / AppKit) — absent in the lean CI env, so skip there.
+        try:
+            from whisper_key import config_manager as cm_mod
+        except Exception:
+            self.skipTest("config_manager not importable on this platform")
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(cm_mod, 'get_user_app_data_path', return_value=d):
                 cm = cm_mod.ConfigManager(quiet=True)
