@@ -3,6 +3,27 @@ import time
 import threading
 from typing import Optional, Callable
 
+# pip-installed NVIDIA runtimes (nvidia-cublas-cu12, nvidia-cudnn-cu12, ...) put
+# their DLLs under site-packages/nvidia/<pkg>/bin, which ctranslate2 4.7 does not
+# search on Windows — its native code resolves cublas/cudnn with a plain
+# LoadLibrary, so the dirs must be on PATH (add_dll_directory is not enough)
+import sys
+if sys.platform == "win32":
+    import ctypes
+    import glob
+    import importlib.util
+    import os
+    _nvidia_spec = importlib.util.find_spec("nvidia")
+    if _nvidia_spec and _nvidia_spec.submodule_search_locations:
+        for _root in _nvidia_spec.submodule_search_locations:
+            for _bin_dir in glob.glob(os.path.join(_root, "*", "bin")):
+                os.environ["PATH"] = _bin_dir + os.pathsep + os.environ.get("PATH", "")
+                for _dll in glob.glob(os.path.join(_bin_dir, "*.dll")):
+                    try:
+                        ctypes.CDLL(_dll)
+                    except OSError:
+                        pass
+
 import numpy as np
 from faster_whisper import WhisperModel
 

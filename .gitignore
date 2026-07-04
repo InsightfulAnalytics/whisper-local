@@ -88,6 +88,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local machine-specific working notes (not for publishing)
+LEARNINGS.md
+
 # Spyder project settings
 .spyderproject
 .spyproject

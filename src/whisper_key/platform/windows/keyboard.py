@@ -1,5 +1,8 @@
 import ctypes
 import ctypes.wintypes as wintypes
+import logging
+
+logger = logging.getLogger(__name__)
 
 user32 = ctypes.windll.user32
 
@@ -100,7 +103,15 @@ def _make_unicode_input(char_code, flags=0):
 def _send(inputs):
     n = len(inputs)
     array = (INPUT * n)(*inputs)
-    user32.SendInput(n, array, ctypes.sizeof(INPUT))
+    sent = user32.SendInput(n, array, ctypes.sizeof(INPUT))
+    if sent != n:
+        # SendInput fails silently otherwise — 0 with ERROR_ACCESS_DENIED (5)
+        # means UIPI or security software blocked the synthetic input
+        err = ctypes.windll.kernel32.GetLastError()
+        logger.error(f"SendInput injected only {sent}/{n} events (WinError {err})")
+    else:
+        logger.info(f"SendInput injected {sent}/{n} events OK")
+    return sent
 
 
 def validate_delivery_method(method: str) -> str:

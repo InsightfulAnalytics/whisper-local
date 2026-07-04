@@ -122,6 +122,15 @@ class ClipboardManager:
                 return False
 
             time.sleep(self.paste_pre_paste_delay)
+            try:
+                from .platform import foreground
+                fg = foreground.get_foreground_app()
+                self.logger.info(
+                    f"Sending paste keys to foreground app: "
+                    f"{fg.get('exe', '?')} | title: {fg.get('title', '?')!r}"
+                )
+            except Exception as e:
+                self.logger.debug(f"Could not inspect foreground app: {e}")
             keyboard.send_hotkey(*self.paste_keys)
 
             print(f"   ✓ Auto-pasted via key simulation")

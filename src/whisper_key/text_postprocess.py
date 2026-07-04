@@ -163,6 +163,10 @@ def _ollama_polish(text: str, cfg: dict) -> str:
         'model': model,
         'prompt': final_prompt,
         'stream': False,
+        # temperature 0 keeps cleanup deterministic; keep_alive holds the
+        # model in VRAM between utterances so only the first call pays the load
+        'options': cfg.get('options') or {'temperature': 0},
+        'keep_alive': cfg.get('keep_alive', '30m'),
     }
 
     try:

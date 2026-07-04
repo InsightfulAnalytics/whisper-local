@@ -449,10 +449,18 @@ postprocess: # Transcription post-processing pipeline
     # Optional local LLM cleanup via Ollama (https://ollama.ai)
     # Off by default. Requires Ollama running locally on the configured endpoint.
     ollama:
+        # Use 127.0.0.1, not localhost: on Windows localhost resolves to IPv6 ::1
+        # first, Ollama listens on IPv4 only, and the failed IPv6 attempt adds ~2s
+        # to EVERY cleanup call
         enabled: false
-        endpoint: http://localhost:11434
+        endpoint: http://127.0.0.1:11434
         model: llama3.2
         timeout: 5
+        # How long Ollama keeps the model loaded in VRAM after a request
+        keep_alive: 30m
+        # Ollama generation options (temperature 0 = deterministic cleanup)
+        options:
+            temperature: 0
         prompt: |-
             Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:
 
