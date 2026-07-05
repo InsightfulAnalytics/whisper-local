@@ -7,8 +7,8 @@
 **Press a hotkey. Speak. Your words appear at the cursor.**
 No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://github.com/openai/whisper).
 
-[![Tests](https://github.com/drajb/whisper-local/actions/workflows/test.yml/badge.svg)](https://github.com/drajb/whisper-local/actions/workflows/test.yml)
-[![Release](https://github.com/drajb/whisper-local/actions/workflows/release.yml/badge.svg)](https://github.com/drajb/whisper-local/actions/workflows/release.yml)
+[![Tests](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/test.yml/badge.svg)](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/test.yml)
+[![Release](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml/badge.svg)](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml)
 [![PyPI](https://img.shields.io/pypi/v/whisper-local.svg)](https://pypi.org/project/whisper-local/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -25,7 +25,7 @@ No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://git
 <!-- ![Demo](docs/demo.gif) -->
 
 
-Whisper Local is a **free, open-source, fully offline alternative to Wispr Flow, Dragon, and Otter** for power users who want **AI dictation without sending audio to the cloud**. Built on [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2), it delivers **push-to-talk speech-to-text in any application** — chat apps, code editors, browsers, terminals, design tools, anywhere a cursor blinks. Self-hosted, hackable, MIT-licensed.
+Whisper Local is a **free, open-source, fully offline alternative to Wispr Flow, Dragon, and Otter** for anyone who wants **AI dictation without shipping their audio to the cloud**. It runs on [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) and drops **push-to-talk speech-to-text into any application** you can put a cursor in — chat windows, code editors, browsers, terminals, design tools, you name it. Self-hosted, hackable, and MIT-licensed.
 
 **Looking for:** *Wispr Flow alternative*, *offline voice typing*, *local Whisper dictation*, *free Dragon NaturallySpeaking alternative*, *privacy-first speech-to-text*, *Windows voice dictation without cloud*, *macOS push-to-talk transcription*. You found it.
 
@@ -33,21 +33,21 @@ Whisper Local is a **free, open-source, fully offline alternative to Wispr Flow,
 
 ## 🌟 Why this exists
 
-Most AI dictation tools are great — until you check the privacy policy. Your audio goes to a server, gets processed, and (sometimes) stored. You pay a monthly fee or get cut off.
+Most dictation tools work beautifully — right up until you read the privacy policy. Your audio is streamed to someone else's server, processed there, and sometimes kept around. And you're renting the whole thing by the month.
 
-Whisper Local exists because **you shouldn't have to choose between accuracy and privacy.**
+Whisper Local takes the opposite position: **privacy and accuracy shouldn't be a trade-off.**
 
-- 🔒 Your voice never leaves your machine — not even metadata
-- 🆓 Free forever — no account, no API key, no subscription
-- 🔌 Works offline, air-gapped, after the internet is gone
-- 🛠️ Fork it, hack it, ship your own version — MIT licensed
-- 💡 Same Whisper model quality as cloud services, running on your own GPU
+- 🔒 Your voice never leaves the machine — not even metadata
+- 🆓 Free for good — no account, no API key, no subscription
+- 🔌 Runs offline, air-gapped, long after the Wi-Fi drops
+- 🛠️ Fork it, hack it, ship your own build — MIT licensed
+- 💡 The same Whisper models the cloud services use, running on your own GPU
 
-This is a **community tool**, not a product. There's no support SLA, no roadmap committee, no marketing. If it's useful to you, great. If something's broken, PRs are welcome.
+It's a **community tool**, not a product — no support SLA, no roadmap committee, no marketing budget. If it helps you, brilliant. If something's broken, issues and PRs are welcome.
 
-> **A note from the maintainer:** I built this for myself, then realised it might help others. So I'm releasing it **for anyone who wants it** — no strings attached. Use it. Fork it. Rebrand it. Ship your own version. The only thing I ask is that you keep the LICENSE attribution intact (to Pin Wang, the original upstream author, and to me as the fork maintainer). If you build something cool on top of it, I'd love to hear about it via a [Discussion](https://github.com/drajb/whisper-local/discussions) — but you don't owe anyone anything.
+> **A note from the maintainer:** This is my own build of a tool I lean on every day — a fork of Pin Wang's original Whisper dictation project, tuned to the way I actually work and shared **for anyone who wants it**. No strings attached: use it, fork it, rebrand it, ship your own version. The one ask is that you keep the LICENSE attribution intact (to Pin Wang, the original author). If you build something interesting on top of it, tell me about it in a [Discussion](https://github.com/InsightfulAnalytics/whisper-local/discussions) — but you don't owe anyone anything.
 >
-> — **Rohit Burani**
+> — **Tim**
 
 ---
 
@@ -111,7 +111,7 @@ This is a **community tool**, not a product. There's no support SLA, no roadmap 
 
 ### Option 1 — Standalone Windows app (no Python needed)
 
-1. Download **`whisper-local.exe`** from the [latest release](https://github.com/drajb/whisper-local/releases/latest).
+1. Download **`whisper-local.exe`** from the [latest release](https://github.com/InsightfulAnalytics/whisper-local/releases/latest).
 2. Double-click it. Windows SmartScreen will warn because the app isn't code-signed (a paid certificate) — click **More info → Run anyway**. The source is fully open if you'd rather audit first.
 3. First launch takes a few minutes: it sets up a private Python runtime, then downloads the Whisper model. Every launch after that is instant.
 
@@ -125,7 +125,7 @@ whisper-local
 ### Option 3 — from source
 
 ```bash
-git clone https://github.com/drajb/whisper-local.git
+git clone https://github.com/InsightfulAnalytics/whisper-local.git
 cd whisper-local
 pip install -e .
 ```
@@ -392,40 +392,40 @@ Hit a wall? Run `whisper-local --doctor` or `whisper-local --selftest` first —
 Contributions of all kinds are welcome — bug fixes, new features, docs improvements, or just opening an issue with a clear reproduction. This project is maintained on a best-effort basis with no SLA; please be patient with response times.
 
 ```bash
-git clone https://github.com/drajb/whisper-local.git
+git clone https://github.com/InsightfulAnalytics/whisper-local.git
 pip install -e .
 python -m unittest tests.test_smoke   # smoke suite — should report OK
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards. By contributing you agree your code will be MIT licensed. Found a security issue? See [SECURITY.md](SECURITY.md) — please don't open a public issue.
 
-Good first issues are tagged [here](https://github.com/drajb/whisper-local/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). The full credit list is in [AUTHORS.md](AUTHORS.md).
+Good first issues are tagged [here](https://github.com/InsightfulAnalytics/whisper-local/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). The full credit list is in [AUTHORS.md](AUTHORS.md).
 
 ---
 
 ## ☕ Support
 
-Whisper Local is free and always will be. If it saves you time or a monthly subscription, consider starring the repo and sharing it with people who'd find it useful — it helps the project grow.
+Whisper Local is free, and it'll stay that way. If it saves you time — or a monthly subscription — the best thanks is a ⭐ on the repo and a word to anyone else who'd find it useful. That's how small projects like this one get discovered.
 
-No pressure. Starring the repo and sharing it with people who'd find it useful is just as helpful.
+No pressure, though. It's yours to use either way.
 
 ---
 
 ## 🙏 Credit
 
-Forked from [whisper-key-local](https://github.com/PinW/whisper-key-local) by **Pin Wang** — huge thanks to the original work that made this fork possible. The full list of credits, including every open-source library Whisper Local builds on, is in [`AUTHORS.md`](AUTHORS.md).
+Built on [whisper-key-local](https://github.com/PinW/whisper-key-local) by **Pin Wang** — thank you for the original project this fork stands on. Every open-source library Whisper Local depends on is credited in [`AUTHORS.md`](AUTHORS.md).
 
-MIT licensed; original copyright preserved in [`LICENSE`](LICENSE).
+MIT licensed; the original copyright is preserved in [`LICENSE`](LICENSE).
 
 ---
 
 <div align="center">
 
-### ⭐ If you find this useful, please [star the repo](https://github.com/drajb/whisper-local) — it helps others discover it.
+### ⭐ If this is useful to you, [star the repo](https://github.com/InsightfulAnalytics/whisper-local) — it's the easiest way to help others find it.
 
-**Maintained by [Rohit Burani](https://gekro.com) ([@drajb](https://github.com/drajb))**
+**Maintained by Tim ([@InsightfulAnalytics](https://github.com/InsightfulAnalytics))**
 
-[Website](https://gekro.com) · [GitHub](https://github.com/drajb) · [Discussions](https://github.com/drajb/whisper-local/discussions) · [Report a bug](https://github.com/drajb/whisper-local/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/drajb/whisper-local/issues/new?template=feature_request.yml)
+[GitHub](https://github.com/InsightfulAnalytics) · [Discussions](https://github.com/InsightfulAnalytics/whisper-local/discussions) · [Report a bug](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=feature_request.yml)
 
 <sub>Tags: whisper · dictation · speech-to-text · voice-typing · transcription · ai-dictation · local-ai · offline · push-to-talk · voice-recognition · accessibility · faster-whisper · privacy · self-hosted · wispr-flow-alternative · dragon-naturallyspeaking-alternative · otter-alternative · ollama · voice-commands · windows · macos · python</sub>
 
