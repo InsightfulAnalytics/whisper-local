@@ -4,6 +4,31 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.15.1]
+
+First release from the `InsightfulAnalytics/whisper-local` fork.
+
+### Added
+- **Ollama polish + GPU config tuning** — fixes for the local-LLM cleanup path
+  and CUDA device selection when running as a local Wispr Flow replacement.
+
+### Fixed
+- **Settings window comboboxes were unreadable** (dark text on the clam theme's
+  light-grey readonly background) — Model / Language / Recording mode / Compute
+  device / Compute type now render light-on-dark, and the dropdown lists match
+  the dark theme.
+
+### Changed
+- **Repo rebrand:** all links, templates, and runtime URLs (including the
+  opt-in update check) now point at `InsightfulAnalytics/whisper-local`.
+- **No PyPI publishing from this fork** — the `whisper-local` PyPI name belongs
+  to the upstream fork parent. Install via the standalone `.exe` or
+  `pip install git+https://github.com/InsightfulAnalytics/whisper-local.git`.
+  Optional features install their dependency directly (`pip install
+  noisereduce` / `pip install pywhispercpp`) instead of package extras.
+- macOS autostart LaunchAgent label renamed to
+  `com.insightfulanalytics.whisper-local`.
+
 ## [0.15.0]
 
 ### Added
