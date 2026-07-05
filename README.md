@@ -114,6 +114,8 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 2. Double-click it. Windows SmartScreen will warn because the app isn't code-signed (a paid certificate) — click **More info → Run anyway**. The source is fully open if you'd rather audit first.
 3. **First launch takes several minutes and can look stuck** — a console window opens while it sets up a private Python runtime, installs dependencies, and downloads the Whisper model (~141 MB). Leave it be until the microphone icon appears in the system tray. Every launch after that is instant.
 
+> **It's a portable app — there's no installer (yet).** The `.exe` runs from wherever you put it: move it out of `Downloads` to somewhere permanent (e.g. `C:\Apps\WhisperLocal\`) and pin a shortcut to Start. Its runtime lives in `%LOCALAPPDATA%\pyapp`, settings in `%APPDATA%\whisperkey` — deleting those two folders plus the `.exe` uninstalls it completely. A proper installer is on the roadmap.
+
 ### Option 2 — pip (Windows / macOS, Python 3.11+)
 
 Needs [Python 3.11+](https://www.python.org/downloads/) — on Windows, tick **"Add python.exe to PATH"** in the installer. No Git required:
