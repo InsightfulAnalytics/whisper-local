@@ -122,9 +122,9 @@ jobs:
             then downloads the default Whisper `base` model (~141 MB). After that
             it runs **100% offline**.
 
-            **Option 2 — pip (Windows / macOS, needs Python 3.11+)**
+            **Option 2 — pip (Windows / macOS, needs [Python 3.11+](https://www.python.org/downloads/); no Git required)**
             ```bash
-            pip install git+https://github.com/InsightfulAnalytics/whisper-local.git@${{ github.ref_name }}
+            pip install https://github.com/InsightfulAnalytics/whisper-local/archive/refs/tags/${{ github.ref_name }}.zip
             ```
             (Or download the `.whl` below and `pip install` it directly.)
 

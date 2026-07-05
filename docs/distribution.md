@@ -76,11 +76,13 @@ it's noted here as a future polish item, not a blocker.
 
 ## Channel 2 — pip from GitHub (automatic)
 
-Every tag is pip-installable straight from the repo — no PyPI involved:
+Every tag is pip-installable straight from the repo — no PyPI involved. The
+archive-zip form needs no Git on the user's machine (the git+ form does):
 
 ```bash
-pip install git+https://github.com/InsightfulAnalytics/whisper-local.git          # latest main
-pip install git+https://github.com/InsightfulAnalytics/whisper-local.git@v0.15.1  # pinned tag
+pip install https://github.com/InsightfulAnalytics/whisper-local/archive/refs/heads/main.zip       # latest main, no Git needed
+pip install https://github.com/InsightfulAnalytics/whisper-local/archive/refs/tags/v0.15.1.zip     # pinned tag, no Git needed
+pip install git+https://github.com/InsightfulAnalytics/whisper-local.git@v0.15.1                   # for devs with Git
 ```
 
 Each release also attaches the built wheel, which can be downloaded and

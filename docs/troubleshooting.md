@@ -36,6 +36,6 @@ This creates a zip with redacted logs, `--doctor` output, and recent crashes. At
 ## When all else fails
 
 1. **Reset the app to defaults:** delete `%APPDATA%\whisperkey\user_settings.yaml` (Windows) or `~/.whisperkey/user_settings.yaml` (macOS). The defaults will be regenerated on next launch. Your hotwords/commands/transforms are kept.
-2. **Reinstall:** `pip uninstall whisper-local && pip install git+https://github.com/InsightfulAnalytics/whisper-local.git`
+2. **Reinstall:** `pip uninstall whisper-local && pip install https://github.com/InsightfulAnalytics/whisper-local/archive/refs/heads/main.zip`
 3. **Wipe everything:** delete the entire `%APPDATA%\whisperkey` directory — this resets settings, dictionary, stats, transcript history.
 4. **File a bug:** run `whisper-local --bundle-logs` and attach the resulting zip to a new issue via [bug report template](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=bug_report.yml).
