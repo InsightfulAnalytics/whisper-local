@@ -494,6 +494,29 @@ class HistoryWindowModuleTests(unittest.TestCase):
         self.assertTrue(hasattr(history_window, 'show_history'))
 
 
+class NativeRuntimeCheckTests(unittest.TestCase):
+    # Guards the MSVC-runtime preflight (msvcp140.dll >= 14.40) that turns a
+    # silent 0xc0000005 crash at model load into an actionable startup warning.
+    @unittest.skipUnless(sys.platform == "win32", "Windows-only runtime check")
+    def test_native_runtime_status_shape(self):
+        from whisper_key.platform.windows import app as win_app
+        detail, warning = win_app.native_runtime_status()
+        self.assertIsInstance(detail, str)
+        self.assertTrue(warning is None or isinstance(warning, str))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows-only runtime check")
+    def test_old_runtime_produces_warning(self):
+        from unittest import mock
+        from whisper_key.platform.windows import app as win_app
+        # 14.29 is the exact version from the 2026-07-06 field crash
+        fake_info = {'FileVersionMS': (14 << 16) | 29, 'FileVersionLS': 0}
+        with mock.patch('win32api.GetFileVersionInfo', return_value=fake_info):
+            detail, warning = win_app.native_runtime_status()
+        self.assertEqual(detail, "msvcp140.dll 14.29")
+        self.assertIsNotNone(warning)
+        self.assertIn("vc_redist", warning)
+
+
 class ReleaseWorkflowTests(unittest.TestCase):
     def test_release_workflow_exists(self):
         self.assertTrue((ROOT / ".github" / "workflows" / "release.yml").exists())

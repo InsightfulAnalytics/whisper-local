@@ -453,6 +453,20 @@ def main():
 
     mode_label = " [TEST]" if args.test else ""
     print(f"Starting Whisper Local [{get_version()}]{mode_label}...")
+
+    # An outdated MSVC runtime kills the process at model load with no Python
+    # traceback — warn NOW, while the user can still read the console, and give
+    # interactive users a chance to bail before the inevitable crash.
+    _, runtime_warning = app.native_runtime_status()
+    if runtime_warning:
+        print(f"\n[!] {runtime_warning}\n")
+        try:
+            if sys.stdin and sys.stdin.isatty():
+                input("    Press Enter to try anyway (Ctrl+C to quit)... ")
+        except EOFError:
+            pass  # no stdin (GUI-subsystem build) — continue; --doctor reports it too
+        except KeyboardInterrupt:
+            sys.exit(1)
     
     shutdown_event = threading.Event()
     setup_signal_handlers(shutdown_event)

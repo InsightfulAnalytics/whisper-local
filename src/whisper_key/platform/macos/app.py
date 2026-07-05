@@ -7,6 +7,11 @@ class AppDelegate(NSObject):
 
 _delegate = None
 
+# Mirrored no-op of the Windows MSVC-runtime preflight — macOS wheels don't
+# depend on a separately-installed C++ runtime.
+def native_runtime_status():
+    return ("", None)
+
 def setup():
     global _delegate
     app = NSApplication.sharedApplication()

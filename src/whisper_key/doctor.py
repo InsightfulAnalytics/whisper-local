@@ -94,6 +94,20 @@ def _section_runtime() -> int:
 
     Check("Platform").info(f"{platform.system()} {platform.release()}").print()
 
+    # Too-old msvcp140.dll = silent hard crash at model load (see platform/windows/app.py)
+    if sys.platform == "win32":
+        try:
+            from .platform import app as platform_app
+            detail, warning = platform_app.native_runtime_status()
+            if warning:
+                Check("VC++ runtime").fail(warning).print()
+                failures += 1
+            else:
+                Check("VC++ runtime").ok(detail).print()
+        except Exception as e:
+            Check("VC++ runtime").fail(str(e)).print()
+            failures += 1
+
     try:
         from .utils import get_version
         Check("Whisper Local version").ok(get_version()).print()
