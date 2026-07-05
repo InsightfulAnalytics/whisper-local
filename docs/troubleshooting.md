@@ -14,6 +14,9 @@ This creates a zip with redacted logs, `--doctor` output, and recent crashes. At
 
 | Symptom | Most likely cause | Fix |
 |---|---|---|
+| Downloaded a ZIP from GitHub, double-clicked `whisper-local`, a window flashes or says Python is missing | The green **Code → Download ZIP** button gives you the *source code*, which needs Python — it's not the app | Download the standalone app instead: [whisper-local.exe](https://github.com/InsightfulAnalytics/whisper-local/releases/latest/download/whisper-local.exe) (no Python needed) |
+| `pip : the term 'pip' is not recognized` | Python isn't installed (or wasn't added to PATH) | Install [Python 3.11+](https://www.python.org/downloads/) and tick **"Add python.exe to PATH"**, then reopen the terminal |
+| PowerShell prints `".\whisper-local"` back at you instead of running it | In PowerShell a quoted string on its own is just echoed — it doesn't execute | Run it unquoted: `.\whisper-local` (or `& ".\path with spaces\whisper-local"`) |
 | "Windows protected your PC" (SmartScreen) when running the `.exe` | The app is open-source but not code-signed (certificates cost money) | Click **More info → Run anyway**. Verify the download with the `.sha256` file from the release if you want certainty |
 | First `.exe` launch sits for minutes with no window | pyapp is bootstrapping a private Python + installing the app (one-time) | Wait it out — subsequent launches are instant. Then the Whisper model download (~141 MB) follows |
 | Recording starts but no text appears | Default Whisper task changed accidentally | Settings → General → Language = `auto` (or your language); Profile = `Dictation` |

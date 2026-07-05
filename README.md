@@ -110,7 +110,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 
 ### Option 1 — Standalone Windows app (no Python needed)
 
-1. Download **`whisper-local.exe`** from the [latest release](https://github.com/InsightfulAnalytics/whisper-local/releases/latest).
+1. **[⬇ Download whisper-local.exe](https://github.com/InsightfulAnalytics/whisper-local/releases/latest/download/whisper-local.exe)** (direct link — don't use the green **Code** button, that's the source code, not the app).
 2. Double-click it. Windows SmartScreen will warn because the app isn't code-signed (a paid certificate) — click **More info → Run anyway**. The source is fully open if you'd rather audit first.
 3. **First launch takes several minutes and can look stuck** — a console window opens while it sets up a private Python runtime, installs dependencies, and downloads the Whisper model (~141 MB). Leave it be until the microphone icon appears in the system tray. Every launch after that is instant.
 
