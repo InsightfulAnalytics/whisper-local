@@ -9,7 +9,7 @@ from ruamel.yaml import YAML
 from .utils import resolve_asset_path, beautify_hotkey, get_user_app_data_path, get_version
 from .platform import IS_MACOS
 
-REPO_URL = "https://github.com/drajb/whisper-local"
+REPO_URL = "https://github.com/InsightfulAnalytics/whisper-local"
 
 
 def _build_settings_header():

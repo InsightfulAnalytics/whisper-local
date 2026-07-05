@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the idea! Please check [open issues](https://github.com/drajb/whisper-local/issues?q=is%3Aissue) and [discussions](https://github.com/drajb/whisper-local/discussions) first to see if something similar is already on the radar.
+        Thanks for the idea! Please check [open issues](https://github.com/InsightfulAnalytics/whisper-local/issues?q=is%3Aissue) and [discussions](https://github.com/InsightfulAnalytics/whisper-local/discussions) first to see if something similar is already on the radar.
 
   - type: textarea
     id: problem

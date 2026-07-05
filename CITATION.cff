@@ -3,14 +3,12 @@ title: "Whisper Local"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
-  - family-names: Burani
-    given-names: Rohit
-    alias: drajb
+  - name: "Tim (InsightfulAnalytics)"
   - family-names: Wang
     given-names: Pin
     alias: PinW
-repository-code: "https://github.com/drajb/whisper-local"
-url: "https://github.com/drajb/whisper-local"
+repository-code: "https://github.com/InsightfulAnalytics/whisper-local"
+url: "https://github.com/InsightfulAnalytics/whisper-local"
 abstract: >-
   Whisper Local is a free, open-source, fully offline AI dictation tool for
   Windows and macOS. It uses OpenAI Whisper (via faster-whisper) to transcribe

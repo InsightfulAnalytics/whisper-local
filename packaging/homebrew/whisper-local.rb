@@ -6,19 +6,19 @@
 # That keeps it off the user's system Python while staying maintainable.
 #
 # This is NOT homebrew-core material (core forbids pip-from-network installs);
-# it's meant for a personal tap: `brew tap drajb/tap && brew install whisper-local`.
+# it's meant for a personal tap: `brew tap insightfulanalytics/tap && brew install whisper-local`.
 # See docs/distribution.md for how to set up the tap.
 #
 # Replace after a release exists:
 #   <VERSION>      e.g. 0.10.0
-#   <SDIST_SHA256> sha256 of the source tarball from PyPI (or the GitHub sdist)
+#   <SDIST_SHA256> sha256 of the sdist tarball attached to the GitHub release
 
 class WhisperLocal < Formula
   include Language::Python::Virtualenv
 
   desc "Free, offline AI dictation — press a hotkey, speak, get text at the cursor"
-  homepage "https://github.com/drajb/whisper-local"
-  url "https://files.pythonhosted.org/packages/source/w/whisper-local/whisper_local-<VERSION>.tar.gz"
+  homepage "https://github.com/InsightfulAnalytics/whisper-local"
+  url "https://github.com/InsightfulAnalytics/whisper-local/releases/download/v<VERSION>/whisper_local-<VERSION>.tar.gz"
   sha256 "<SDIST_SHA256>"
   license "MIT"
 

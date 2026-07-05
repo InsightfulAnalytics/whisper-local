@@ -9,7 +9,6 @@ No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://git
 
 [![Tests](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/test.yml/badge.svg)](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/test.yml)
 [![Release](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml/badge.svg)](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml)
-[![PyPI](https://img.shields.io/pypi/v/whisper-local.svg)](https://pypi.org/project/whisper-local/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](#-quick-start)
@@ -95,7 +94,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 - 🖥️ **Settings UI** — `whisper-local --settings` opens a GUI settings window (no YAML editing required)
 - 📜 **Transcript history** — `whisper-local --history` opens a searchable log of everything you've dictated
 - 🔔 **Opt-in update notifications** — daily GitHub release check, fully offline by default (`update_check.enabled: true` to opt in)
-- 🎚️ **Noise suppression** — spectral gating via `noisereduce`, off by default (`pip install 'whisper-local[noise]'`)
+- 🎚️ **Noise suppression** — spectral gating via `noisereduce`, off by default (`pip install noisereduce`)
 - 🩺 **`--selftest`** — one-command sanity check (mic, model, transcription, clipboard) — perfect for first-launch
 - 🎯 **Hotkey cheat sheet** — `whisper-local --cheat-sheet` or tray menu — shows your *current* configured hotkeys at a glance
 - 📦 **`--bundle-logs`** — zip up redacted logs + diagnostics for bug reports with one command
@@ -115,10 +114,10 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 2. Double-click it. Windows SmartScreen will warn because the app isn't code-signed (a paid certificate) — click **More info → Run anyway**. The source is fully open if you'd rather audit first.
 3. First launch takes a few minutes: it sets up a private Python runtime, then downloads the Whisper model. Every launch after that is instant.
 
-### Option 2 — pip (Windows / macOS, Python 3.11–3.13)
+### Option 2 — pip (Windows / macOS, Python 3.11+)
 
 ```bash
-pip install whisper-local
+pip install git+https://github.com/InsightfulAnalytics/whisper-local.git
 whisper-local
 ```
 

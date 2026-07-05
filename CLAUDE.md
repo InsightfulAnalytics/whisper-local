@@ -1,4 +1,4 @@
-https://github.com/drajb/whisper-local (personal fork of https://github.com/PinW/whisper-key-local)
+https://github.com/InsightfulAnalytics/whisper-local (personal fork of https://github.com/PinW/whisper-key-local)
 
 @docs/project-index.md
 @docs/platform-abstraction.md

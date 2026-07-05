@@ -11,7 +11,7 @@
 whisper: # Whisper AI Model Settings
     # Backend engine
     # - faster_whisper (default): CTranslate2-based, GPU-friendly, mature
-    # - whisper_cpp: opt-in via `pip install whisper-local[whispercpp]`.
+    # - whisper_cpp: opt-in via `pip install pywhispercpp`.
     #   Better Apple Silicon perf, GGUF model format, lower memory.
     backend: faster_whisper
 
@@ -24,7 +24,7 @@ whisper: # Whisper AI Model Settings
 
     # Transcription device
     # Options: cpu, cuda (for both NVIDIA and AMD)
-    # For GPU setup, see https://github.com/drajb/whisper-local/blob/master/docs/gpu-setup.md
+    # For GPU setup, see https://github.com/InsightfulAnalytics/whisper-local/blob/main/docs/gpu-setup.md
     device: cpu
 
     # Compute Precision
@@ -253,7 +253,7 @@ audio: # Audio Recording Settings
     # are plugged/unplugged. Use system tray to select device - it will save the ID here.
     input_device: "default"
 
-    # Noise suppression (requires: pip install 'whisper-local[noise]')
+    # Noise suppression (requires: pip install noisereduce)
     # Applies spectral gating via noisereduce before passing audio to Whisper.
     # Helps in noisy environments (fans, HVAC, keyboard clatter).
     noise_suppression:

@@ -26,7 +26,7 @@ Delete the files in `%APPDATA%\whisperkey\` (Windows) or `~/.whisperkey/` (macOS
 ## Comparison
 
 ### How is this different from Whisper.cpp directly?
-`whisper.cpp` is the inference runtime. Whisper Local is the full **desktop dictation app** wrapped around it — global hotkeys, push-to-talk, voice commands, transforms, system tray, audio capture with pre-roll buffer, fallback window, profile switching, per-app rules, AI rephrase via Ollama, and more. You *can* swap our default `faster-whisper` backend for `whisper.cpp` with `pip install 'whisper-local[whispercpp]'` and `whisper.backend: whisper_cpp`.
+`whisper.cpp` is the inference runtime. Whisper Local is the full **desktop dictation app** wrapped around it — global hotkeys, push-to-talk, voice commands, transforms, system tray, audio capture with pre-roll buffer, fallback window, profile switching, per-app rules, AI rephrase via Ollama, and more. You *can* swap our default `faster-whisper` backend for `whisper.cpp` with `pip install pywhispercpp` and `whisper.backend: whisper_cpp`.
 
 ### How is this different from Windows Speech Recognition?
 WSR uses an old Microsoft engine that's significantly less accurate than Whisper. Whisper Local is built on **modern AI transcription** (the same OpenAI Whisper model that powers most cloud dictation services), runs on your GPU, supports 99 languages, and has voice commands + transforms.
@@ -57,7 +57,7 @@ A lot. With a modern NVIDIA GPU (`device: cuda`, `compute_type: float16`):
 On CPU with the same `medium` model: 2–6 seconds. The first transcription after launch is always slower due to model warmup.
 
 ### What about AMD GPUs?
-Supported via ROCm on Linux/Windows. Run `whisper-local --setup` and accept the GPU install prompt; we use [PinW/ctranslate2-rocm-wheels](https://github.com/PinW/ctranslate2-rocm-wheels). Apple Silicon Macs should use the `whisper_cpp` backend (`pip install 'whisper-local[whispercpp]'`) for best performance.
+Supported via ROCm on Linux/Windows. Run `whisper-local --setup` and accept the GPU install prompt; we use [PinW/ctranslate2-rocm-wheels](https://github.com/PinW/ctranslate2-rocm-wheels). Apple Silicon Macs should use the `whisper_cpp` backend (`pip install pywhispercpp`) for best performance.
 
 ### How do I make hotwords work?
 `whisper-local --add-word "MyJargon"` or the **Add word to dictionary...** tray item. These get fed as `hotwords` to Whisper at recording time. Names, technical terms, codenames work best. For bulk import: `whisper-local --import-vocab FOLDER` scans a folder of text files and merges the top hotwords automatically.
@@ -127,14 +127,14 @@ Whisper Local always delivers to the **foreground** app at the moment delivery s
 
 ### I found a bug — how do I report it?
 1. Run `whisper-local --bundle-logs`
-2. Open a [new issue](https://github.com/drajb/whisper-local/issues/new?template=bug_report.yml) using the bug template
+2. Open a [new issue](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=bug_report.yml) using the bug template
 3. Attach the bundle zip
 
 ### I want a feature
-Open a [feature request](https://github.com/drajb/whisper-local/issues/new?template=feature_request.yml). For larger changes, please open a [Discussion](https://github.com/drajb/whisper-local/discussions) first.
+Open a [feature request](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=feature_request.yml). For larger changes, please open a [Discussion](https://github.com/InsightfulAnalytics/whisper-local/discussions) first.
 
 ### Is there a Discord / support forum?
-GitHub Discussions for now: <https://github.com/drajb/whisper-local/discussions>
+GitHub Discussions for now: <https://github.com/InsightfulAnalytics/whisper-local/discussions>
 
 ### Can I pay for support / priority?
 This is a community project maintained on a best-effort basis. No paid tier exists.

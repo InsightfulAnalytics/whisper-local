@@ -1,5 +1,5 @@
 # whisper_engine_cpp.py
-# Opt-in whisper.cpp backend (pip install 'whisper-local[whispercpp]'), selected
+# Opt-in whisper.cpp backend (pip install pywhispercpp), selected
 # via whisper.backend: whisper_cpp. Mirrors WhisperEngine's public API so the rest
 # of the app is backend-agnostic. Better on Apple Silicon; uses GGUF models.
 
@@ -30,7 +30,7 @@ class WhisperEngineCpp:
         except ImportError as e:
             raise RuntimeError(
                 "whisper.cpp backend requested but pywhispercpp is not installed. "
-                "Install with: pip install 'whisper-local[whispercpp]' "
+                "Install with: pip install pywhispercpp "
                 "or pip install pywhispercpp"
             ) from e
 

@@ -1,5 +1,11 @@
 # Publishing whisper-local to PyPI
 
+> **⚠️ Not applicable to this fork.** The `whisper-local` name on PyPI is owned
+> by the upstream fork parent (`drajb/whisper-local`), so this repo does not
+> publish to PyPI — distribution is via GitHub releases and pip-from-git (see
+> `docs/distribution.md`). This guide is kept for reference in case the fork
+> ever adopts its own package name.
+
 `pyproject.toml` is configured for PyPI. Follow these steps once to publish, then a shorter loop for each release after.
 
 ## One-time PyPI account setup

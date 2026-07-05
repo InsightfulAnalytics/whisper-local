@@ -4,15 +4,16 @@ Whisper Local exists thanks to the people listed here.
 
 ## Maintainer
 
-- **Rohit Burani** ([@drajb](https://github.com/drajb)) — current maintainer of `whisper-local`
+- **Tim** ([@InsightfulAnalytics](https://github.com/InsightfulAnalytics)) — current maintainer of this fork
 
-## Original author
+## Upstream authors
 
-- **Pin Wang** ([@PinW](https://github.com/PinW)) — created the upstream [`whisper-key-local`](https://github.com/PinW/whisper-key-local) project that this fork is based on
+- **Pin Wang** ([@PinW](https://github.com/PinW)) — created the original [`whisper-key-local`](https://github.com/PinW/whisper-key-local) project this lineage is based on
+- **Rohit Burani** ([@drajb](https://github.com/drajb)) — maintainer of the parent fork, [`drajb/whisper-local`](https://github.com/drajb/whisper-local)
 
 ## Contributors
 
-Everyone whose pull requests have been merged. Add yourself here in your first PR! GitHub's automatic contributor list is also available at <https://github.com/drajb/whisper-local/graphs/contributors>.
+Everyone whose pull requests have been merged. Add yourself here in your first PR! GitHub's automatic contributor list is also available at <https://github.com/InsightfulAnalytics/whisper-local/graphs/contributors>.
 
 <!-- Add your name here in alphabetical order when contributing. -->
 

@@ -36,21 +36,26 @@ So the user never needs Python installed system-wide. They just double-click the
 
 ## Two distribution flows
 
-**A. PyPI (recommended once published):**
-- Publish `whisper-local` to PyPI (see [docs/publishing-to-pypi.md](../docs/publishing-to-pypi.md))
-- Build the exe with default `setup-build-env.ps1` flow
-- Distribute the exe; first launch pulls from PyPI
+**A. CI release build (what users get):** `.github/workflows/release.yml` builds
+the wheel and embeds it via `PYAPP_PROJECT_PATH` — the exe is fully
+self-contained and never touches PyPI. This is the only flow that ships.
 
-**B. Bundled local wheel (for testing before PyPI release):**
+**B. Bundled local wheel (for local test builds):**
 - Run setup with `-UseLocalWheel`: `setup-build-env.ps1 -UseLocalWheel`
 - It builds a local wheel and prints the `PYAPP_PROJECT_PATH` env var to set
 - Run build-pyapp.ps1 with that env var set
 - The resulting exe contains the wheel — works without PyPI
 
+> ⚠️ Don't build with bare `PYAPP_PROJECT_NAME` (no `PYAPP_PROJECT_PATH`): that
+> makes the exe `pip install whisper-local` from PyPI at first launch — and the
+> PyPI name belongs to the upstream fork parent, so users would get the wrong
+> build. Always embed the wheel.
+
 ## Troubleshooting
 
 **`cargo: command not found`**: re-open the terminal after `rustup-init`.
 
-**`pip install whisper-local` fails at first launch**: the version in `pyproject.toml` isn't on PyPI yet. Either publish, or use the local-wheel flow.
+**First launch installs the wrong version / fails**: the exe was built without
+an embedded wheel (see warning above) — rebuild with the local-wheel flow.
 
 **Slow first launch (~30s)**: normal — pyapp is downloading deps. Subsequent launches reuse the venv.

@@ -234,7 +234,7 @@ def _section_model() -> int:
                 import pywhispercpp  # noqa
                 Check("pywhispercpp installed").ok(getattr(pywhispercpp, '__version__', '?')).print()
             except ImportError:
-                Check("pywhispercpp installed").fail("missing — run: pip install 'whisper-local[whispercpp]'").print()
+                Check("pywhispercpp installed").fail("missing — run: pip install pywhispercpp").print()
                 failures += 1
         streaming_cfg = cfg.get_streaming_config()
         registry = ModelRegistry(

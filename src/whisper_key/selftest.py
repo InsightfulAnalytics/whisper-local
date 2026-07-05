@@ -106,7 +106,7 @@ def _test_model_loadable():
                 import pywhispercpp  # noqa: F401
             except ImportError:
                 return False, ("whisper_cpp backend selected but pywhispercpp not installed",
-                               "pip install 'whisper-local[whispercpp]'")
+                               "pip install pywhispercpp")
 
         registry = ModelRegistry(
             whisper_models_config=whisper_cfg.get('models', {}),

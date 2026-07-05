@@ -16,9 +16,9 @@ jobs:
       - run: pip install ruamel.yaml numpy pyperclip
       - run: python -m unittest tests.test_smoke -v
 
-  # Build the Python wheel + sdist. This artifact feeds both PyPI publishing
-  # and the standalone .exe build below (so the .exe is built from the exact
-  # same wheel, with no dependency on PyPI propagation).
+  # Build the Python wheel + sdist. This artifact feeds the standalone .exe
+  # build below and gets attached to the GitHub release (so pip users can
+  # install the exact same wheel the exe embeds).
   build:
     needs: test
     runs-on: ubuntu-latest
@@ -87,22 +87,9 @@ jobs:
           name: exe
           path: exe/
 
-  publish-pypi:
-    needs: build
-    # Skip PyPI for prerelease tags (anything with a hyphen, e.g. v0.10.1-rc1).
-    # Those are for testing the pipeline / sharing early builds, not for release.
-    if: ${{ !contains(github.ref_name, '-') }}
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
+  # No PyPI publishing: the 'whisper-local' PyPI name belongs to the upstream
+  # fork parent. This fork distributes via GitHub releases (exe + wheel) and
+  # pip-from-git only.
   github-release:
     needs: [build, build-exe]
     runs-on: ubuntu-latest
@@ -137,9 +124,9 @@ jobs:
 
             **Option 2 — pip (Windows / macOS, needs Python 3.11+)**
             ```bash
-            pip install whisper-local==${{ needs.build.outputs.version }}
+            pip install git+https://github.com/InsightfulAnalytics/whisper-local.git@${{ github.ref_name }}
             ```
-            Update later with `pip install --upgrade whisper-local`.
+            (Or download the `.whl` below and `pip install` it directly.)
 
             ---
             Verify the .exe download with `whisper-local.exe.sha256`.

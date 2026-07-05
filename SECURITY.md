@@ -8,11 +8,11 @@ Whisper Local is a privacy-first tool. We take security reports seriously.
 
 Use GitHub's **Private Vulnerability Reporting** instead:
 
-1. Go to <https://github.com/drajb/whisper-local/security/advisories/new>
+1. Go to <https://github.com/InsightfulAnalytics/whisper-local/security/advisories/new>
 2. Fill in the form with as much detail as you can — reproduction steps, affected versions, impact assessment
 3. We'll acknowledge the report and work with you on a fix and coordinated disclosure
 
-If for some reason you can't use Private Vulnerability Reporting, you can DM the maintainer ([@drajb](https://github.com/drajb)) on GitHub instead.
+If for some reason you can't use Private Vulnerability Reporting, you can DM the maintainer ([@InsightfulAnalytics](https://github.com/InsightfulAnalytics)) on GitHub instead.
 
 ## Scope
 
@@ -28,11 +28,11 @@ Out of scope:
 
 - Vulnerabilities in our dependencies that don't affect us (please report upstream instead)
 - Social-engineering attacks that require the user to type malicious `commands.yaml` entries themselves — the README has a warning about this
-- Issues that only reproduce on Python versions outside our supported range (3.11–3.13)
+- Issues that only reproduce on Python versions outside our supported range (3.11+)
 
 ## Supported versions
 
-We're a small project — only the latest released version on PyPI gets security fixes. If you're on an older version, please upgrade first and confirm the issue still reproduces.
+We're a small project — only the latest GitHub release gets security fixes. If you're on an older version, please upgrade first and confirm the issue still reproduces.
 
 ## Disclosure timeline
 

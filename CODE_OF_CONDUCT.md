@@ -24,7 +24,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-If you experience or witness behavior that violates this code, contact the maintainer privately via GitHub ([@drajb](https://github.com/drajb)). All reports will be reviewed and investigated; the maintainer is obligated to maintain confidentiality of the reporter.
+If you experience or witness behavior that violates this code, contact the maintainer privately via GitHub ([@InsightfulAnalytics](https://github.com/InsightfulAnalytics)). All reports will be reviewed and investigated; the maintainer is obligated to maintain confidentiality of the reporter.
 
 Maintainers who don't follow or enforce this code in good faith may face temporary or permanent removal from project participation.
 

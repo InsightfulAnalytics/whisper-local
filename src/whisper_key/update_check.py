@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Public unauthenticated endpoint; 60 req/hour rate limit per IP is plenty
 # for a once-a-day per-user check.
-_API_URL = 'https://api.github.com/repos/drajb/whisper-local/releases/latest'
+_API_URL = 'https://api.github.com/repos/InsightfulAnalytics/whisper-local/releases/latest'
 
 # We rate-limit ourselves to one check per calendar day by writing the date here.
 _LAST_CHECK_FILE = 'last_update_check.txt'

@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 💬 Discussions
-    url: https://github.com/drajb/whisper-local/discussions
+    url: https://github.com/InsightfulAnalytics/whisper-local/discussions
     about: Questions, help requests, ideas, show-and-tell — anything that isn't a confirmed bug or feature request
   - name: 🔒 Security vulnerability
-    url: https://github.com/drajb/whisper-local/security/advisories/new
+    url: https://github.com/InsightfulAnalytics/whisper-local/security/advisories/new
     about: Report a security issue privately (please do NOT open a public issue)
   - name: 📖 Read the docs
-    url: https://github.com/drajb/whisper-local#readme
+    url: https://github.com/InsightfulAnalytics/whisper-local#readme
     about: README, configuration guide, and troubleshooting

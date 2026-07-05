@@ -465,14 +465,14 @@ class SettingsResetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, 'user_settings.yaml')
             with open(path, 'w', encoding='utf-8') as f:
-                YAML().dump({'whisper': {'model': 'small', 'hotwords': ['Kubernetes', 'drajb']},
+                YAML().dump({'whisper': {'model': 'small', 'hotwords': ['Kubernetes', 'InsightfulAnalytics']},
                              'clipboard': {'auto_paste': False}}, f)
             preserved = reset_settings_preserving_hotwords(path)
-            self.assertEqual(preserved, ['Kubernetes', 'drajb'])
+            self.assertEqual(preserved, ['Kubernetes', 'InsightfulAnalytics'])
             with open(path, encoding='utf-8') as f:
                 after = YAML().load(f)
             # hotwords kept, everything else gone (back to defaults)
-            self.assertEqual(list(after['whisper']['hotwords']), ['Kubernetes', 'drajb'])
+            self.assertEqual(list(after['whisper']['hotwords']), ['Kubernetes', 'InsightfulAnalytics'])
             self.assertNotIn('clipboard', after)
             self.assertNotIn('model', after['whisper'])
 
@@ -503,7 +503,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
             content = f.read()
         self.assertIn("tags:", content)
         self.assertIn("v*", content)
-        self.assertIn("pypa/gh-action-pypi-publish", content)
+        # This fork releases via GitHub only — the PyPI name belongs upstream,
+        # so the workflow must NOT try to publish there.
+        self.assertNotIn("pypa/gh-action-pypi-publish", content)
+        self.assertIn("softprops/action-gh-release", content)
+        # The exe must embed the locally-built wheel (never install from PyPI).
+        self.assertIn("PYAPP_PROJECT_PATH", content)
 
 
 class PyprojectOptionalDepsTests(unittest.TestCase):
@@ -792,7 +797,7 @@ class AutostartTests(unittest.TestCase):
                 self.assertTrue(autostart._mac_is_enabled())
                 content = p.read_text(encoding='utf-8')
                 self.assertIn('RunAtLoad', content)
-                self.assertIn('com.drajb.whisper-local', content)
+                self.assertIn('com.insightfulanalytics.whisper-local', content)
                 autostart._mac_disable()
                 self.assertFalse(autostart._mac_is_enabled())
 

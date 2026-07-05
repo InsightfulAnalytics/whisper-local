@@ -25,7 +25,7 @@ This creates a zip with redacted logs, `--doctor` output, and recent crashes. At
 | App seems frozen on launch | Whisper model is downloading (first run) | Wait — `tiny` is ~75 MB, `large` is ~2.9 GB. Watch `%APPDATA%\whisperkey\app.log` |
 | "Could not register hotkeys" | Another instance is already running, or another app owns the combo | `whisper-local --quit` then relaunch. Or change the hotkey |
 | GPU not used despite `device: cuda` | CTranslate2 CUDA runtime not installed | Run `whisper-local --setup` and accept the GPU install prompt |
-| Transcription accuracy is poor | Tiny model + noisy environment | Settings → General → Model = `base` or `small`. Settings → Audio → Noise suppression = on (`pip install 'whisper-local[noise]'`) |
+| Transcription accuracy is poor | Tiny model + noisy environment | Settings → General → Model = `base` or `small`. Settings → Audio → Noise suppression = on (`pip install noisereduce`) |
 | `Ollama unreachable` in tray | Ollama service not running locally | `ollama serve` in a terminal, or disable in Settings → Post-process |
 | Text appears twice in chat apps | `auto_send_key` pressed by accident | The Esc cancel + retry; consider switching off auto-send for that app via `app_rules.yaml` |
 | Audio device unplugged mid-recording | USB mic disconnect | App should auto-recover to default input. If not, restart and tell the maintainer |
@@ -36,6 +36,6 @@ This creates a zip with redacted logs, `--doctor` output, and recent crashes. At
 ## When all else fails
 
 1. **Reset the app to defaults:** delete `%APPDATA%\whisperkey\user_settings.yaml` (Windows) or `~/.whisperkey/user_settings.yaml` (macOS). The defaults will be regenerated on next launch. Your hotwords/commands/transforms are kept.
-2. **Reinstall:** `pip uninstall whisper-local && pip install whisper-local`
+2. **Reinstall:** `pip uninstall whisper-local && pip install git+https://github.com/InsightfulAnalytics/whisper-local.git`
 3. **Wipe everything:** delete the entire `%APPDATA%\whisperkey` directory — this resets settings, dictionary, stats, transcript history.
-4. **File a bug:** run `whisper-local --bundle-logs` and attach the resulting zip to a new issue via [bug report template](https://github.com/drajb/whisper-local/issues/new?template=bug_report.yml).
+4. **File a bug:** run `whisper-local --bundle-logs` and attach the resulting zip to a new issue via [bug report template](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=bug_report.yml).

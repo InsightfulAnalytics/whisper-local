@@ -48,7 +48,7 @@ GitHub then shows a "Releases" entry on the repo sidebar.
 If you're authenticated with `gh auth login`:
 
 ```bash
-gh repo edit drajb/whisper-local \
+gh repo edit InsightfulAnalytics/whisper-local \
   --description "Free, local AI dictation for Windows & macOS. Press a hotkey, speak, get text at your cursor. Powered by Whisper. 100% offline. Push-to-talk, voice commands, sub-second latency." \
   --add-topic ai-dictation \
   --add-topic speech-to-text \

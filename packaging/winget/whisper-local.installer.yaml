@@ -12,14 +12,14 @@
 # winget treats a bare .exe as a "portable" install (it adds the exe to PATH
 # and creates an `Add/Remove Programs` entry; no installer wizard needed).
 
-PackageIdentifier: drajb.WhisperLocal
+PackageIdentifier: InsightfulAnalytics.WhisperLocal
 PackageVersion: <VERSION>
 InstallerType: portable
 Commands:
   - whisper-local
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/drajb/whisper-local/releases/download/v<VERSION>/whisper-local.exe
+    InstallerUrl: https://github.com/InsightfulAnalytics/whisper-local/releases/download/v<VERSION>/whisper-local.exe
     InstallerSha256: <SHA256>
 ManifestType: installer
 ManifestVersion: 1.6.0

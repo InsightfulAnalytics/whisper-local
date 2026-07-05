@@ -9,7 +9,7 @@ body:
         Thanks for taking the time to file a bug report. The more detail you give, the faster it gets fixed.
 
         Before you continue, please:
-        1. Search [existing issues](https://github.com/drajb/whisper-local/issues?q=is%3Aissue) to make sure this isn't already reported
+        1. Search [existing issues](https://github.com/InsightfulAnalytics/whisper-local/issues?q=is%3Aissue) to make sure this isn't already reported
         2. Run `whisper-local --doctor` and paste the relevant section below
 
   - type: textarea
