@@ -4,6 +4,39 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+## [0.15.2]
+
+Hardening release from first-round field testing on a fresh Windows 10 PC.
+
+### Fixed
+- **Silent crash at "Loading Whisper AI model" on older Windows installs.**
+  A Visual C++ runtime older than 14.40 (`MSVCP140.dll`, exception
+  `0xc0000005` in Event Viewer) hard-kills the process with no Python
+  traceback — the Whisper engine is built with MSVC 17.10+ whose `std::mutex`
+  needs the newer runtime. The app now checks the DLL version at startup and
+  prints the fix (install the latest
+  [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe))
+  instead of vanishing; `--doctor` gained a "VC++ runtime" check.
+- **No microphone now says so.** Starting with no default input device used
+  to dump `PortAudioError: Error querying device -1`, then crash again in
+  shutdown (`NoneType.get_recording_status`), burying the real cause. It now
+  exits with "No microphone found — connect or enable one and relaunch", and
+  shutdown tolerates partially-initialized components.
+- **Fatal startup errors keep the console open** on interactive launches, so
+  double-click users can actually read them.
+- **`whisper-local.cmd` (source launcher) fails loudly without Python** —
+  prints install options and pauses instead of flashing a window. Line
+  endings pinned CRLF via `.gitattributes` (cmd.exe misparses LF batch files).
+
+### Changed
+- **Install instructions need no Git and state prerequisites.** README/docs
+  now use `pip install <github archive .zip>` (works with plain Python — no
+  Git), link the `.exe` download directly (the green "Code" button is not the
+  app!), spell out the Python 3.11+ / PATH prerequisite, and document that
+  the `.exe` is a portable app. Troubleshooting gained rows for the
+  ZIP-download trap, missing `pip`, quoted-command PowerShell no-ops, and the
+  MSVC runtime crash signature.
+
 ## [0.15.1]
 
 First release from the `InsightfulAnalytics/whisper-local` fork.
