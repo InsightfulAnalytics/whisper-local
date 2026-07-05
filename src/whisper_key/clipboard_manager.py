@@ -186,6 +186,9 @@ class ClipboardManager:
             self.logger.error(f"Delivery workflow failed: {e}")
             return False
 
-    def update_auto_paste(self, enabled: bool):
+    # announce=False keeps temporary flips quiet (e.g. a per-app rule overriding
+    # auto-paste for one delivery) so the console doesn't contradict itself.
+    def update_auto_paste(self, enabled: bool, announce: bool = True):
         self.auto_paste = enabled
-        self._print_status()
+        if announce:
+            self._print_status()

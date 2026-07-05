@@ -138,3 +138,7 @@ CLAUDE.local.md
 # Personal launcher scripts (user-local, not part of the repo)
 start_whisper_key.vbs
 start_whisper_local.vbs
+
+# Personal shortcut icon (user-local, not part of the repo)
+chat.png
+chat.ico

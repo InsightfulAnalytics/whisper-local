@@ -108,7 +108,7 @@ class WhisperEngineCpp:
             transcribed_text = ''.join(parts).strip()
 
             elapsed = time.time() - t0
-            print(f"   ✓ Transcription completed in {elapsed:.1f} seconds")
+            self.logger.info(f"Transcription completed in {elapsed:.1f} seconds")
 
             if self.log_transcriptions:
                 self.logger.info(f"Transcribed: '{transcribed_text}'")

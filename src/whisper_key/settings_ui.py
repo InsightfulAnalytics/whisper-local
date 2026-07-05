@@ -81,6 +81,21 @@ def run_settings_window():
 
     _apply_style(root)
 
+    # The combobox dropdown popup is a classic Tk Listbox, not a ttk widget, so
+    # the style above doesn't reach it — colour it through the option database
+    # (read when the list pops up) so the open list matches the dark theme
+    # instead of defaulting to black-on-white.
+    for opt, val in (
+        ('*TCombobox*Listbox.background', BG2),
+        ('*TCombobox*Listbox.foreground', FG),
+        ('*TCombobox*Listbox.selectBackground', ACCENT),
+        ('*TCombobox*Listbox.selectForeground', 'white'),
+    ):
+        try:
+            root.option_add(opt, val)
+        except Exception:
+            pass
+
     search_bar = tk.Frame(root, bg=BG)
     search_bar.pack(fill='x', padx=10, pady=(10, 4))
     tk.Label(search_bar, text='🔍', bg=BG, fg=FG_DIM,
@@ -282,7 +297,22 @@ def _apply_style(root):
         style.configure('TEntry', fieldbackground=BG2, foreground=FG,
                          insertcolor=FG, bordercolor=SEP)
         style.configure('TCombobox', fieldbackground=BG2, foreground=FG,
+                         background=BG3, arrowcolor=FG,
                          selectbackground=BG2, selectforeground=FG)
+        # All our combos are state='readonly'. The clam theme ships its own
+        # built-in map that forces a light-grey fieldbackground in the readonly
+        # state, overriding the dark base above — so the light FG text renders
+        # light-on-light and is unreadable until focused. Re-assert the dark
+        # colours per-state (readonly + disabled) to undo that. selectbackground
+        # is pinned to BG2 too so a focused combo shows plain FG text, not a
+        # jarring highlight box.
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', BG2), ('disabled', BG2)],
+                  foreground=[('readonly', FG), ('disabled', FG_DIM)],
+                  selectbackground=[('readonly', BG2)],
+                  selectforeground=[('readonly', FG)],
+                  background=[('readonly', BG3), ('active', BG3)],
+                  arrowcolor=[('readonly', FG)])
         style.configure('TSeparator', background=SEP)
     except Exception:
         pass

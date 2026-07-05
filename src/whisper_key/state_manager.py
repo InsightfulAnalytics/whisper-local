@@ -479,7 +479,7 @@ class StateManager:
                 if self._finalize_streaming_delivery(use_auto_enter, duration):
                     return
 
-            print(f"   ✓ Recorded {duration:.1f} seconds, transcribing...")
+            self.logger.info(f"Recorded {duration:.1f} seconds, transcribing")
 
             self.system_tray.update_state("processing")
             if self.level_overlay:
@@ -553,10 +553,21 @@ class StateManager:
                 if 'auto_paste' in rule:
                     effective_auto_paste = bool(rule['auto_paste'])
 
+            # Apply a rule's auto_paste override quietly for just this delivery —
+            # announcing the flip (and the restore) made the console contradict
+            # itself. One line explains the override only when it changes behaviour.
             previous_auto_paste = None
             if effective_auto_paste is not None:
                 previous_auto_paste = self.clipboard_manager.auto_paste
-                self.clipboard_manager.update_auto_paste(effective_auto_paste)
+                self.clipboard_manager.update_auto_paste(effective_auto_paste, announce=False)
+                if effective_auto_paste != previous_auto_paste:
+                    fg = foreground.get_foreground_app() or {}
+                    app_name = fg.get('exe') or fg.get('title') or 'this app'
+                    if effective_auto_paste:
+                        print(f"   📎 Per-app rule ({app_name}): auto-paste forced ON")
+                    else:
+                        hotkey = self.clipboard_manager.paste_hotkey.upper()
+                        print(f"   📎 Per-app rule ({app_name}): copy only — paste manually with {hotkey}")
 
             try:
                 success = self.clipboard_manager.deliver_transcription(
@@ -564,7 +575,7 @@ class StateManager:
                 )
             finally:
                 if previous_auto_paste is not None:
-                    self.clipboard_manager.update_auto_paste(previous_auto_paste)
+                    self.clipboard_manager.update_auto_paste(previous_auto_paste, announce=False)
 
             if success:
                 self.last_transcription = transcribed_text
