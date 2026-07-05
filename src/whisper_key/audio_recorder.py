@@ -175,6 +175,17 @@ class AudioRecorder:
             else:
                 default_input = sd.query_devices(kind='input')
                 self.logger.info(f"Default source: {default_input['name']}")
+        except sd.PortAudioError as e:
+            # "Error querying device -1" = PortAudio has no default input at
+            # all, i.e. no microphone is connected/enabled — tell the user what
+            # to do instead of surfacing a cryptic device index.
+            self.logger.error(f"Audio source test failed: {e}")
+            raise RuntimeError(
+                "No microphone found (the system has no default input device). "
+                "Connect or enable a microphone — Windows: Settings > System > "
+                "Sound > Input; macOS: System Settings > Sound > Input — then "
+                "relaunch Whisper Local."
+            ) from e
         except Exception as e:
             self.logger.error(f"Audio source test failed: {e}")
             raise

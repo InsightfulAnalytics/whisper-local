@@ -679,12 +679,16 @@ class StateManager:
             self.logger.error(f"Manual test failed: {e}")
             print(f"❌ Test failed: {e}")
     
-    def shutdown(self):        
+    def shutdown(self):
         print("Whisper Local is shutting down... goodbye!")
 
-        if self.audio_recorder.get_recording_status():
-            self.audio_recorder.stop_recording()
-        self.audio_recorder.shutdown()
+        # Startup can abort before every component exists (e.g. no microphone
+        # found) — only shut down what was actually constructed, so the ORIGINAL
+        # startup error stays visible instead of a NoneType AttributeError here.
+        if self.audio_recorder:
+            if self.audio_recorder.get_recording_status():
+                self.audio_recorder.stop_recording()
+            self.audio_recorder.shutdown()
 
         if self.level_overlay:
             self.level_overlay.shutdown()

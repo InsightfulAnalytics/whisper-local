@@ -594,9 +594,18 @@ def main():
         print("\nShutting down application...")
         
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        if logger:
+            logger.error(f"Unexpected error: {e}", exc_info=True)
         print(f"Error occurred: {e}")
-        
+        # Double-clicked launches lose the console the moment we exit — hold it
+        # open so the error above is actually readable (mirrors the MSVC
+        # runtime warning UX).
+        try:
+            if sys.stdin and sys.stdin.isatty():
+                input("Press Enter to exit... ")
+        except EOFError:
+            pass
+
     finally:
         shutdown_app(hotkey_listener, state_manager, logger)
         cleanup_pid_file(instance_name)

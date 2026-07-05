@@ -494,6 +494,40 @@ class HistoryWindowModuleTests(unittest.TestCase):
         self.assertTrue(hasattr(history_window, 'show_history'))
 
 
+class PartialInitShutdownTests(unittest.TestCase):
+    # Regression for the 2026-07-06 field crash: audio setup failed (no mic),
+    # then shutdown() crashed on audio_recorder=None, burying the real error.
+    def test_shutdown_tolerates_missing_audio_recorder(self):
+        try:
+            from whisper_key.state_manager import StateManager
+        except ImportError:
+            self.skipTest("state_manager deps not installed in this environment")
+        from unittest import mock
+        sm = StateManager.__new__(StateManager)  # skip __init__ — simulate partial construction
+        sm.audio_recorder = None
+        sm.level_overlay = None
+        sm.system_tray = mock.Mock()
+        sm.shutdown()  # must not raise
+        sm.system_tray.stop.assert_called_once()
+
+    def test_no_default_input_device_raises_friendly_error(self):
+        try:
+            from whisper_key import audio_recorder as ar_mod
+        except ImportError:
+            self.skipTest("sounddevice not installed in this environment")
+        import logging
+        from unittest import mock
+        ar = ar_mod.AudioRecorder.__new__(ar_mod.AudioRecorder)
+        ar.device = None
+        ar.logger = logging.getLogger("test")
+        # PortAudio's exact behavior when no default input exists (device -1)
+        with mock.patch.object(ar_mod.sd, 'query_devices',
+                               side_effect=ar_mod.sd.PortAudioError("Error querying device -1")):
+            with self.assertRaises(RuntimeError) as ctx:
+                ar._test_audio_source()
+        self.assertIn("microphone", str(ctx.exception).lower())
+
+
 class NativeRuntimeCheckTests(unittest.TestCase):
     # Guards the MSVC-runtime preflight (msvcp140.dll >= 14.40) that turns a
     # silent 0xc0000005 crash at model load into an actionable startup warning.
