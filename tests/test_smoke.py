@@ -528,12 +528,25 @@ class PartialInitShutdownTests(unittest.TestCase):
         self.assertIn("microphone", str(ctx.exception).lower())
 
 
+# Load platform/windows/app.py in isolation, bypassing the platform package
+# __init__ chain (which eagerly imports the full Windows stack: global_hotkeys,
+# pystray, Pillow, ...). app.py itself only needs msvcrt/os plus a lazy win32api,
+# so these crash-guard tests can run in the tight smoke env with just pywin32.
+def _load_windows_app():
+    import importlib.util
+    path = ROOT / "src" / "whisper_key" / "platform" / "windows" / "app.py"
+    spec = importlib.util.spec_from_file_location("whisper_key_win_app_isolated", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class NativeRuntimeCheckTests(unittest.TestCase):
     # Guards the MSVC-runtime preflight (msvcp140.dll >= 14.40) that turns a
     # silent 0xc0000005 crash at model load into an actionable startup warning.
     @unittest.skipUnless(sys.platform == "win32", "Windows-only runtime check")
     def test_native_runtime_status_shape(self):
-        from whisper_key.platform.windows import app as win_app
+        win_app = _load_windows_app()
         detail, warning = win_app.native_runtime_status()
         self.assertIsInstance(detail, str)
         self.assertTrue(warning is None or isinstance(warning, str))
@@ -541,7 +554,7 @@ class NativeRuntimeCheckTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform == "win32", "Windows-only runtime check")
     def test_old_runtime_produces_warning(self):
         from unittest import mock
-        from whisper_key.platform.windows import app as win_app
+        win_app = _load_windows_app()
         # 14.29 is the exact version from the 2026-07-06 field crash
         fake_info = {'FileVersionMS': (14 << 16) | 29, 'FileVersionLS': 0}
         with mock.patch('win32api.GetFileVersionInfo', return_value=fake_info):
