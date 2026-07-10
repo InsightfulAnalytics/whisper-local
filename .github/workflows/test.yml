@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -23,4 +23,9 @@ jobs:
       # but a handful need numpy and pyperclip via transitive module-level imports.
       # Keep this list tight — anything heavier should be skipped behind a feature flag.
       - run: pip install ruamel.yaml numpy pyperclip
+      # The Windows-only native-runtime tests import platform.windows.app, which
+      # pulls in pywin32 (win32api) transitively. It's a declared app dependency
+      # on Windows, so install it here rather than skipping the crash-guard tests.
+      - if: runner.os == 'Windows'
+        run: pip install pywin32
       - run: python -m unittest tests.test_smoke -v
