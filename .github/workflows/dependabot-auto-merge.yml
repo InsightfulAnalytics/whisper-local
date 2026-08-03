@@ -1,0 +1,27 @@
+# Auto-merge Dependabot pull requests once CI is green.
+# Dependabot opens routine dependency and GitHub Actions bumps; gating those on a
+# human click adds latency without adding judgement. This turns on GitHub's native
+# auto-merge, which holds the PR until main's required status checks pass.
+# Nothing here merges on red — the required checks are the gate, not this workflow.
+name: Dependabot auto-merge
+
+# pull_request_target runs with the base repo's token, which carries the write
+# access auto-merge needs; Dependabot's own PR token is read-only. That elevated
+# token is safe here only because we never check out or execute the PR's code.
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # Scoped to Dependabot so a human PR is never merged without review.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
