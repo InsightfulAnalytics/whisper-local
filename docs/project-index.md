@@ -37,7 +37,8 @@ Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key
 | **Level Overlay** | `level_overlay.py` | Floating level meter + streaming text pill | tkinter |
 | **Fallback Window** | `fallback_window.py` | Capture window when no text field is focused | tkinter |
 | **Transforms** | `transforms.py` | Wispr-style AI text transforms via Ollama | ruamel.yaml |
-| **Dictionary** | `dictionary.py` | Hotword add/remove/list + add-word dialog | tkinter, ruamel.yaml |
+| **Dictionary** | `dictionary.py` | Hotword add/remove/list, add-word dialog, history mining | tkinter, ruamel.yaml |
+| **Corrections** | `corrections.py` | Persistent misrecognition fixes (`postprocess.replacements`) | ruamel.yaml |
 | **Profiles** | `profiles.py` | Dictation/Chat/Code/Notes/Translate presets | ruamel.yaml |
 | **Per-App Rules** | `app_rules.py` | Foreground-app-specific behaviour overrides | ruamel.yaml |
 | **Text Post-Process** | `text_postprocess.py` | Inline formatting + optional Ollama polish | urllib |

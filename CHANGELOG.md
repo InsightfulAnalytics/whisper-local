@@ -4,6 +4,37 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 
 ## [Unreleased]
 
+### Added
+- **Correction learning.** The history window gains *"Fix this everywhere…"*, which turns a
+  misrecognition into a persistent correction (`postprocess.replacements`), and *"Suggest
+  hotwords"*, which mines your own transcript history for frequently-used proper nouns and
+  offers them for the dictionary. Corrections hot-reload, so a fix applies on the next
+  dictation. New module `corrections.py`.
+- **Deterministic smart formatting** (`postprocess.smart_formatting`) — times (`3 p.m.` →
+  `3 PM`), spoken emails, and spoken URLs, offline with no LLM. Each sub-toggle off by default.
+- **Voice editing** (`postprocess.voice_editing`) — say "scratch that" (or "delete that" /
+  "strike that") to erase back to the start of the current sentence. Off by default.
+- Settings window checkboxes for all of the above.
+
+### Fixed
+- **Long dictations froze for seconds during post-processing.** The inline-formatting absorb
+  pass was O(n²): once earlier cues had turned the text mostly into punctuation, the regex
+  re-scanned a long leading `[ \t,.]*` run from every start position. Rewritten as linear
+  find-then-expand — 6.5s → 0.004s on an 18k-char transcript. Behaviour proven unchanged by a
+  4,000-case differential test against the old implementation; a perf test guards the
+  complexity. Voice editing uses the same linear approach rather than a lazy leading scan.
+- A scalar where a mapping/list belongs in `user_settings.yaml` (`ollama: true`,
+  `smart_formatting: true`, a stringy `replacements:`) raised `AttributeError` mid-pipeline and
+  lost the dictation. All three sections are shape-checked and degrade to "feature off".
+- Post-processing that legitimately empties the text (e.g. "scratch that" erasing the whole
+  utterance) no longer delivers an empty string — which with auto-enter would just press Enter
+  into the focused field.
+- The standalone `.exe` and autostart launch windowless, so the "already running but
+  unresponsive" message went to a console nobody could see and the app appeared to close
+  silently. It now shows a dialog when no console is attached.
+
+*Ported from [drajb/whisper-local](https://github.com/drajb/whisper-local) v0.16.0–v0.16.1.*
+
 ## [0.15.2]
 
 Hardening release from first-round field testing on a fresh Windows 10 PC.

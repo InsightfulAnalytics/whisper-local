@@ -517,6 +517,15 @@ class StateManager:
                 self.logger.info(f"App rule {rule.get('match')} → formatting overrides {fmt_overrides}")
             transcribed_text = postprocess(transcribed_text, postprocess_cfg)
 
+            # Post-processing can legitimately empty the text — e.g. "scratch that"
+            # erasing the whole utterance. Don't deliver an empty string (which
+            # with auto-enter would just press Enter into the focused field).
+            if not transcribed_text or not transcribed_text.strip():
+                self.logger.info("Post-processing produced empty text; nothing to deliver")
+                if self.level_overlay:
+                    self.level_overlay.flash_failure("Nothing to type")
+                return
+
             if rule and rule.get('suppress'):
                 self.logger.info(f"Delivery suppressed by app rule: {rule.get('match')}")
                 self.clipboard_manager.copy_text(transcribed_text)

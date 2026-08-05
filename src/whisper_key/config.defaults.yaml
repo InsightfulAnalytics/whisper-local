@@ -433,6 +433,41 @@ postprocess: # Transcription post-processing pipeline
     #     replacement: " → "
     inline_formatting_absorb_punctuation: false
 
+    # Spoken editing commands. When on, say "scratch that" (or "delete that" /
+    # "strike that") to erase what you just said back to the start of the current
+    # sentence — e.g. "book the flight, scratch that, cancel it" → "cancel it".
+    # Deterministic and offline. Off by default.
+    voice_editing: false
+
+    # Deterministic smart formatting — turns spoken forms into typed symbols,
+    # offline, with no LLM. Each toggle is independent and OFF by default because
+    # it rewrites text; turn on only what you want.
+    #   times:  "3 p.m." / "3:30pm"        → "3 PM" / "3:30 PM"
+    #   emails: "john at example dot com"  → "john@example.com"
+    #   urls:   "example dot com"          → "example.com"
+    # emails/urls fire on a trailing known TLD (com, org, net, io, ...). They are
+    # aggressive by design: prose of the same shape is rewritten too — "we met at
+    # google dot com" → "we met@google.com", "the dot com era" → "the.com era".
+    # Enable only if you actually dictate addresses; leave off for plain prose.
+    smart_formatting:
+        times: false
+        emails: false
+        urls: false
+
+    # Post-transcription corrections: literal, whole-word, case-insensitive text
+    # fixes applied after Whisper and before any Ollama step. Use this for
+    # consistent misrecognitions ("see translate two" → "CTranslate2"). The
+    # history window can append here for you via "Fix this everywhere...".
+    # Each entry: from (required), to, whole_word (default true),
+    # case_sensitive (default false), regex (default false — advanced).
+    # Example:
+    # replacements:
+    #   - from: see translate two
+    #     to: CTranslate2
+    #   - from: my sequel
+    #     to: MySQL
+    replacements: []
+
     # Strip "um", "uh", "like", "you know" filler words
     strip_filler_words: false
 

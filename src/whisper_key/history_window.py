@@ -115,10 +115,32 @@ def show_history():
             except IndexError:
                 pass
 
+        # "Fix this everywhere..." turns a misrecognition in the selected row into
+        # a persistent post-transcription correction (postprocess.replacements).
+        def fix_always():
+            source = ''
+            try:
+                source = visible[listbox.curselection()[0]].get('text', '')
+            except IndexError:
+                pass
+            _open_correction_dialog(root, source, status_var, _update_status)
+
+        # "Suggest hotwords" mines your own history for frequent proper nouns.
+        def suggest_hotwords_action():
+            _open_hotword_suggest_dialog(root, status_var, _update_status)
+
         tk.Button(btns, text='Copy', command=copy_selected,
                   bg='#1f6feb', fg='white', relief='flat',
                   padx=14, pady=3,
                   font=('Segoe UI', 9)).pack(side='left')
+        tk.Button(btns, text='Fix this everywhere…', command=fix_always,
+                  bg='#21262d', fg='#c9d1d9', relief='flat',
+                  padx=14, pady=3,
+                  font=('Segoe UI', 9)).pack(side='left', padx=(6, 0))
+        tk.Button(btns, text='Suggest hotwords', command=suggest_hotwords_action,
+                  bg='#21262d', fg='#c9d1d9', relief='flat',
+                  padx=14, pady=3,
+                  font=('Segoe UI', 9)).pack(side='left', padx=(6, 0))
         tk.Button(btns, text='Close', command=root.destroy,
                   bg='#21262d', fg='#c9d1d9', relief='flat',
                   padx=14, pady=3,
@@ -163,3 +185,124 @@ def show_history():
         root.mainloop()
 
     threading.Thread(target=_run, daemon=True, name='history-window').start()
+
+
+# Modal-ish correction editor. `source` is the selected transcript (shown as a
+# hint); the user types the misheard text and the fix. Saves a whole-word,
+# case-insensitive correction that applies to all FUTURE dictations.
+def _open_correction_dialog(parent, source, status_var, on_saved):
+    import tkinter as tk
+    from .corrections import add_replacement
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Fix this everywhere")
+    dlg.configure(bg='#0d1117')
+    dlg.geometry("460x300")
+    try:
+        dlg.transient(parent)
+        dlg.attributes('-topmost', True)
+    except Exception:
+        pass
+
+    def _lbl(text, **kw):
+        tk.Label(dlg, text=text, bg='#0d1117', fg='#8b949e',
+                 anchor='w', justify='left', font=('Segoe UI', 9), **kw).pack(
+            fill='x', padx=14, pady=(10, 2))
+
+    _lbl("Replace this text (as Whisper hears it):")
+    from_var = tk.StringVar()
+    tk.Entry(dlg, textvariable=from_var, bg='#161b22', fg='#c9d1d9',
+             insertbackground='#c9d1d9', relief='flat', bd=4,
+             font=('Segoe UI', 10)).pack(fill='x', padx=14)
+
+    _lbl("With this:")
+    to_var = tk.StringVar()
+    tk.Entry(dlg, textvariable=to_var, bg='#161b22', fg='#c9d1d9',
+             insertbackground='#c9d1d9', relief='flat', bd=4,
+             font=('Segoe UI', 10)).pack(fill='x', padx=14)
+
+    if source:
+        snippet = source[:120] + ('…' if len(source) > 120 else '')
+        _lbl(f"From: “{snippet}”")
+
+    msg_var = tk.StringVar()
+    tk.Label(dlg, textvariable=msg_var, bg='#0d1117', fg='#58a6ff',
+             anchor='w', font=('Segoe UI', 8)).pack(fill='x', padx=14, pady=(8, 0))
+
+    def save():
+        if add_replacement(from_var.get(), to_var.get()):
+            # Refresh counts first, THEN set the confirmation, so the count
+            # refresh doesn't clobber the message in the same Tk callback.
+            if on_saved:
+                on_saved()
+            status_var.set('Correction saved — applies to future dictations ✓')
+            dlg.destroy()
+        else:
+            msg_var.set("Nothing saved — enter text to replace, and a different result.")
+
+    row = tk.Frame(dlg, bg='#0d1117')
+    row.pack(fill='x', padx=14, pady=14, side='bottom')
+    tk.Button(row, text='Save correction', command=save, bg='#1f6feb', fg='white',
+              relief='flat', padx=14, pady=3, font=('Segoe UI', 9)).pack(side='left')
+    tk.Button(row, text='Cancel', command=dlg.destroy, bg='#21262d', fg='#c9d1d9',
+              relief='flat', padx=14, pady=3, font=('Segoe UI', 9)).pack(side='right')
+
+
+# Shows mined hotword candidates from history with checkboxes; adds the ticked
+# ones to whisper.hotwords. Candidates the user hasn't confirmed are never added.
+def _open_hotword_suggest_dialog(parent, status_var, on_saved):
+    import tkinter as tk
+    from .dictionary import add_word, suggest_hotwords_from_history
+
+    candidates = suggest_hotwords_from_history()
+
+    dlg = tk.Toplevel(parent)
+    dlg.title("Suggested hotwords")
+    dlg.configure(bg='#0d1117')
+    dlg.geometry("360x420")
+    try:
+        dlg.transient(parent)
+        dlg.attributes('-topmost', True)
+    except Exception:
+        pass
+
+    if not candidates:
+        tk.Label(dlg, text="No strong suggestions yet.\nKeep dictating — names you "
+                 "use often will show up here.", bg='#0d1117', fg='#8b949e',
+                 justify='left', font=('Segoe UI', 10)).pack(padx=16, pady=20)
+        tk.Button(dlg, text='Close', command=dlg.destroy, bg='#21262d', fg='#c9d1d9',
+                  relief='flat', padx=14, pady=3, font=('Segoe UI', 9)).pack(pady=10)
+        return
+
+    tk.Label(dlg, text="Frequent words in your history. Tick any to add to your "
+             "dictionary so Whisper biases toward them:", bg='#0d1117', fg='#8b949e',
+             wraplength=320, justify='left', font=('Segoe UI', 9)).pack(
+        fill='x', padx=14, pady=(12, 6))
+
+    checks = []
+    body = tk.Frame(dlg, bg='#0d1117')
+    body.pack(fill='both', expand=True, padx=14)
+    for word, count in candidates:
+        var = tk.BooleanVar(value=False)
+        checks.append((word, var))
+        tk.Checkbutton(body, text=f'{word}   ·  {count}×', variable=var,
+                       bg='#0d1117', fg='#c9d1d9', selectcolor='#161b22',
+                       activebackground='#0d1117', activeforeground='#c9d1d9',
+                       anchor='w', font=('Segoe UI', 10)).pack(fill='x')
+
+    def add_ticked():
+        added = 0
+        for word, var in checks:
+            if var.get() and add_word(word):
+                added += 1
+        if on_saved:
+            on_saved()
+        status_var.set(f'Added {added} hotword{"s" if added != 1 else ""} ✓')
+        dlg.destroy()
+
+    row = tk.Frame(dlg, bg='#0d1117')
+    row.pack(fill='x', padx=14, pady=12, side='bottom')
+    tk.Button(row, text='Add selected', command=add_ticked, bg='#1f6feb', fg='white',
+              relief='flat', padx=14, pady=3, font=('Segoe UI', 9)).pack(side='left')
+    tk.Button(row, text='Cancel', command=dlg.destroy, bg='#21262d', fg='#c9d1d9',
+              relief='flat', padx=14, pady=3, font=('Segoe UI', 9)).pack(side='right')

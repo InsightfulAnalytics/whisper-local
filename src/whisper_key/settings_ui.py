@@ -544,14 +544,30 @@ def _build_postprocess_tab(nb, cm, vars_, row_index):
          'Absorb Whisper punctuation around spoken cues  (fixes "hello,, world")', 'inline_formatting_absorb_punctuation'),
         ('postprocess.inline_formatting_extend',
          'Keep English cue words when adding your own', 'inline_formatting_extend'),
+        ('postprocess.voice_editing',
+         'Voice editing  (say "scratch that" to erase the last sentence)', 'voice_editing'),
     ]
     for path, label, cfg_key in checks:
         v = tk.BooleanVar(value=bool(pp.get(cfg_key, False)))
         vars_[path] = v
         _check(tab, path, label, v, row_index)
 
+    # Smart-formatting sub-toggles live under a nested dict; surface them here too.
+    sf = pp.get('smart_formatting') or {}
+    smart_checks = [
+        ('postprocess.smart_formatting.times', 'Smart times  ("3 p.m." → "3 PM")', 'times'),
+        ('postprocess.smart_formatting.emails', 'Smart emails  ("john at x dot com" → "john@x.com")', 'emails'),
+        ('postprocess.smart_formatting.urls', 'Smart URLs  ("example dot com" → "example.com")', 'urls'),
+    ]
+    for path, label, cfg_key in smart_checks:
+        v = tk.BooleanVar(value=bool(sf.get(cfg_key, False)))
+        vars_[path] = v
+        _check(tab, path, label, v, row_index)
+
     _footnote(tab, 'Custom phrase→symbol mappings (for other languages) live under '
-                   'inline_formatting_replacements in the settings file — see the FAQ.')
+                   'inline_formatting_replacements in the settings file; misrecognition '
+                   'fixes go under replacements (or use the history window\'s "Fix this '
+                   'everywhere...").')
 
     _separator(tab)
 

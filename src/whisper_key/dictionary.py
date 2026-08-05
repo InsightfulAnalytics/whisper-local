@@ -1,4 +1,12 @@
+# dictionary.py
+# The hotword dictionary — proper nouns and jargon Whisper should bias toward
+# (whisper.hotwords in user_settings.yaml). Provides add/remove/list, the Tk
+# add-word dialog reachable from the tray, and the history-mining that powers
+# the history window's "Suggest hotwords" action. Writes user_settings.yaml
+# directly so callers don't need a live ConfigManager.
+
 import logging
+import re
 import threading
 from pathlib import Path
 from typing import List, Optional
@@ -75,6 +83,63 @@ def remove_word(word: str) -> bool:
         yaml.dump(data, f)
     print(f"   ✓ Removed '{word}' from dictionary ({len(current)} left)")
     return True
+
+
+# =============================================================================
+# Hotword suggestions (mined from your own transcription history)
+# =============================================================================
+
+# Words that are Capitalized simply because they open a sentence — never good
+# hotword candidates on their own, plus a few pronouns/filler that commonly
+# start clauses. Kept small on purpose; the user confirms each suggestion.
+_SUGGEST_STOPWORDS = {
+    'i', 'the', 'a', 'an', 'and', 'but', 'or', 'so', 'then', 'this', 'that',
+    'it', 'we', 'you', 'he', 'she', 'they', 'my', 'our', 'your', 'his', 'her',
+    'if', 'when', 'while', 'yes', 'no', 'ok', 'okay', 'well', 'also', 'here',
+    'there', 'what', 'who', 'how', 'why', 'let', 'please', 'thanks', 'hi', 'hey',
+}
+
+# A "namey" token: CamelCase, ALLCAPS acronym, alphanumeric tech term (h264,
+# gpt4), or a plain Capitalized word (≥2 letters). Matched case-sensitively.
+_NAMEY = re.compile(r'[A-Za-z][A-Za-z0-9]*')
+
+
+# Pure, testable core: scan already-spoken transcripts for frequently-used
+# proper-noun-ish tokens the model likely gets wrong, biased toward tokens that
+# appear MID-sentence (so ordinary sentence-initial capitals don't dominate).
+# Returns (word, count) pairs, most frequent first, excluding known hotwords.
+def suggest_hotwords(texts: List[str], known: Optional[set] = None,
+                     min_count: int = 3, limit: int = 20) -> List[tuple]:
+    known_lower = {w.lower() for w in (known or set())}
+    counts = {}
+    for text in texts:
+        if not text:
+            continue
+        # Split into sentence-ish spans so we can tell "first word" from the rest.
+        for span in re.split(r'[.!?\n]+', text):
+            tokens = _NAMEY.findall(span)
+            for pos, tok in enumerate(tokens):
+                is_namey = (
+                    re.search(r'[A-Z].*[A-Z]', tok)           # CamelCase / ALLCAPS
+                    or re.search(r'\d', tok)                   # has a digit (h264)
+                    or (tok[:1].isupper() and pos > 0)         # Capitalized, not 1st word
+                )
+                if not is_namey or len(tok) < 2:
+                    continue
+                if tok.lower() in _SUGGEST_STOPWORDS or tok.lower() in known_lower:
+                    continue
+                counts[tok] = counts.get(tok, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
+    return [(w, c) for w, c in ranked if c >= min_count][:limit]
+
+
+# Convenience wrapper: mine the on-disk transcript journal against the current
+# hotword list. Used by the history window's "Suggest hotwords" action.
+def suggest_hotwords_from_history(min_count: int = 3, limit: int = 20) -> List[tuple]:
+    from .transcript_log import load_transcripts
+    texts = [e.get('text', '') for e in load_transcripts()]
+    return suggest_hotwords(texts, known=set(list_hotwords()),
+                            min_count=min_count, limit=limit)
 
 
 def show_dictionary() -> int:
