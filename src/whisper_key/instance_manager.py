@@ -90,7 +90,36 @@ def cleanup_pid_file(app_name: str = "WhisperKeyLocal"):
         pass
 
 
+# GetConsoleWindow() == 0 means no attached console window (windowless launch).
+# Split out so tests can stub it — a real MessageBoxW is a *blocking modal*, so it
+# must never fire in a headless/test/CI process (nobody is there to click OK).
+def _console_attached() -> bool:
+    try:
+        import ctypes
+        return ctypes.windll.kernel32.GetConsoleWindow() != 0
+    except Exception:
+        return True  # non-Windows / no ctypes → assume a console, show no dialog
+
+
+# Surface a message even when there's no visible console — the standalone .exe and
+# autostart (pythonw) launch windowless, so a bare print() vanishes and the app
+# appears to "silently close". Best-effort: any failure here must not mask the exit.
+def _notify_no_console(title: str, message: str):
+    print(f"\n{message}\n")
+    if _console_attached():
+        return
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(0, message, title, 0x10)  # MB_ICONERROR
+    except Exception:
+        pass
+
+
 def _fail_takeover():
-    print("\nCould not acquire lock — an unresponsive Whisper Local process may be running.")
-    print("End the existing python / whisper-local process manually and try again.\n")
+    _notify_no_console(
+        "Whisper Local",
+        "Whisper Local is already running but isn't responding, so this copy "
+        "can't start.\n\nEnd the existing whisper-local / python process in Task "
+        "Manager, then launch again.",
+    )
     sys.exit(1)

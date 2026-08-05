@@ -50,8 +50,11 @@ def postprocess(text: str, config: dict) -> str:
     if config.get('ensure_punctuation', False):
         text = _ensure_punctuation(text)
 
-    ollama_cfg = config.get('ollama') or {}
-    if ollama_cfg.get('enabled', False):
+    # The isinstance guard matters: a hand-edited scalar `ollama: true` instead of
+    # a mapping must degrade to "no polish", not raise mid-dictation and lose the
+    # transcript the user just spoke.
+    ollama_cfg = config.get('ollama')
+    if isinstance(ollama_cfg, dict) and ollama_cfg.get('enabled', False):
         polished = _ollama_polish(text, ollama_cfg)
         if polished:
             text = polished
@@ -95,6 +98,39 @@ def _resolve_inline_replacements(config: dict):
     return entries
 
 
+# Characters a cue word "absorbs" from either side. Newline is deliberately
+# excluded so "new paragraph"/"new line" breaks survive a neighbouring cue.
+_ABSORB_CHARS = ' \t,.'
+
+
+# Replace each cue match together with the punctuation/whitespace hugging it.
+#
+# Written as find-then-expand rather than wrapping the pattern in `[ \t,.]*…`
+# runs. That regex form is O(n²): once an earlier cue has been swapped for ", "
+# the text is largely punctuation, and the engine re-scans a long leading run
+# from every start position only to fail (measured ~6.5s on an 18k-char
+# transcript, ~12s at 24k). Here `finditer` locates the cue in one linear pass
+# and each side expands over a run no other match can revisit, so this is O(n).
+def _absorb_sub(pattern: str, replacement: str, text: str) -> str:
+    pieces = []
+    cursor = 0
+    limit = len(text)
+    for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+        if match.start() < cursor:
+            continue  # inside a region a previous match already absorbed
+        start = match.start()
+        while start > cursor and text[start - 1] in _ABSORB_CHARS:
+            start -= 1
+        end = match.end()
+        while end < limit and text[end] in _ABSORB_CHARS:
+            end += 1
+        pieces.append(text[cursor:start])
+        pieces.append(replacement)  # inserted literally — never a regex template
+        cursor = end
+    pieces.append(text[cursor:])
+    return ''.join(pieces)
+
+
 def _apply_inline_formatting(text: str, config: dict = None) -> str:
     cfg = config or {}
     # When you SPEAK a cue word, Whisper also inserts its own punctuation around it
@@ -104,12 +140,12 @@ def _apply_inline_formatting(text: str, config: dict = None) -> str:
     # spacing wins — so define replacements like ", " or " → ". Off by default.
     absorb = cfg.get('inline_formatting_absorb_punctuation', False)
     for pattern, replacement in _resolve_inline_replacements(cfg):
-        # Absorb only spaces/tabs/commas/periods around the cue — NOT newlines, so
-        # "new paragraph"/"new line" (\n) breaks survive a following cue's absorb.
-        effective = r'[ \t,.]*(?:' + pattern + r')[ \t,.]*' if absorb else pattern
-        # Literal replacement via a function repl: avoids re interpreting \1, \g<>,
-        # or stray backslashes in user-provided replacement strings.
-        text = re.sub(effective, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)
+        if absorb:
+            text = _absorb_sub(pattern, replacement, text)
+        else:
+            # Literal replacement via a function repl: avoids re interpreting \1,
+            # \g<>, or stray backslashes in user-provided replacement strings.
+            text = re.sub(pattern, lambda _m, r=replacement: r, text, flags=re.IGNORECASE)
     text = re.sub(r' +([.,!?:;])', r'\1', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)
