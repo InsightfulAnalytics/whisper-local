@@ -198,19 +198,69 @@ class TextPostprocessTests(unittest.TestCase):
         }
         self.assertEqual(postprocess("x backref y", cfg), r"x \1\g<0> y")
 
-    def test_ollama_polish_handles_curly_braces_in_text(self):
-        from whisper_key.text_postprocess import _ollama_polish
+    def test_llm_polish_handles_curly_braces_in_text(self):
+        from whisper_key.text_postprocess import _llm_polish
         cfg = {'enabled': True, 'endpoint': 'http://127.0.0.1:0', 'timeout': 0.1,
                'prompt': 'Polish:\n\n{text}'}
-        result = _ollama_polish("config = {a: 1, b: 2}", cfg)
+        result = _llm_polish("config = {a: 1, b: 2}", cfg)
         self.assertEqual(result, '')
 
-    def test_ollama_polish_handles_curly_braces_in_prompt(self):
-        from whisper_key.text_postprocess import _ollama_polish
+    def test_llm_polish_handles_curly_braces_in_prompt(self):
+        from whisper_key.text_postprocess import _llm_polish
         cfg = {'enabled': True, 'endpoint': 'http://127.0.0.1:0', 'timeout': 0.1,
                'prompt': 'Format: {format_var} not a placeholder. {text}'}
-        result = _ollama_polish("hi", cfg)
+        result = _llm_polish("hi", cfg)
         self.assertEqual(result, '')
+
+    # The provider switch is the only thing standing between local-only dictation
+    # and text leaving the machine, so it gets pinned: claude only when asked for,
+    # ollama for anything else, and the prompt template applies to both.
+    def test_llm_polish_routes_by_provider(self):
+        from whisper_key import text_postprocess as tp
+        seen = {}
+
+        def fake_claude(prompt, cfg):
+            seen['prompt'] = prompt
+            return 'CLOUD'
+
+        original = (tp._claude_generate, tp._ollama_generate)
+        tp._claude_generate = fake_claude
+        tp._ollama_generate = lambda prompt, cfg: 'LOCAL'
+        try:
+            self.assertEqual(tp._llm_polish("hi", {'provider': ' Claude ', 'prompt': 'Fix: {text}'}), 'CLOUD')
+            self.assertEqual(seen['prompt'], 'Fix: hi')
+            self.assertEqual(tp._llm_polish("hi", {'prompt': '{text}'}), 'LOCAL')
+            self.assertEqual(tp._llm_polish("hi", {'provider': 'gpt', 'prompt': '{text}'}), 'LOCAL')
+        finally:
+            tp._claude_generate, tp._ollama_generate = original
+
+    # No API key must degrade to the raw transcript, not raise mid-dictation.
+    def test_claude_generate_without_key_returns_empty(self):
+        import os
+        from whisper_key.text_postprocess import _claude_generate
+        saved = os.environ.pop('ANTHROPIC_API_KEY', None)
+        try:
+            self.assertEqual(_claude_generate("hi", {}), '')
+        finally:
+            if saved is not None:
+                os.environ['ANTHROPIC_API_KEY'] = saved
+
+    # Upgraders keep a postprocess.ollama block; it must carry over, not get pruned
+    # as an unknown key (which would silently switch AI polish off).
+    def test_ollama_key_migrates_to_llm(self):
+        import logging
+        from whisper_key.config_manager import _migrate_ollama_key
+        log = logging.getLogger('migrate-test')
+
+        cfg = {'postprocess': {'ollama': {'enabled': True, 'model': 'qwen'}}}
+        _migrate_ollama_key(cfg, log)
+        self.assertEqual(cfg['postprocess']['llm'], {'enabled': True, 'model': 'qwen'})
+        self.assertNotIn('ollama', cfg['postprocess'])
+
+        # A config that already has the new key wins; the stale block is ignored.
+        cfg = {'postprocess': {'llm': {'model': 'new'}, 'ollama': {'model': 'old'}}}
+        _migrate_ollama_key(cfg, log)
+        self.assertEqual(cfg['postprocess']['llm']['model'], 'new')
 
 
     # --- Post-transcription replacements (correction-learning backing store) ---
@@ -327,7 +377,7 @@ class TextPostprocessTests(unittest.TestCase):
         for bad in (
             {'smart_formatting': 'not-a-dict'},
             {'smart_formatting': True},
-            {'ollama': 'not-a-dict'},
+            {'llm': 'not-a-dict'},
             {'replacements': 'not-a-list'},
             {'replacements': [None, 42, 'str', {'no_from_key': 1}]},
             {'inline_formatting': True, 'inline_formatting_replacements': 'nope'},
@@ -1053,7 +1103,7 @@ class BundleRedactionTests(unittest.TestCase):
             "  hotwords: [SecretName, CodeWord]\n"
             "  initial_prompt: my private context\n"
             "postprocess:\n"
-            "  ollama:\n"
+            "  llm:\n"
             "    endpoint: http://user:pass@host:11434\n"
         )
         out = _redact_yaml(sample)
@@ -1169,7 +1219,7 @@ class ReviewFixTests(unittest.TestCase):
         from whisper_key.settings_ui import _coerce
         sentinel = object()  # not a BooleanVar
         self.assertEqual(_coerce(sentinel, "2024", "whisper.initial_prompt"), "2024")
-        self.assertEqual(_coerce(sentinel, "3", "postprocess.ollama.model"), "3")
+        self.assertEqual(_coerce(sentinel, "3", "postprocess.llm.model"), "3")
         self.assertEqual(_coerce(sentinel, "5", "whisper.beam_size"), 5)
         self.assertAlmostEqual(_coerce(sentinel, "0.75", "audio.noise_suppression.strength"), 0.75)
 

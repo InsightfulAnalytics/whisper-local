@@ -226,12 +226,12 @@ def setup_audio_feedback(audio_feedback_config):
 def setup_voice_commands(voice_commands_config, clipboard_manager, log_transcriptions=False, config_manager=None):
     provider = None
     if config_manager is not None:
-        provider = lambda: (config_manager.get_postprocess_config().get('ollama') or {})
+        provider = lambda: (config_manager.get_postprocess_config().get('llm') or {})
     return VoiceCommandManager(
         enabled=voice_commands_config['enabled'],
         clipboard_manager=clipboard_manager,
         log_transcriptions=log_transcriptions,
-        ollama_config_provider=provider,
+        llm_config_provider=provider,
     )
 
 def setup_system_tray(tray_config, config_manager, state_manager, model_registry, console_config=None):

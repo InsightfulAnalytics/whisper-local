@@ -571,32 +571,53 @@ def _build_postprocess_tab(nb, cm, vars_, row_index):
 
     _separator(tab)
 
-    ollama = pp.get('ollama') or {}
+    llm = pp.get('llm') or {}
 
-    v = tk.BooleanVar(value=bool(ollama.get('enabled', False)))
-    vars_['postprocess.ollama.enabled'] = v
-    _check(tab, 'postprocess.ollama.enabled',
-           'Ollama polish  (local LLM punctuation cleanup)', v, row_index)
+    v = tk.BooleanVar(value=bool(llm.get('enabled', False)))
+    vars_['postprocess.llm.enabled'] = v
+    _check(tab, 'postprocess.llm.enabled',
+           'AI polish  (LLM punctuation cleanup, transforms, rephrase)', v, row_index)
 
-    v = tk.StringVar(value=str(ollama.get('endpoint', 'http://localhost:11434')))
-    vars_['postprocess.ollama.endpoint'] = v
-    _row(tab, 'postprocess.ollama.endpoint', 'Ollama endpoint',
+    v = tk.StringVar(value=str(llm.get('provider', 'ollama')))
+    vars_['postprocess.llm.provider'] = v
+    _row(tab, 'postprocess.llm.provider', 'AI provider',
+         lambda p: _combo(p, v, ['ollama', 'claude']), row_index,
+         note='ollama = local, nothing leaves the machine; claude = cloud API, text is sent to Anthropic')
+
+    v = tk.StringVar(value=str(llm.get('endpoint', 'http://localhost:11434')))
+    vars_['postprocess.llm.endpoint'] = v
+    _row(tab, 'postprocess.llm.endpoint', 'Ollama endpoint',
          lambda p: _entry(p, v), row_index)
 
-    v = tk.StringVar(value=str(ollama.get('model', 'llama3.2')))
-    vars_['postprocess.ollama.model'] = v
-    _row(tab, 'postprocess.ollama.model', 'Ollama model',
+    v = tk.StringVar(value=str(llm.get('model', 'llama3.2')))
+    vars_['postprocess.llm.model'] = v
+    _row(tab, 'postprocess.llm.model', 'Ollama model',
          lambda p: _entry(p, v), row_index)
 
-    v = tk.StringVar(value=str(ollama.get('timeout', 5)))
-    vars_['postprocess.ollama.timeout'] = v
-    _row(tab, 'postprocess.ollama.timeout', 'Ollama timeout (s)',
+    v = tk.StringVar(value=str(llm.get('timeout', 5)))
+    vars_['postprocess.llm.timeout'] = v
+    _row(tab, 'postprocess.llm.timeout', 'Ollama timeout (s)',
          lambda p: _entry(p, v), row_index)
+
+    v = tk.StringVar(value=str(llm.get('claude_model', 'claude-haiku-4-5')))
+    vars_['postprocess.llm.claude_model'] = v
+    _row(tab, 'postprocess.llm.claude_model', 'Claude model',
+         lambda p: _entry(p, v), row_index)
+
+    v = tk.StringVar(value=str(llm.get('claude_timeout', 20)))
+    vars_['postprocess.llm.claude_timeout'] = v
+    _row(tab, 'postprocess.llm.claude_timeout', 'Claude timeout (s)',
+         lambda p: _entry(p, v), row_index)
+
+    _footnote(tab, 'The Claude provider needs the anthropic package '
+                   '(pip install "whisper-local[claude]") and an API key. Prefer the '
+                   'ANTHROPIC_API_KEY environment variable; claude_api_key in the settings '
+                   'file is the fallback.')
 
 
 # Flatten the {dotted.path: tkinter.Var} dict back into ConfigManager updates.
 # Two-level paths (e.g. "whisper.model") become direct update_user_setting calls.
-# Three-level paths (e.g. "postprocess.ollama.enabled") get batched per parent
+# Three-level paths (e.g. "postprocess.llm.enabled") get batched per parent
 # so we issue a single update per nested dict, preserving sibling keys.
 def _save_all(cm, vars_):
     pending_nested = {}
@@ -628,14 +649,15 @@ def _save_all(cm, vars_):
 
 # Settings whose values are genuinely numeric. ONLY these are int/float-coerced;
 # everything else stays a string so free-text fields (initial_prompt, hotkeys,
-# ollama model/endpoint) aren't silently turned into numbers when they happen to
+# LLM model/endpoint) aren't silently turned into numbers when they happen to
 # look numeric — e.g. initial_prompt "2024" must stay the string "2024".
 _NUMERIC_PATHS = {
     'whisper.beam_size',
     'audio.max_duration',
     'audio.noise_suppression.strength',
     'vad.vad_silence_timeout_seconds',
-    'postprocess.ollama.timeout',
+    'postprocess.llm.timeout',
+    'postprocess.llm.claude_timeout',
 }
 
 

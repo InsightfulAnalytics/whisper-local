@@ -313,11 +313,15 @@ def _section_postprocess_and_rules() -> int:
         else:
             Check("Text filters").info("none enabled").print()
 
-        ollama_cfg = post_cfg.get('ollama') or {}
-        if ollama_cfg.get('enabled'):
-            failures += _probe_ollama(ollama_cfg)
+        llm_cfg = post_cfg.get('llm') or {}
+        if llm_cfg.get('enabled'):
+            from .text_postprocess import _provider
+            if _provider(llm_cfg) == 'claude':
+                failures += _probe_claude(llm_cfg)
+            else:
+                failures += _probe_ollama(llm_cfg)
         else:
-            Check("Ollama post-edit").info("disabled").print()
+            Check("LLM post-edit").info("disabled").print()
     except Exception as e:
         Check("Post-process config").warn(str(e)).print()
 
@@ -359,6 +363,37 @@ def _probe_ollama(cfg: dict) -> int:
     except (urllib.error.URLError, OSError) as e:
         Check("Ollama post-edit").fail(f"unreachable at {endpoint} ({e})").print()
         return 1
+
+# Claude reachability. Costs a real (sub-cent) API call on purpose: a key that
+# parses but is revoked, or a blocked network, only shows up on a live request.
+def _probe_claude(cfg: dict) -> int:
+    import os
+    key_from_config = bool(cfg.get('claude_api_key'))
+    api_key = str(cfg.get('claude_api_key') or os.environ.get('ANTHROPIC_API_KEY') or '').strip()
+    model = cfg.get('claude_model') or 'claude-haiku-4-5'
+    if not api_key:
+        Check("Claude post-edit").fail(
+            "no API key (set postprocess.llm.claude_api_key or ANTHROPIC_API_KEY)").print()
+        return 1
+    try:
+        import anthropic
+    except ImportError:
+        Check("Claude post-edit").fail(
+            'anthropic not installed (pip install "whisper-local[claude]")').print()
+        return 1
+    source = "config" if key_from_config else "ANTHROPIC_API_KEY"
+    try:
+        client = anthropic.Anthropic(api_key=api_key,
+                                     timeout=float(cfg.get('claude_timeout', 20)),
+                                     max_retries=0)
+        client.messages.create(model=model, max_tokens=1,
+                               messages=[{"role": "user", "content": "ping"}])
+        Check("Claude post-edit").ok(f"{model} reachable, key from {source}").print()
+        return 0
+    except Exception as e:
+        Check("Claude post-edit").fail(f"{model} call failed ({e})").print()
+        return 1
+
 
 
 def _section_logs() -> int:

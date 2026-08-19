@@ -94,7 +94,7 @@ class StateManager:
         self.profile_manager = ProfileManager(config_manager)
         self.app_rules = AppRules()
         self.transforms_manager = TransformsManager(
-            ollama_config_provider=lambda: (config_manager.get_postprocess_config().get('ollama') or {}),
+            llm_config_provider=lambda: (config_manager.get_postprocess_config().get('llm') or {}),
         )
         self.level_overlay = None
         self.fallback_window = FallbackWindow()
@@ -791,7 +791,7 @@ class StateManager:
     def _handle_rephrase(self, selection: str, instruction: str):
         import time
         import pyperclip
-        from .text_postprocess import _ollama_polish
+        from .text_postprocess import _llm_polish, _provider
         from .platform import keyboard as kb
 
         print(f"\n   🤖 Rephrasing ({len(selection)} chars) with instruction: '{instruction[:60]}'")
@@ -801,14 +801,15 @@ class StateManager:
             "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
             f"Input:\n{selection}"
         )
-        ollama_cfg = dict(self.config_manager.get_postprocess_config().get('ollama') or {})
-        ollama_cfg['enabled'] = True
-        ollama_cfg['prompt'] = '{text}'
+        llm_cfg = dict(self.config_manager.get_postprocess_config().get('llm') or {})
+        llm_cfg['enabled'] = True
+        llm_cfg['prompt'] = '{text}'
 
-        polished = _ollama_polish(full_prompt, ollama_cfg)
+        polished = _llm_polish(full_prompt, llm_cfg)
         if not polished:
-            print("   ✗ Rephrase failed — Ollama unreachable or returned nothing")
-            self.system_tray.notify("Rephrase failed — is Ollama running?")
+            backend = _provider(llm_cfg)
+            print(f"   ✗ Rephrase failed — {backend} unreachable or returned nothing")
+            self.system_tray.notify(f"Rephrase failed — check the {backend} backend")
             if self.level_overlay:
                 self.level_overlay.flash_failure()
             return

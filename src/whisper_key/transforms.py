@@ -11,7 +11,7 @@ from ruamel.yaml import YAML
 # .platform → .platform.windows pulls in win32api, which doesn't exist on Linux.
 # Keeping the import lazy means transforms.py is importable on CI (Linux smoke
 # tests) and from tools that only need to read transforms.yaml metadata.
-from .text_postprocess import _ollama_polish
+from .text_postprocess import _llm_polish, _provider
 from .utils import get_user_app_data_path, resolve_asset_path
 
 USER_FILE = "transforms.yaml"
@@ -19,12 +19,12 @@ DEFAULTS_FILE = "transforms.defaults.yaml"
 
 
 class TransformsManager:
-    def __init__(self, ollama_config_provider=None, system_tray=None):
+    def __init__(self, llm_config_provider=None, system_tray=None):
         self.logger = logging.getLogger(__name__)
         self.transforms: list = []
         self._mtime = 0.0
         self._path: Optional[Path] = None
-        self.ollama_config_provider = ollama_config_provider
+        self.llm_config_provider = llm_config_provider
         self.system_tray = system_tray
         self._load()
 
@@ -110,25 +110,28 @@ class TransformsManager:
             except Exception: pass
             return False
 
-        if not self.ollama_config_provider:
-            self._notify("Transforms require Ollama config (postprocess.ollama)")
+        if not self.llm_config_provider:
+            self._notify("Transforms require LLM config (postprocess.llm)")
             try: pyperclip.copy(original_clipboard)
             except Exception: pass
             return False
 
         full_prompt = f"{prompt}\n\n{selection}"
-        ollama_cfg = dict(self.ollama_config_provider() or {})
-        ollama_cfg['enabled'] = True
-        ollama_cfg['prompt'] = '{text}'
+        llm_cfg = dict(self.llm_config_provider() or {})
+        llm_cfg['enabled'] = True
+        llm_cfg['prompt'] = '{text}'
+        # Per-transform model/timeout overrides have to land on the keys the
+        # ACTIVE backend reads, or they silently do nothing after a provider switch.
+        backend = _provider(llm_cfg)
         if transform.get('model'):
-            ollama_cfg['model'] = transform['model']
+            llm_cfg['claude_model' if backend == 'claude' else 'model'] = transform['model']
         if transform.get('timeout') is not None:
-            ollama_cfg['timeout'] = transform['timeout']
+            llm_cfg['claude_timeout' if backend == 'claude' else 'timeout'] = transform['timeout']
 
-        result = _ollama_polish(full_prompt, ollama_cfg)
+        result = _llm_polish(full_prompt, llm_cfg)
         if not result:
-            self.logger.warning(f"Transform '{name}' returned empty from Ollama")
-            self._notify(f"Transform '{name}' failed — Ollama unreachable?")
+            self.logger.warning(f"Transform '{name}' returned empty from {backend}")
+            self._notify(f"Transform '{name}' failed — {backend} unreachable?")
             try: pyperclip.copy(original_clipboard)
             except Exception: pass
             return False

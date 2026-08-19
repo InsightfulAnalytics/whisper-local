@@ -62,7 +62,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 | **Customisable voice commands** | ✅ | partial | ✅ | ❌ | ❌ |
 | **Push-to-talk + auto-paste + auto-send** | ✅ | ✅ | partial | ❌ | ❌ |
 | **GPU acceleration (NVIDIA & AMD)** | ✅ | n/a | n/a | n/a | ❌ |
-| **AI rephrase / transforms (Ollama)** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **AI rephrase / transforms (LLM)** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Hackable / MIT licensed** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **No account required** | ✅ | ❌ | ❌ | ❌ | ✅ |
 
@@ -74,7 +74,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 - ⚡ **Pre-roll buffer + warmup** — captures the 500 ms before you press the key *and* pre-loads Whisper at boot, so the first word is never clipped and the first recording feels instant
 - 🔵 **Floating level overlay** — a small pill at the screen edge shows you're being heard, with the transcript appearing next to the level bar (Wispr Flow–style). Optional [real-time streaming preview](docs/streaming.md) shows words *as you speak*.
 - 📝 **Inline voice formatting** — say "comma", "period", "question mark", "new paragraph", "open quote", etc. mid-sentence. **Fully customizable** for any language via `postprocess.inline_formatting_replacements` (e.g. map Polish phrases to punctuation, or "arrow" → →)
-- 🤖 **AI rephrase** — dedicated `Ctrl+Shift+Win` hotkey: select text, hold, speak your instruction, release — local Ollama rewrites it in place
+- 🤖 **AI rephrase** — dedicated `Ctrl+Shift+Win` hotkey: select text, hold, speak your instruction, release — a local Ollama model or Claude rewrites it in place
 - 🌐 **Translation mode** — speak any language, get English; tray → Profile → Translate
 - 🔁 **Continuous dictation mode** — for long-form notes, the app auto-restarts recording after each delivery
 - 📋 **Fallback window** — if no text field is focused, the transcript appears in a small window (pre-selected, copy button, already on clipboard)
@@ -88,7 +88,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 - 🎛️ **Profiles** — switch between Dictation / Chat / Code / Notes presets from the tray
 - 🪟 **Per-app rules** — different behaviour *and* formatting per foreground app: auto-send in Slack, copy-only + verbatim (no auto-caps/periods) in VS Code, full sentences in email, suppress in 1Password
 - ⌨️ **Type-as-you-speak** *(experimental, opt-in)* — `streaming.deliver_to_cursor` commits finalized phrases to the cursor live, Wispr-Flow style (trades full-Whisper accuracy for latency; see [docs/streaming.md](docs/streaming.md))
-- 🧹 **Optional LLM cleanup** — pipe transcripts through a local [Ollama](https://ollama.ai) model for punctuation / capitalisation polish (off by default, fully local)
+- 🧹 **Optional LLM cleanup** — pipe transcripts through a local [Ollama](https://ollama.ai) model — or Claude — for punctuation / capitalisation polish (off by default; Ollama keeps it fully local)
 - 📜 **Recent transcriptions** — last 10 results in the tray menu, click to copy back
 - 🔧 **Settings backup/restore** — `--export-settings` / `--import-settings` for portability
 - 🖥️ **Settings UI** — `whisper-local --settings` opens a GUI settings window (no YAML editing required)
@@ -263,22 +263,36 @@ context (`initial_prompt`, `language`, `task`), **and** formatting
 
 ## 🧹 Optional LLM cleanup
 
-If you have [Ollama](https://ollama.ai) running locally, Whisper Local can
-pipe each transcript through a small local model for punctuation and
-capitalisation polish. **Off by default and fully local** — set
-`postprocess.ollama.enabled: true` in `user_settings.yaml` to enable.
+Whisper Local can pipe each transcript through an LLM for punctuation and
+capitalisation polish. **Off by default** — set `postprocess.llm.enabled: true`
+in `user_settings.yaml`. The same block powers transforms and the rephrase hotkey.
+
+Two backends, chosen with `provider`:
+
+- `ollama` (default) — a local model via [Ollama](https://ollama.ai). Nothing leaves the machine.
+- `claude` — Anthropic's API. Better on messy dictation and needs no local GPU, but
+  **your transcript is sent to Anthropic** and each call needs network. Install with
+  `pip install "whisper-local[claude]"` and set `ANTHROPIC_API_KEY` in your environment.
 
 ```yaml
 postprocess:
-  capitalize_first: true        # works without Ollama
-  ensure_punctuation: true      # works without Ollama
-  strip_filler_words: true      # works without Ollama
-  ollama:
+  capitalize_first: true        # works without an LLM
+  ensure_punctuation: true      # works without an LLM
+  strip_filler_words: true      # works without an LLM
+  llm:
     enabled: false              # set true to opt in
-    endpoint: http://localhost:11434
+    provider: ollama            # ollama (local) | claude (cloud)
+
+    endpoint: http://localhost:11434   # provider: ollama
     model: llama3.2
     timeout: 5
+
+    claude_model: claude-haiku-4-5     # provider: claude
+    claude_timeout: 20
+    claude_api_key: ""          # optional; ANTHROPIC_API_KEY is preferred
 ```
+
+`whisper-local --doctor` probes whichever backend is configured.
 
 ## ⚙️ Configuration
 

@@ -72,6 +72,10 @@ whispercpp = ["pywhispercpp>=1.2"]
 # Spectral noise suppression via noisereduce (set `audio.noise_suppression.enabled: true`)
 noise = ["noisereduce>=3.0.0"]
 
+# Claude cloud backend for AI polish/transforms/rephrase
+# (set `postprocess.llm.provider: claude` in user_settings.yaml)
+claude = ["anthropic>=0.40"]
+
 [project.scripts]
 whisper-local = "whisper_key.main:main"
 wl = "whisper_key.main:main"

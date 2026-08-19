@@ -5,6 +5,13 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 ## [Unreleased]
 
 ### Added
+- **Claude backend for AI polish** (`postprocess.llm.provider: claude`). The same setting
+  drives transcript polish, transforms, and the rephrase hotkey, so one switch moves all
+  three between a local Ollama model and Claude (`claude-haiku-4-5` by default). Needs
+  `pip install "whisper-local[claude]"` and an API key — `ANTHROPIC_API_KEY` preferred over
+  `postprocess.llm.claude_api_key`, which is redacted from `--bundle-logs`. `--doctor` probes
+  the configured backend. Off by default; `provider: ollama` stays fully offline.
+
 - **Correction learning.** The history window gains *"Fix this everywhere…"*, which turns a
   misrecognition into a persistent correction (`postprocess.replacements`), and *"Suggest
   hotwords"*, which mines your own transcript history for frequently-used proper nouns and
@@ -15,6 +22,12 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 - **Voice editing** (`postprocess.voice_editing`) — say "scratch that" (or "delete that" /
   "strike that") to erase back to the start of the current sentence. Off by default.
 - Settings window checkboxes for all of the above.
+
+### Changed
+- **`postprocess.ollama` is now `postprocess.llm`** — the block configures both backends.
+  Ollama keys are unchanged; Claude adds `claude_model`, `claude_timeout`, `claude_max_tokens`,
+  `claude_api_key`. An old block is carried over on load with a warning; rename it in
+  `user_settings.yaml`.
 
 ### Fixed
 - **Long dictations froze for seconds during post-processing.** The inline-formatting absorb

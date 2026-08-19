@@ -80,6 +80,20 @@ def _resolve_platform_values(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
 
 
+# The postprocess.ollama block became postprocess.llm when a second backend
+# (Claude) was added. Without this, an upgraded install keeps its old block, has it
+# pruned as an unknown key, and silently loses AI polish. Rename in memory and say so.
+# ponytail: delete this shim a release or two after the rename has shipped.
+def _migrate_ollama_key(user_config: Dict[str, Any], logger):
+    section = user_config.get('postprocess')
+    if not isinstance(section, dict) or 'ollama' not in section or 'llm' in section:
+        return
+    section['llm'] = section.pop('ollama')
+    logger.warning("postprocess.ollama renamed to postprocess.llm; applying the old block for now")
+    print("   ⚠ Settings: 'postprocess.ollama' is now 'postprocess.llm' — "
+          "please rename that key in user_settings.yaml")
+
+
 class ConfigManager:   
     def __init__(self, config_path: str = None, use_user_settings: bool = True, quiet: bool = False):
         if config_path is None:
@@ -168,6 +182,7 @@ class ConfigManager:
                 if user_config is None:
                     user_config = {}
 
+                _migrate_ollama_key(user_config, self.logger)
                 self._remove_unused_keys_from_user_config(user_config, default_config)
                 merged_config = deep_merge_config(default_config, user_config)
                 resolved_config = _resolve_platform_values(merged_config)

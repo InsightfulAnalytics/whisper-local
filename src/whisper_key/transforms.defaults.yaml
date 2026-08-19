@@ -17,7 +17,8 @@
 #                 for this transform
 #   timeout:      OPTIONAL — override the default Ollama timeout
 #
-# Requires Ollama running locally (`ollama serve`). Hot-reloads on
+# Requires postprocess.llm configured: Ollama running locally (`ollama serve`),
+# or provider: claude. Hot-reloads on
 # file save — no app restart needed.
 
 transforms:

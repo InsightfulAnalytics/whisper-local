@@ -20,11 +20,11 @@ RISKY_PATTERNS = re.compile(
 
 
 class VoiceCommandManager:
-    def __init__(self, enabled=True, clipboard_manager=None, log_transcriptions=False, ollama_config_provider=None):
+    def __init__(self, enabled=True, clipboard_manager=None, log_transcriptions=False, llm_config_provider=None):
         self.enabled = enabled
         self.clipboard_manager = clipboard_manager
         self.log_transcriptions = log_transcriptions
-        self.ollama_config_provider = ollama_config_provider
+        self.llm_config_provider = llm_config_provider
         self.logger = logging.getLogger(__name__)
 
         if not self.enabled:
@@ -192,10 +192,10 @@ class VoiceCommandManager:
 
     def _execute_rephrase(self, instruction: str, trigger: str):
         import time
-        from .text_postprocess import _ollama_polish
+        from .text_postprocess import _llm_polish, _provider
 
-        if not self.ollama_config_provider:
-            print("   ✗ Rephrase requires Ollama config; nothing wired")
+        if not self.llm_config_provider:
+            print("   ✗ Rephrase requires LLM config (postprocess.llm); nothing wired")
             return
 
         try:
@@ -221,13 +221,13 @@ class VoiceCommandManager:
             "Output ONLY the rewritten text with no preamble, no quotes, no commentary.\n\n"
             f"Input:\n{selection}"
         )
-        ollama_cfg = dict(self.ollama_config_provider() or {})
-        ollama_cfg['enabled'] = True
-        ollama_cfg['prompt'] = '{text}'
+        llm_cfg = dict(self.llm_config_provider() or {})
+        llm_cfg['enabled'] = True
+        llm_cfg['prompt'] = '{text}'
 
-        polished = _ollama_polish(full_prompt, ollama_cfg)
+        polished = _llm_polish(full_prompt, llm_cfg)
         if not polished:
-            print(f"   ✗ Rephrase failed — Ollama unreachable or returned nothing")
+            print(f"   ✗ Rephrase failed — {_provider(llm_cfg)} unreachable or returned nothing")
             try: pyperclip.copy(original_clipboard)
             except Exception: pass
             return

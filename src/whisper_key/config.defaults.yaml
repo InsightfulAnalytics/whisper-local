@@ -481,13 +481,27 @@ postprocess: # Transcription post-processing pipeline
     # Append a period if the text doesn't end in punctuation
     ensure_punctuation: false
 
-    # Optional local LLM cleanup via Ollama (https://ollama.ai)
-    # Off by default. Requires Ollama running locally on the configured endpoint.
-    ollama:
+    # Optional LLM cleanup. Off by default. Also powers transforms and the
+    # rephrase hotkey — switching `provider` switches all three at once.
+    llm:
+        enabled: false
+
+        # Which backend runs the prompt:
+        #   ollama - a local model. Nothing leaves the machine.
+        #   claude - Anthropic's cloud API. Better quality on messy dictation and
+        #            no local GPU cost, but your text IS sent to Anthropic and
+        #            each call needs network. Needs `pip install "whisper-local[claude]"`.
+        provider: ollama
+
+        prompt: |-
+            Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:
+
+            {text}
+
+        # --- provider: ollama -------------------------------------------------
         # Use 127.0.0.1, not localhost: on Windows localhost resolves to IPv6 ::1
         # first, Ollama listens on IPv4 only, and the failed IPv6 attempt adds ~2s
         # to EVERY cleanup call
-        enabled: false
         endpoint: http://127.0.0.1:11434
         model: llama3.2
         timeout: 5
@@ -496,10 +510,16 @@ postprocess: # Transcription post-processing pipeline
         # Ollama generation options (temperature 0 = deterministic cleanup)
         options:
             temperature: 0
-        prompt: |-
-            Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:
 
-            {text}
+        # --- provider: claude -------------------------------------------------
+        # Leave claude_api_key empty to read the ANTHROPIC_API_KEY environment
+        # variable instead — preferred, so the key never sits in a settings file
+        # that gets synced or bundled into a bug report.
+        claude_api_key: ""
+        claude_model: claude-haiku-4-5
+        # Cloud round-trip needs more headroom than a warm local model
+        claude_timeout: 20
+        claude_max_tokens: 2048
 
 update_check: # Opt-in update notifications
     # When enabled, once per day Whisper Local checks the GitHub releases API

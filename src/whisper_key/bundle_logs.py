@@ -44,6 +44,7 @@ _REDACTIONS = [
 #  - hotwords:        a YAML list, possibly inline [a, b] or block over lines
 #  - endpoint:        scalar URL
 #  - initial_prompt:  scalar (possibly quoted) string
+#  - claude_api_key: scalar API key
 _YAML_REDACTIONS = [
     # inline list form: hotwords: [a, b, c]
     (re.compile(r'(^\s*hotwords\s*:\s*)\[[^\]]*\]', re.MULTILINE), r'\1[<REDACTED>]'),
@@ -51,6 +52,7 @@ _YAML_REDACTIONS = [
     (re.compile(r'(^\s*hotwords\s*:\s*)\n(\s*-\s.*\n?)+', re.MULTILINE), r'\1 [<REDACTED>]\n'),
     (re.compile(r'(^\s*endpoint\s*:\s*).+$', re.MULTILINE), r'\1<REDACTED>'),
     (re.compile(r'(^\s*initial_prompt\s*:\s*).+$', re.MULTILINE), r'\1<REDACTED>'),
+    (re.compile(r'(^\s*claude_api_key\s*:\s*).+$', re.MULTILINE), r'\1<REDACTED>'),
 ]
 
 

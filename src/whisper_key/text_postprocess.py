@@ -2,12 +2,14 @@
 # The text-shaping stage between Whisper and delivery. Runs an ordered pipeline
 # over the raw transcript: spoken editing commands ("scratch that") → inline
 # voice formatting (say "comma") → deterministic smart formatting (times/emails/
-# URLs) → user corrections → filler/casing/punctuation tidying → optional Ollama
+# URLs) → user corrections → filler/casing/punctuation tidying → optional LLM
 # polish. Every stage is opt-in via the `postprocess` config section and pure
-# except the final Ollama call, so output stays predictable and fully offline.
+# except the final LLM call, so output stays predictable and (with the default
+# Ollama provider) fully offline.
 
 import json
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
@@ -82,9 +84,9 @@ def postprocess(text: str, config: dict) -> str:
     # The isinstance guard matters: a hand-edited scalar `ollama: true` instead of
     # a mapping must degrade to "no polish", not raise mid-dictation and lose the
     # transcript the user just spoke.
-    ollama_cfg = config.get('ollama')
-    if isinstance(ollama_cfg, dict) and ollama_cfg.get('enabled', False):
-        polished = _ollama_polish(text, ollama_cfg)
+    llm_cfg = config.get('llm')
+    if isinstance(llm_cfg, dict) and llm_cfg.get('enabled', False):
+        polished = _llm_polish(text, llm_cfg)
         if polished:
             text = polished
 
@@ -334,23 +336,42 @@ def _ensure_punctuation(text: str) -> str:
     return stripped + '.' + trailing
 
 
-def _ollama_polish(text: str, cfg: dict) -> str:
-    endpoint = cfg.get('endpoint', 'http://localhost:11434').rstrip('/')
-    model = cfg.get('model', 'llama3.2')
-    prompt_template = cfg.get(
-        'prompt',
-        "Polish this dictation. Fix punctuation and capitalization only. Do not change wording or add anything. Output ONLY the polished text:\n\n{text}",
-    )
-    timeout = float(cfg.get('timeout', 5))
+DEFAULT_POLISH_PROMPT = (
+    "Polish this dictation. Fix punctuation and capitalization only. "
+    "Do not change wording or add anything. Output ONLY the polished text:\n\n{text}"
+)
 
+
+# Single entry point for every LLM call in the app (transcript polish, transforms,
+# rephrase hotkey). Builds the prompt, then hands it to the configured backend.
+# Returning '' means "the call failed" — callers keep the unpolished text.
+def _llm_polish(text: str, cfg: dict) -> str:
+    prompt_template = cfg.get('prompt', DEFAULT_POLISH_PROMPT)
     if '{text}' in prompt_template:
         final_prompt = prompt_template.replace('{text}', text)
     else:
         final_prompt = f"{prompt_template}\n\n{text}"
 
+    if _provider(cfg) == 'claude':
+        return _claude_generate(final_prompt, cfg)
+    return _ollama_generate(final_prompt, cfg)
+
+
+# Normalized backend name. Anything unrecognised falls back to the local model
+# rather than silently shipping the user's text to a cloud API.
+def _provider(cfg: dict) -> str:
+    name = str(cfg.get('provider') or 'ollama').strip().lower()
+    return 'claude' if name == 'claude' else 'ollama'
+
+
+def _ollama_generate(prompt: str, cfg: dict) -> str:
+    endpoint = cfg.get('endpoint', 'http://localhost:11434').rstrip('/')
+    model = cfg.get('model', 'llama3.2')
+    timeout = float(cfg.get('timeout', 5))
+
     payload = {
         'model': model,
-        'prompt': final_prompt,
+        'prompt': prompt,
         'stream': False,
         # temperature 0 keeps cleanup deterministic; keep_alive holds the
         # model in VRAM between utterances so only the first call pays the load
@@ -372,4 +393,47 @@ def _ollama_polish(text: str, cfg: dict) -> str:
             return polished
     except (urllib.error.URLError, OSError, ValueError) as e:
         logger.warning(f"Ollama post-edit unavailable ({e}); using raw transcript")
+    return ''
+
+
+# Claude backend. `anthropic` is an optional dependency imported lazily, so an
+# offline install never pays for it and never needs it present. Every failure
+# path returns '' — a missing key or a dropped network keeps dictation working.
+def _claude_generate(prompt: str, cfg: dict) -> str:
+    api_key = str(cfg.get('claude_api_key') or os.environ.get('ANTHROPIC_API_KEY') or '').strip()
+    if not api_key:
+        logger.warning("Claude polish needs an API key: set postprocess.llm.claude_api_key "
+                       "or the ANTHROPIC_API_KEY environment variable; using raw transcript")
+        return ''
+
+    try:
+        import anthropic
+    except ImportError:
+        logger.warning('Claude polish needs the anthropic package '
+                       '(pip install "whisper-local[claude]"); using raw transcript')
+        return ''
+
+    try:
+        client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=float(cfg.get('claude_timeout', 20)),
+            # Dictation is interactive: one retry, then give the user their raw
+            # text back rather than making them wait through a backoff ladder.
+            max_retries=1,
+        )
+        message = client.messages.create(
+            model=cfg.get('claude_model') or 'claude-haiku-4-5',
+            max_tokens=int(cfg.get('claude_max_tokens', 2048)),
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        polished = ''.join(b.text for b in message.content if b.type == 'text').strip()
+        if polished:
+            logger.debug(f"Claude polish applied ({message.usage.input_tokens} in / "
+                         f"{message.usage.output_tokens} out)")
+            return polished
+        logger.warning(f"Claude returned no text (stop_reason={message.stop_reason}); "
+                       "using raw transcript")
+    except Exception as e:
+        logger.warning(f"Claude post-edit unavailable ({e}); using raw transcript")
     return ''
