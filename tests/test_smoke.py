@@ -1332,5 +1332,38 @@ class StreamingDeliveryWorkerTests(unittest.TestCase):
         self.assertEqual(delivered, ["a "])
 
 
+# --- Lean-import contract -------------------------------------------------
+# CI installs a deliberately tight dependency set. This class is the guard that
+# stops the "works on my machine, red on Windows/macOS CI" import regression from
+# coming back; it had been patched away four times with one-off skipTest calls
+# before the cause was traced to the platform package importing its backends eagerly.
+class LeanImportContractTests(unittest.TestCase):
+
+    # Out-of-process on purpose: by the time this runs, sys.modules in THIS
+    # interpreter is already polluted by the rest of the suite, so an in-process
+    # check would pass no matter how heavy the import got.
+    def _modules_pulled_in_by(self, module_name, candidates):
+        import json, subprocess
+        probe = (f"import {module_name}, sys, json; "
+                 f"print(json.dumps([m for m in {candidates!r} if m in sys.modules]))")
+        result = subprocess.run([sys.executable, "-c", probe], cwd=ROOT / "src",
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    # config_manager wants one boolean (IS_MACOS). If importing it costs the whole
+    # native stack, every lean environment breaks on a module nobody meant to load.
+    def test_config_manager_does_not_import_platform_backends(self):
+        heavy = ("global_hotkeys", "AppKit", "PIL", "pystray", "sounddevice", "faster_whisper")
+        pulled = self._modules_pulled_in_by("whisper_key.config_manager", heavy)
+        self.assertEqual(pulled, [], f"config_manager pulled in platform backends: {pulled}")
+
+    # The package itself must stay free of its own backends until one is used.
+    def test_platform_package_resolves_backends_lazily(self):
+        heavy = ("global_hotkeys", "AppKit", "PIL", "pystray")
+        pulled = self._modules_pulled_in_by("whisper_key.platform", heavy)
+        self.assertEqual(pulled, [], f"platform package imported backends eagerly: {pulled}")
+
+
 if __name__ == "__main__":
     unittest.main()

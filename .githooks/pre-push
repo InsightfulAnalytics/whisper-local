@@ -1,0 +1,23 @@
+#!/bin/sh
+# Run the smoke suite before anything leaves this machine.
+#
+# Why this exists: main has required status checks, but enforce_admins is off, so
+# an admin pushing straight to main lands red code first and finds out by email
+# afterwards. This is the gate that would have caught that, without forcing a PR
+# round-trip for a solo maintainer.
+#
+# Enable once per clone (core.hooksPath is local config and is NOT cloned):
+#   git config core.hooksPath .githooks
+#
+# Bypass deliberately with:  git push --no-verify
+#
+# Note: this runs your local interpreter, while CI pins Python 3.12. It catches
+# logic and import regressions, not version-specific behaviour.
+
+echo "pre-push: running smoke suite..."
+if ! python -m unittest tests.test_smoke -q; then
+    echo ""
+    echo "pre-push: BLOCKED - smoke tests failed. Fix them, or push with --no-verify."
+    exit 1
+fi
+echo "pre-push: smoke suite green."
