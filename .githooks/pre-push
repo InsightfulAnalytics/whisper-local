@@ -3,19 +3,42 @@
 #
 # Why this exists: main has required status checks, but enforce_admins is off, so
 # an admin pushing straight to main lands red code first and finds out by email
-# afterwards. This is the gate that would have caught that, without forcing a PR
-# round-trip for a solo maintainer.
+# afterwards. This is the gate that catches that, without forcing a PR round-trip
+# for a solo maintainer.
 #
 # Enable once per clone (core.hooksPath is local config and is NOT cloned):
 #   git config core.hooksPath .githooks
 #
 # Bypass deliberately with:  git push --no-verify
-#
-# Note: this runs your local interpreter, while CI pins Python 3.12. It catches
-# logic and import regressions, not version-specific behaviour.
 
-echo "pre-push: running smoke suite..."
-if ! python -m unittest tests.test_smoke -q; then
+# Prefer the repo venv: it is an absolute path (so this works when git is driven
+# from an editor or GUI with a bare PATH) and it matches the version CI pins,
+# which a bare `python` on PATH may not.
+if [ -x .venv/Scripts/python.exe ]; then
+    PYTHON=.venv/Scripts/python.exe          # Windows layout
+elif [ -x .venv/bin/python ]; then
+    PYTHON=.venv/bin/python                  # macOS / Linux layout
+else
+    for candidate in python3 python py; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            PYTHON=$candidate
+            break
+        fi
+    done
+fi
+
+# No interpreter is a broken environment, not a failing test. Blocking here would
+# make push unusable from any GUI without Python on PATH, and a hook that blocks
+# every push just gets disabled — losing the check entirely. Warn and let it
+# through; CI is still the real gate.
+if [ -z "$PYTHON" ]; then
+    echo "pre-push: WARNING - no Python interpreter found, skipping smoke suite."
+    echo "pre-push: CI will still run it. Create .venv to check locally."
+    exit 0
+fi
+
+echo "pre-push: running smoke suite ($($PYTHON --version 2>&1))..."
+if ! "$PYTHON" -m unittest tests.test_smoke -q; then
     echo ""
     echo "pre-push: BLOCKED - smoke tests failed. Fix them, or push with --no-verify."
     exit 1
