@@ -624,6 +624,52 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(resolve_asset_path(absolute), absolute)
 
 
+# Windows hands stdout the legacy cp1252 codepage whenever it is a pipe rather
+# than a console, and the app prints non-ASCII status glyphs. Without the guard
+# in the package __init__ the first such print raises UnicodeEncodeError and
+# takes the whole run down. CI is exactly this environment, which is how it was
+# found, so pin the behaviour here.
+class ConsoleEncodingTests(unittest.TestCase):
+    # Build a stdout that behaves like a redirected Windows pipe.
+    def _cp1252_stdout(self):
+        import io
+        return io.TextIOWrapper(io.BytesIO(), encoding='cp1252', errors='strict')
+
+    def test_glyph_print_survives_cp1252_stdout(self):
+        import contextlib
+        from whisper_key.utils import ensure_utf8_console
+
+        stream = self._cp1252_stdout()
+        with contextlib.redirect_stdout(stream):
+            ensure_utf8_console()
+            print("⚠ warning")
+        stream.flush()
+        self.assertIn("warning", stream.buffer.getvalue().decode('utf-8'))
+
+    def test_ollama_migration_message_survives_cp1252_stdout(self):
+        import contextlib
+        import logging
+        from whisper_key.utils import ensure_utf8_console
+        from whisper_key.config_manager import _migrate_ollama_key
+
+        cfg = {'postprocess': {'ollama': {'enabled': True}}}
+        stream = self._cp1252_stdout()
+        with contextlib.redirect_stdout(stream):
+            ensure_utf8_console()
+            _migrate_ollama_key(cfg, logging.getLogger('cp1252-test'))
+        self.assertEqual(cfg['postprocess']['llm'], {'enabled': True})
+
+    # A harness that swaps in StringIO leaves no reconfigure() to call; the guard
+    # must no-op rather than raise.
+    def test_no_reconfigure_is_not_an_error(self):
+        import contextlib
+        import io
+        from whisper_key.utils import ensure_utf8_console
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            ensure_utf8_console()
+
+
 class NoiseSuppresionTests(unittest.TestCase):
     def test_passthrough_without_noisereduce(self):
         import sys

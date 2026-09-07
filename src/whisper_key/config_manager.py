@@ -90,8 +90,8 @@ def _migrate_ollama_key(user_config: Dict[str, Any], logger):
         return
     section['llm'] = section.pop('ollama')
     logger.warning("postprocess.ollama renamed to postprocess.llm; applying the old block for now")
-    print("   ⚠ Settings: 'postprocess.ollama' is now 'postprocess.llm' — "
-          "please rename that key in user_settings.yaml")
+    print("   ⚠ Settings: 'postprocess.ollama' is now 'postprocess.llm'. "
+          "Please rename that key in user_settings.yaml")
 
 
 class ConfigManager:   

@@ -65,6 +65,28 @@ def resolve_asset_path(relative_path: str) -> str:
 
     return str(Path(__file__).parent / relative_path)
 
+# Windows only gives stdout the UTF-8 treatment when it is attached to a real
+# console. Redirect it to a pipe or a file - CI logs, `wl --doctor > out.txt`, a
+# launcher that captures output - and Python falls back to the legacy ANSI
+# codepage (cp1252), which cannot represent the status glyphs this app prints
+# (the warning sign, arrows, check marks). The first such print then raises
+# UnicodeEncodeError and kills the run mid-message, far from the real cause.
+#
+# Force both streams to UTF-8 and let unrepresentable characters degrade to a
+# placeholder rather than terminate the process. Called from the package
+# __init__ so it applies to every entry point, not just main().
+def ensure_utf8_console():
+    for stream in (sys.stdout, sys.stderr):
+        # A stream swapped out for StringIO or a GUI shim has no reconfigure().
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding='utf-8', errors='replace')
+        except (OSError, ValueError):
+            pass  # detached or closed: there is nothing to print to anyway
+
+
 def setup_portaudio_path():
     # Called first in main.py - platform module imports break WASAPI
     if sys.platform != 'win32':
