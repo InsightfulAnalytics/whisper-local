@@ -287,59 +287,81 @@ def _resolve_host_default_input(host_name: str):
 
 # Windows endpoint DSP ("Audio enhancements") sits between the microphone and the
 # app. Vendor voice-comms chains are tuned for call intelligibility, not for ASR,
-# and can suppress exactly the low-energy speech Whisper needs. The endpoint has
-# enhancements disabled only if PKEY_AudioEndpoint_Disable_SysFx is present and 1;
-# an absent value means they have never been turned off.
+# and can suppress exactly the low-energy speech Whisper needs.
+#
+# The toggle writes PKEY_AudioEndpoint_Disable_SysFx = 1. Two traps, both of which
+# produced a false "enhancements are on" here before this was measured against the
+# actual signal: the value is written under the endpoint's FxProperties subkey and
+# NOT under Properties, and the endpoint list is full of devices that are unplugged
+# or absent, so anything that ignores DeviceState reports on dead hardware.
+# Absent in both subkeys means "cannot tell", not "enabled": say so rather than
+# crying wolf.
 _PKEY_DISABLE_SYSFX = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5"
 _PKEY_FRIENDLY_NAME = "{a45c254e-df1c-4efd-8020-67d146a850e0},2"
+_DEVICE_STATE_ACTIVE = 1
+
+
+def _read_sysfx_flag(root, endpoint):
+    """Returns 1 (disabled), 0 (enabled) or None (not recorded)."""
+    import winreg
+
+    for sub in ("FxProperties", "Properties"):
+        try:
+            with winreg.OpenKey(root, endpoint + "\\" + sub) as props:
+                try:
+                    return int(winreg.QueryValueEx(props, _PKEY_DISABLE_SYSFX)[0])
+                except FileNotFoundError:
+                    continue
+        except OSError:
+            continue
+    return None
 
 
 def _windows_mic_enhancements_note(in_use_name: str = "") -> tuple:
-    """Returns (detail, affects_device_in_use). Empty detail means "could not tell"."""
+    """Returns (detail, is_warning). Empty detail means "nothing useful to say"."""
     if platform.system() != "Windows":
         return "", False
     try:
         import winreg
 
         base = r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture"
+        active = []
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base) as root:
-            total = 0
-            active = []
             for i in range(winreg.QueryInfoKey(root)[0]):
                 endpoint = winreg.EnumKey(root, i)
                 try:
-                    with winreg.OpenKey(root, endpoint + r"\Properties") as props:
-                        total += 1
-                        try:
-                            if int(winreg.QueryValueEx(props, _PKEY_DISABLE_SYSFX)[0]) == 1:
-                                continue
-                        except FileNotFoundError:
-                            pass  # absent means never disabled
-                        try:
-                            active.append(str(winreg.QueryValueEx(props, _PKEY_FRIENDLY_NAME)[0]))
-                        except FileNotFoundError:
-                            active.append(endpoint[:8])
+                    with winreg.OpenKey(root, endpoint) as key:
+                        if int(winreg.QueryValueEx(key, "DeviceState")[0]) != _DEVICE_STATE_ACTIVE:
+                            continue
                 except OSError:
                     continue
 
-        if not total:
-            return "", False
+                name = endpoint[:8]
+                try:
+                    with winreg.OpenKey(root, endpoint + r"\Properties") as props:
+                        name = str(winreg.QueryValueEx(props, _PKEY_FRIENDLY_NAME)[0])
+                except OSError:
+                    pass
+                active.append((name, _read_sysfx_flag(root, endpoint)))
+
         if not active:
-            return f"off on all {total} capture endpoint(s)", False
+            return "", False
 
-        # Only the endpoint the app actually opens matters. Endpoint friendly names
-        # are short ("Microphone Array") while sounddevice reports the full device
-        # string, so match by containment in either direction.
+        # Endpoint friendly names are short ("Microphone Array") while sounddevice
+        # reports the full device string, so match by containment either way.
         lowered = (in_use_name or "").lower()
-        hits = sorted({n for n in active if n and (n.lower() in lowered or lowered in n.lower())})
-        if hits:
-            return (f"ON for the mic in use ({', '.join(hits)}). "
-                    f"Settings > Sound > Input > Audio enhancements", True)
+        mine = [(n, f) for n, f in active if n and (n.lower() in lowered or lowered in n.lower())]
+        subject = mine or active
+        label = "the mic in use" if mine else f"{len(active)} active endpoint(s)"
 
-        unique = sorted(set(active))
-        shown = ", ".join(unique[:3])
-        more = f" +{len(unique) - 3} more" if len(unique) > 3 else ""
-        return f"on for {len(unique)} other endpoint(s): {shown}{more}", False
+        if any(flag == 0 for _, flag in subject):
+            on = sorted({n for n, f in subject if f == 0})
+            return (f"ON for {', '.join(on)}. "
+                    f"Settings > Sound > Input > Audio enhancements", True)
+        if all(flag == 1 for _, flag in subject):
+            return f"off for {label}", False
+        return (f"not recorded for {label}; Windows has not written the flag, "
+                f"so this cannot be read from the registry"), False
     except Exception:
         return "", False
 
