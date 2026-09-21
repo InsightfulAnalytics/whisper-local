@@ -515,6 +515,7 @@ class StateManager:
             if fmt_overrides:
                 postprocess_cfg = {**postprocess_cfg, **fmt_overrides}
                 self.logger.info(f"App rule {rule.get('match')} → formatting overrides {fmt_overrides}")
+            raw_text = transcribed_text
             transcribed_text = postprocess(transcribed_text, postprocess_cfg)
 
             # Post-processing can legitimately empty the text — e.g. "scratch that"
@@ -599,7 +600,8 @@ class StateManager:
                     duration_seconds=duration,
                     app=fg.get('exe', ''),
                 )
-                record_transcript(transcribed_text, app=fg.get('exe', ''), duration_s=duration)
+                record_transcript(transcribed_text, app=fg.get('exe', ''), duration_s=duration,
+                                  raw=raw_text)
                 audit_enabled = (self.config_manager.config.get('audit') or {}).get('enabled', False)
                 audit_record('delivered', transcribed_text, fg.get('exe', ''), audit_enabled)
                 self._maybe_restart_continuous()
@@ -1060,7 +1062,8 @@ class StateManager:
             streaming_manager = self.audio_recorder.streaming_manager
             on_streaming_result = self.audio_recorder.on_streaming_result
 
-            noise_cfg = (self.config_manager.config.get('audio') or {}).get('noise_suppression') or {}
+            audio_cfg = self.config_manager.config.get('audio') or {}
+            noise_cfg = audio_cfg.get('noise_suppression') or {}
             new_recorder = AudioRecorder(
                 on_vad_event=self.handle_vad_event,
                 channels=channels,
@@ -1072,9 +1075,21 @@ class StateManager:
                 on_streaming_result=on_streaming_result,
                 device=device_id if device_id != -1 else None,
                 noise_suppression_config=noise_cfg,
+                trim_long_pauses=audio_cfg.get('trim_long_pauses', False),
+                debug_save_wav=audio_cfg.get('debug_save_wav', False),
             )
 
+            # Shut the old recorder down before dropping the reference. Without this
+            # its capture thread keeps running with an open InputStream on the
+            # previous device, and the WASAPI host fallback makes device switches
+            # routine rather than rare.
+            old_recorder = self.audio_recorder
             self.audio_recorder = new_recorder
+            if old_recorder is not None and old_recorder is not new_recorder:
+                try:
+                    old_recorder.shutdown()
+                except Exception as e:
+                    self.logger.warning(f"Old audio recorder did not shut down cleanly: {e}")
 
             print(f"✅ Successfully switched audio device to: {device_name}")
 

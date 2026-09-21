@@ -253,6 +253,23 @@ audio: # Audio Recording Settings
     # are plugged/unplugged. Use system tray to select device - it will save the ID here.
     input_device: "default"
 
+    # Splice interior pauses out of the recording before transcribing.
+    # Silences longer than 2s are replaced with a 0.4s stub. This shortens the
+    # audio Whisper has to chew through, but it also cuts the middle out of a
+    # recording, and Whisper decodes from context: the words either side of a cut
+    # are the ones at risk. OFF by default. Turn it on only if you have measured
+    # that it helps you, and check the "spliced out of N interior pause(s)" count
+    # in app.log to see what it actually removed.
+    trim_long_pauses: false
+
+    # Write the exact 16 kHz mono audio Whisper was fed to
+    # %APPDATA%/whisperkey/debug-audio/ (~32 KB per second of speech).
+    # Two files per recording: "-raw" before trimming and "-fed" after, so a bad
+    # transcription can be traced to the audio rather than guessed at.
+    # There is no rotation and no size cap, and these files are your speech:
+    # turn this back off when you are done diagnosing.
+    debug_save_wav: false
+
     # Noise suppression (requires: pip install noisereduce)
     # Applies spectral gating via noisereduce before passing audio to Whisper.
     # Helps in noisy environments (fans, HVAC, keyboard clatter).
@@ -468,7 +485,10 @@ postprocess: # Transcription post-processing pipeline
     #     to: MySQL
     replacements: []
 
-    # Strip "um", "uh", "like", "you know" filler words
+    # Strip filler words. "um" and "uh" are always removed. "like" and "you know"
+    # are only removed when fenced by commas on both sides ("so, like, we shipped
+    # it"), because they are ordinary words the rest of the time and deleting them
+    # on sight turns "I would like to see" into "I would to see".
     strip_filler_words: false
 
     # Whisper often appends a period to the final segment even when you

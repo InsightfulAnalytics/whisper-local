@@ -95,6 +95,18 @@ class WhisperEngine:
             print(f"   ✓ Whisper model [{self.model_key}] ready!")
             device_label = "GPU" if self.device == "cuda" else "CPU"
             print(f"   ✓ Running on {device_label} with {self.compute_type} precision")
+            # Log it as well as printing it. The console scrolls away and bug reports
+            # ship app.log, so a precision mismatch (int8 left over from a CPU setup
+            # on a machine that has since moved to CUDA) was previously invisible.
+            # CTranslate2 also resolves a requested type to what the device supports,
+            # so record the effective one: "int8" on CUDA is really int8_float16.
+            try:
+                effective = self.model.model.compute_type
+            except Exception:
+                effective = 'unknown'
+            self.logger.info(
+                f"Model [{self.model_key}] loaded on {self.device} "
+                f"(requested compute_type={self.compute_type}, effective={effective})")
             self._warmup()
 
         except Exception as e:

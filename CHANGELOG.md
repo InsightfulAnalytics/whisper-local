@@ -5,6 +5,37 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 ## [Unreleased]
 
 ### Added
+- **Transcript fidelity guards.** A dictation quality audit found three ways the app could
+  deliver words you did not say. All three are now guarded:
+  - The LLM polish stage replaced the transcript with whatever the model returned, with no
+    length or similarity check and success logged only at DEBUG. A 3B quantised model
+    routinely paraphrases or truncates, and one 44-character sentence was delivered as
+    "Jax". Polish output is now rejected if it shrinks by more than 15%, grows by more than
+    30%, or falls below 0.80 similarity to the input, and every rejection is logged at
+    WARNING. Thresholds are configurable: `postprocess.llm.max_length_shrink`,
+    `max_length_growth`, `min_similarity`.
+  - `postprocess.strip_filler_words` deleted the ordinary English words "like" and
+    "you know" on sight, turning "I would like to see" into "I would to see". They are now
+    removed only when fenced by commas on both sides ("so, like, we shipped it"). "um" and
+    "uh" are still always removed.
+  - `transcripts.jsonl` stored the post-processed text as if it were the transcription. It
+    now also carries a `raw` field with the pre-postprocess Whisper output, written only when
+    post-processing changed something.
+- **`audio.debug_save_wav`** (default off) writes the exact 16 kHz mono audio Whisper was fed
+  to `%APPDATA%/whisperkey/debug-audio/`, twice per recording: `-raw` before trimming and
+  `-fed` after. There was previously no way to save the audio, so a bad transcription could
+  not be traced back to what was captured. No rotation and no size cap: turn it back off.
+- **`audio.trim_long_pauses`** makes interior-pause splicing a setting. See Changed.
+- **`--doctor` reports GPU and precision.** A new GPU section prints the CUDA device count,
+  the configured `compute_type` and the set CTranslate2 actually supports, and warns when a
+  GPU is present but unused or the requested precision will be substituted. The
+  Configuration section now prints `compute_type` alongside model and device, which is how a
+  stale CPU-era `int8` on a CUDA machine went unnoticed.
+- **`--doctor` checks Windows microphone enhancements.** Endpoint DSP sits upstream of
+  anything the app can change and is tuned for call intelligibility, not speech recognition.
+  The check reads `PKEY_AudioEndpoint_Disable_SysFx` and warns when enhancements are still on
+  for the microphone actually in use.
+
 - **Claude backend for AI polish** (`postprocess.llm.provider: claude`). The same setting
   drives transcript polish, transforms, and the rephrase hotkey, so one switch moves all
   three between a local Ollama model and Claude (`claude-haiku-4-5` by default). Needs
@@ -24,12 +55,43 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 - Settings window checkboxes for all of the above.
 
 ### Changed
+- **Interior-pause splicing is now off by default** (`audio.trim_long_pauses: false`).
+  It replaced silences longer than 2s with a 0.4s stub, cutting the middle out of a recording
+  before Whisper saw it. Whisper decodes from context, so the words either side of each cut
+  are the ones at risk. When enabled, its silence gate is now derived from each recording's
+  own noise floor instead of a fixed 0.005 RMS: a microphone whose endpoint DSP holds the
+  signal tens of dB down previously had all of its speech read as silence and spliced away.
+  The absolute constant is now a ceiling, so the derived value can only ever cut less.
+- **The recording log line reports what was actually removed.** It previously claimed
+  "mid-pauses + trailing silence trimmed" on every recording whether or not anything was cut.
+  It now prints the captured duration, the seconds spliced out, the number of interior cuts,
+  and the seconds of trailing silence trimmed, so interior word loss is distinguishable from
+  a harmless trailing trim.
+- **Profiles no longer override `whisper.model`.** The dictation and notes profiles shipped
+  `model: base`, and activating a profile persists its overrides, so one tray click silently
+  downgraded a large model and kept it that way. Profiles set behaviour, not the model.
 - **`postprocess.ollama` is now `postprocess.llm`** — the block configures both backends.
   Ollama keys are unchanged; Claude adds `claude_model`, `claude_timeout`, `claude_max_tokens`,
   `claude_api_key`. An old block is carried over on load with a warning; rename it in
   `user_settings.yaml`.
 
 ### Fixed
+- **Switching audio device leaked a capture thread.** `_execute_audio_device_change` replaced
+  `self.audio_recorder` without shutting the old one down, leaving its capture thread running
+  with an open InputStream on the previous device. The WASAPI host fallback makes device
+  switches routine rather than rare, so this accumulated across a session.
+- **`--doctor` reported the wrong microphone.** It probed `sd.query_devices(kind='input')`,
+  the OS default, which on Windows is the MME copy of the device. The app opens the configured
+  host API's default instead, so both the device name and the sample rate were wrong. Doctor
+  now resolves the device the same way the app does.
+- **PortAudio callback status is counted, not logged.** The audio callback called
+  `logger.debug` on every status flag. A rotating-file write on the realtime thread causes the
+  very input overflow it is reporting, and at 62 callbacks per second it floods the log.
+  Overflows are now counted on the callback thread and reported once at stop, with actual
+  sample loss distinguished from other status flags.
+- **The requested compute type is logged at model load**, along with the type CTranslate2
+  resolved it to, which are not always the same ("int8" on CUDA is really int8_float16).
+  The startup line was printed to a console that scrolls away and never written to `app.log`.
 - **Long dictations froze for seconds during post-processing.** The inline-formatting absorb
   pass was O(n²): once earlier cues had turned the text mostly into punctuation, the regex
   re-scanned a long leading `[ \t,.]*` run from every start position. Rewritten as linear

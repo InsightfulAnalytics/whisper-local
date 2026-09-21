@@ -7,6 +7,7 @@
 # except the final LLM call, so output stays predictable and (with the default
 # Ollama provider) fully offline.
 
+import difflib
 import json
 import logging
 import os
@@ -87,10 +88,35 @@ def postprocess(text: str, config: dict) -> str:
     llm_cfg = config.get('llm')
     if isinstance(llm_cfg, dict) and llm_cfg.get('enabled', False):
         polished = _llm_polish(text, llm_cfg)
-        if polished:
+        if polished and _polish_is_safe(text, polished, llm_cfg):
             text = polished
 
     return text
+
+
+# A cleanup model is supposed to add punctuation, not rewrite what you said. Small
+# quantised models routinely paraphrase, truncate, or answer the dictated text as
+# if it were a prompt, and the result is delivered with no trace that it happened.
+# The guard is asymmetric on purpose: growth is normal (added commas, expanded
+# casing), shrinkage is the truncation and paraphrase tell.
+def _polish_is_safe(before: str, after: str, cfg: dict) -> bool:
+    delta = (len(after) - len(before)) / max(len(before), 1)
+    max_growth = float(cfg.get('max_length_growth', 0.30))
+    max_shrink = float(cfg.get('max_length_shrink', 0.15))
+    if delta > max_growth or -delta > max_shrink:
+        logger.warning(
+            f"LLM polish rejected: {len(before)} -> {len(after)} chars ({delta:+.0%}); "
+            f"using the raw transcript")
+        return False
+
+    ratio = difflib.SequenceMatcher(None, before.lower(), after.lower()).ratio()
+    min_similarity = float(cfg.get('min_similarity', 0.80))
+    if ratio < min_similarity:
+        logger.warning(
+            f"LLM polish rejected: similarity {ratio:.2f} below {min_similarity:.2f}; "
+            f"using the raw transcript")
+        return False
+    return True
 
 
 def _strip_trailing_period(text: str) -> str:
@@ -308,12 +334,18 @@ def _apply_replacements(text: str, items: list) -> str:
     return text
 
 
+# "um" and "uh" are never anything but filler, so they go unconditionally.
+# "like" and "you know" are ordinary English words ("a tool like Power BI",
+# "I would like to see") and deleting them on sight corrupts the sentence. They
+# are only removed in the one position where they are unambiguously a hedge:
+# fenced by commas on both sides, which is how Whisper punctuates a spoken aside.
+_FILLER_ALWAYS = re.compile(r'\b(?:um+|uh+|erm|uhm)\b[,]?\s*', flags=re.IGNORECASE)
+_FILLER_HEDGES = re.compile(r',\s*(?:like|you know)\s*(?=,)', flags=re.IGNORECASE)
+
+
 def _strip_fillers(text: str) -> str:
-    pattern = re.compile(
-        r'\b(um|uh|erm|uhm|like|you know)\b[,]?\s*',
-        flags=re.IGNORECASE,
-    )
-    cleaned = pattern.sub('', text)
+    cleaned = _FILLER_HEDGES.sub('', text)
+    cleaned = _FILLER_ALWAYS.sub('', cleaned)
     cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
     return cleaned or text
 

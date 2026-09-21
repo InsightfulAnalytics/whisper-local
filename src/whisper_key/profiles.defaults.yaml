@@ -5,6 +5,10 @@
 #
 # Sections that can be overridden: any top-level key in config.defaults.yaml
 # (whisper, hotkey, vad, audio, clipboard, voice_commands, ...).
+#
+# Do NOT put `whisper.model` in a profile. Activating a profile persists its
+# overrides, so a single tray click would swap the model you chose for the one
+# written here and keep it that way. Profiles set behaviour, not the model.
 
 active: dictation
 
@@ -16,7 +20,6 @@ profiles:
         auto_paste: true
         delivery_method: paste
       whisper:
-        model: base
         task: transcribe
         initial_prompt: ""
       voice_commands:
@@ -52,7 +55,6 @@ profiles:
       clipboard:
         auto_paste: false
       whisper:
-        model: base
         task: transcribe
         initial_prompt: "Note-taking. Markdown formatting. Bullet points."
       voice_commands:

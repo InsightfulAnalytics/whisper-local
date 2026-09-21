@@ -27,7 +27,8 @@ _write_lock = threading.Lock()
 
 # Called from state_manager._transcription_pipeline after every successful
 # delivery. Silent no-op for empty text (which means a failed/silent recording).
-def record_transcript(text: str, app: str = '', duration_s: float = 0.0):
+# `raw` is the pre-postprocess transcript; it is stored only when it differs.
+def record_transcript(text: str, app: str = '', duration_s: float = 0.0, raw: str = ''):
     if not text:
         return
     entry = {
@@ -37,6 +38,11 @@ def record_transcript(text: str, app: str = '', duration_s: float = 0.0):
         'duration_s': round(duration_s, 2),
         'chars': len(text),
     }
+    # What Whisper actually said, kept only when post-processing changed it. Without
+    # this the journal records the edited text as if it were the transcription, so a
+    # rewrite by the LLM polish stage is indistinguishable from a bad decode.
+    if raw and raw != text:
+        entry['raw'] = raw
     path = Path(get_user_app_data_path()) / _LOG_FILE
     try:
         with _write_lock:

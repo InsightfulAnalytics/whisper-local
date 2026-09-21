@@ -142,6 +142,8 @@ def setup_audio_recorder(audio_config, state_manager, vad_manager, streaming_man
         on_streaming_result=state_manager.handle_streaming_result,
         device=audio_config['input_device'],
         noise_suppression_config=audio_config.get('noise_suppression') or {},
+        trim_long_pauses=audio_config.get('trim_long_pauses', False),
+        debug_save_wav=audio_config.get('debug_save_wav', False),
     )
 
 def setup_vad(vad_config):

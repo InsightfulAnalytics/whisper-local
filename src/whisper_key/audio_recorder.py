@@ -51,7 +51,9 @@ class AudioRecorder:
                  streaming_manager=None,
                  on_streaming_result: Callable[[str, bool], None] = None,
                  device=None,
-                 noise_suppression_config: Optional[dict] = None):
+                 noise_suppression_config: Optional[dict] = None,
+                 trim_long_pauses: bool = False,
+                 debug_save_wav: bool = False):
 
         self.sample_rate = self.WHISPER_SAMPLE_RATE
         self.channels = channels
@@ -62,6 +64,18 @@ class AudioRecorder:
         self.recording_start_time = None
         self.logger = logging.getLogger(__name__)
         self._noise_suppression_config = noise_suppression_config or {}
+        # Interior-pause splicing is OFF by default: it cuts audio out of the middle
+        # of a recording before Whisper ever sees it, which can destroy the words
+        # either side of each cut. Opt in only after measuring.
+        self.trim_long_pauses = trim_long_pauses
+        self.debug_save_wav = debug_save_wav
+        # PortAudio callback status is counted on the callback thread and reported
+        # once at stop. Never log from the callback: a rotating-file write on the
+        # realtime thread causes the very overflow it is reporting. Input overflow
+        # means samples were dropped, which is the one that damages a transcript;
+        # other flags are collected separately so they are not reported as data loss.
+        self._overflow_count = 0
+        self._other_status_flags = set()
 
         self.vad_manager = vad_manager
         self.on_vad_event = on_vad_event
@@ -272,7 +286,11 @@ class AudioRecorder:
                 self.continuous_streaming.process_chunk(chunk)
 
         if status:
-            self.logger.debug(f"Audio callback status: {status}")
+            # Count, don't log. See _overflow_count in __init__ for why.
+            if status.input_overflow:
+                self._overflow_count += 1
+            else:
+                self._other_status_flags.add(str(status))
 
     def start_recording(self):
         if self.is_recording:
@@ -286,6 +304,8 @@ class AudioRecorder:
         if self.continuous_streaming:
             self.continuous_streaming.reset()
 
+        self._overflow_count = 0
+        self._other_status_flags = set()
         preroll_chunks = len(self._buffer)
         self.is_recording = True
         self.logger.debug(f"Recording started with {preroll_chunks} preroll chunks (~{preroll_chunks * self._vad_blocksize / self._recording_rate:.2f}s)")
@@ -320,35 +340,104 @@ class AudioRecorder:
             strength = float(self._noise_suppression_config.get('strength', 0.75))
             audio_array = apply_noise_reduction(audio_array, self.WHISPER_SAMPLE_RATE, strength)
 
-        audio_array = self._trim_long_pauses(audio_array)
-        audio_array = self._trim_trailing_silence(audio_array)
+        raw_duration = self.get_audio_duration(audio_array)
+        self._dump_debug_wav('raw', audio_array)
 
+        if self.trim_long_pauses:
+            audio_array, splice_cuts = self._trim_long_pauses(audio_array)
+        else:
+            splice_cuts = 0
+        after_splice = self.get_audio_duration(audio_array)
+
+        audio_array = self._trim_trailing_silence(audio_array)
         duration = self.get_audio_duration(audio_array)
-        self.logger.info(f"Recorded {duration:.2f}s (incl. preroll, mid-pauses + trailing silence trimmed)")
+        self._dump_debug_wav('fed', audio_array)
+
+        # Report what was actually removed, and by which stage. The old message
+        # claimed both trims had run whether or not either cut anything, which made
+        # it impossible to tell a harmless trailing trim from interior word loss.
+        self.logger.info(
+            f"Recorded {duration:.2f}s from {raw_duration:.2f}s captured (preroll incl.; "
+            f"{raw_duration - after_splice:.2f}s spliced out of {splice_cuts} interior pause(s), "
+            f"{after_splice - duration:.2f}s trailing silence trimmed)")
+        if self._overflow_count:
+            self.logger.warning(
+                f"PortAudio reported {self._overflow_count} input overflow(s) during this recording; "
+                f"samples were dropped and the audio has gaps")
+        if self._other_status_flags:
+            self.logger.info(
+                f"PortAudio callback status during this recording: "
+                f"{', '.join(sorted(self._other_status_flags))}")
         return audio_array
 
-    def _trim_long_pauses(self, audio: np.ndarray) -> np.ndarray:
+    # Writes the 16 kHz mono array to %APPDATA%/whisperkey/debug-audio/ so a bad
+    # transcription can be traced back to what Whisper was actually fed. Dumped
+    # twice per recording ('raw' before trimming, 'fed' after) so the trimmers can
+    # be held to account. Off by default: there is no rotation and no size cap,
+    # and these files are your speech.
+    def _dump_debug_wav(self, tag: str, audio: np.ndarray) -> None:
+        if not self.debug_save_wav or audio is None or not len(audio):
+            return
+        try:
+            import datetime
+            import os
+            import wave
+
+            from .utils import get_user_app_data_path
+
+            out_dir = os.path.join(get_user_app_data_path(), "debug-audio")
+            os.makedirs(out_dir, exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+            path = os.path.join(out_dir, f"{stamp}-{tag}.wav")
+            pcm = (np.clip(audio.flatten(), -1.0, 1.0) * 32767).astype(np.int16)
+            with wave.open(path, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(self.WHISPER_SAMPLE_RATE)
+                wav.writeframes(pcm.tobytes())
+            self.logger.info(f"Debug audio written: {path}")
+        except Exception as e:
+            self.logger.warning(f"Could not write debug audio ({tag}): {e}")
+
+    # Replaces interior silences longer than LONG_PAUSE_SECONDS with a short stub.
+    # Returns the audio and the number of cuts made, because the cut COUNT is what
+    # tells you whether this was harmless (one long pause at the end) or destructive
+    # (several interior cuts through connected speech).
+    def _trim_long_pauses(self, audio: np.ndarray):
         if audio.ndim > 1:
             mono = audio.mean(axis=1)
         else:
             mono = audio
         win = int(0.05 * self.WHISPER_SAMPLE_RATE)
         if win < 1:
-            return audio
+            return audio, 0
         long_silence = int(self.LONG_PAUSE_SECONDS / 0.05)
         keep_windows = max(1, int(self.LONG_PAUSE_REPLACEMENT_SECONDS / 0.05))
         n = len(mono) // win
         if n < long_silence * 2:
-            return audio
+            return audio, 0
 
-        voiced = np.empty(n, dtype=bool)
-        for i in range(n):
-            block = mono[i * win:(i + 1) * win]
-            voiced[i] = float(np.sqrt(np.mean(block ** 2))) > self.SILENCE_RMS_THRESHOLD
+        # Per-window RMS, vectorised. The silence gate sits a short way up from this
+        # recording's own noise floor towards its speech level, because a fixed
+        # absolute gate misjudges quiet input: a mic whose endpoint DSP holds the
+        # signal tens of dB down has all of its speech below 0.005, and the whole
+        # recording then reads as one long silence and gets spliced away.
+        #
+        # SILENCE_RMS_THRESHOLD is the CEILING, not the floor. The derived value can
+        # only ever lower the gate, which means more audio counts as speech and
+        # fewer cuts are made. For a trimmer that deletes audio, conservative is the
+        # only safe direction to be wrong in.
+        blocks = mono[:n * win].reshape(n, win)
+        rms = np.sqrt(np.mean(blocks.astype(np.float32) ** 2, axis=1))
+        floor = float(np.percentile(rms, 5))
+        peak = float(np.percentile(rms, 95))
+        derived = floor + 0.1 * max(peak - floor, 0.0)
+        threshold = min(self.SILENCE_RMS_THRESHOLD, derived)
+        voiced = rms > threshold
 
         pieces = []
         i = 0
-        modified = False
+        cuts = 0
         while i < n:
             if voiced[i]:
                 j = i
@@ -363,16 +452,16 @@ class AudioRecorder:
                 run_windows = j - i
                 if run_windows > long_silence:
                     pieces.append(audio[i * win:(i + keep_windows) * win])
-                    modified = True
+                    cuts += 1
                 else:
                     pieces.append(audio[i * win:j * win])
                 i = j
 
-        if not modified:
-            return audio
+        if not cuts:
+            return audio, 0
         if (len(mono) % win) > 0:
             pieces.append(audio[n * win:])
-        return np.concatenate(pieces, axis=0) if pieces else audio
+        return (np.concatenate(pieces, axis=0) if pieces else audio), cuts
 
     def _trim_trailing_silence(self, audio: np.ndarray) -> np.ndarray:
         if audio.ndim > 1:

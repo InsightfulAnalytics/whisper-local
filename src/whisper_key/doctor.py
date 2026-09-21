@@ -1,7 +1,8 @@
 # doctor.py
 # `whisper-local --doctor` health check. Walks runtime, dependencies, config,
-# audio devices, Whisper model cache, hotkeys, post-process/Ollama, transforms,
-# and recent log errors, printing a per-section report. Exit 0 = clean, 1 = issues.
+# audio devices, GPU/precision, Whisper model cache, hotkeys, post-process/Ollama,
+# transforms, and recent log errors, printing a per-section report.
+# Exit 0 = clean, 1 = issues.
 
 import importlib
 import os
@@ -68,6 +69,7 @@ def run_doctor() -> int:
     failures += _section_packages()
     failures += _section_config()
     failures += _section_audio()
+    failures += _section_gpu()
     failures += _section_model()
     failures += _section_hotkeys()
     failures += _section_postprocess_and_rules()
@@ -173,7 +175,9 @@ def _section_config() -> int:
         cfg = ConfigManager(quiet=True)
         Check("Effective config loads").ok().print()
         whisper_cfg = cfg.get_whisper_config()
-        Check("Selected model").info(f"{whisper_cfg.get('model', '?')} on {whisper_cfg.get('device', '?')}").print()
+        Check("Selected model").info(
+            f"{whisper_cfg.get('model', '?')} on {whisper_cfg.get('device', '?')} "
+            f"({whisper_cfg.get('compute_type', '?')})").print()
         hotkey_cfg = cfg.get_hotkey_config()
         Check("Recording mode").info(hotkey_cfg.get('recording_mode', 'toggle')).print()
         Check("Recording hotkey").info(hotkey_cfg.get('recording_hotkey', '?')).print()
@@ -216,17 +220,178 @@ def _section_audio() -> int:
         cfg = ConfigManager(quiet=True).get_audio_config()
         configured_host = cfg.get('host')
 
-        default_input = sd.query_devices(kind='input')
-        Check("Default input device").ok(default_input.get('name', '?')).print()
-        os_host = sd.query_hostapis(default_input['hostapi'])['name']
-        if configured_host:
-            Check("Host API (configured)").info(f"{configured_host}  (OS default: {os_host})").print()
-        else:
+        # sd.query_devices(kind='input') returns the OS default, which on Windows is
+        # the MME copy of the mic. The app opens the configured host's default
+        # instead, so probing the OS default reports the wrong device and the wrong
+        # sample rate. Resolve the same way the app does.
+        os_default = sd.query_devices(kind='input')
+        os_host = sd.query_hostapis(os_default['hostapi'])['name']
+
+        device_index = _resolve_host_default_input(configured_host) if configured_host else None
+        if device_index is None:
+            in_use = os_default
+            Check("Default input device").ok(f"{in_use.get('name', '?')}  (OS default)").print()
             Check("Host API").info(f"{os_host}  (auto-selected)").print()
-        Check("Sample rate").info(f"{int(default_input.get('default_samplerate', 0))} Hz").print()
+        else:
+            in_use = sd.query_devices(device_index)
+            Check("Default input device").ok(
+                f"{in_use.get('name', '?')}  (device {device_index})").print()
+            Check("Host API (configured)").info(
+                f"{configured_host}  (OS default host: {os_host})").print()
+        Check("Sample rate").info(f"{int(in_use.get('default_samplerate', 0))} Hz").print()
+
+        # Windows endpoint DSP is tuned for call intelligibility, not for speech
+        # recognition, and it sits upstream of anything this app can change.
+        detail, affects_in_use = _windows_mic_enhancements_note(in_use.get('name', ''))
+        if detail:
+            check = Check("Mic enhancements")
+            (check.warn(detail) if affects_in_use else check.info(detail)).print()
     except Exception as e:
         Check("Audio device probe").fail(str(e)).print()
         failures += 1
+
+    print()
+    return failures
+
+
+# Mirrors StateManager._get_default_device_for_host. The app opens the configured
+# host API's default input, so that is the device --doctor must report on.
+def _resolve_host_default_input(host_name: str):
+    try:
+        import sounddevice as sd
+
+        target_index = None
+        target_host = None
+        for idx, host in enumerate(sd.query_hostapis()):
+            # Substring match: config.defaults.yaml documents bare "WASAPI" as legal,
+            # while the host reports itself as "Windows WASAPI".
+            if host_name.lower() in host['name'].lower() or host['name'].lower() in host_name.lower():
+                target_index = idx
+                target_host = host
+                break
+        if target_host is None:
+            return None
+
+        default_input = target_host.get('default_input_device', -1)
+        if default_input is not None and default_input >= 0:
+            if sd.query_devices(default_input).get('max_input_channels', 0) > 0:
+                return default_input
+
+        for idx, device in enumerate(sd.query_devices()):
+            if device['hostapi'] == target_index and device.get('max_input_channels', 0) > 0:
+                return idx
+    except Exception:
+        return None
+    return None
+
+
+# Windows endpoint DSP ("Audio enhancements") sits between the microphone and the
+# app. Vendor voice-comms chains are tuned for call intelligibility, not for ASR,
+# and can suppress exactly the low-energy speech Whisper needs. The endpoint has
+# enhancements disabled only if PKEY_AudioEndpoint_Disable_SysFx is present and 1;
+# an absent value means they have never been turned off.
+_PKEY_DISABLE_SYSFX = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5"
+_PKEY_FRIENDLY_NAME = "{a45c254e-df1c-4efd-8020-67d146a850e0},2"
+
+
+def _windows_mic_enhancements_note(in_use_name: str = "") -> tuple:
+    """Returns (detail, affects_device_in_use). Empty detail means "could not tell"."""
+    if platform.system() != "Windows":
+        return "", False
+    try:
+        import winreg
+
+        base = r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture"
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base) as root:
+            total = 0
+            active = []
+            for i in range(winreg.QueryInfoKey(root)[0]):
+                endpoint = winreg.EnumKey(root, i)
+                try:
+                    with winreg.OpenKey(root, endpoint + r"\Properties") as props:
+                        total += 1
+                        try:
+                            if int(winreg.QueryValueEx(props, _PKEY_DISABLE_SYSFX)[0]) == 1:
+                                continue
+                        except FileNotFoundError:
+                            pass  # absent means never disabled
+                        try:
+                            active.append(str(winreg.QueryValueEx(props, _PKEY_FRIENDLY_NAME)[0]))
+                        except FileNotFoundError:
+                            active.append(endpoint[:8])
+                except OSError:
+                    continue
+
+        if not total:
+            return "", False
+        if not active:
+            return f"off on all {total} capture endpoint(s)", False
+
+        # Only the endpoint the app actually opens matters. Endpoint friendly names
+        # are short ("Microphone Array") while sounddevice reports the full device
+        # string, so match by containment in either direction.
+        lowered = (in_use_name or "").lower()
+        hits = sorted({n for n in active if n and (n.lower() in lowered or lowered in n.lower())})
+        if hits:
+            return (f"ON for the mic in use ({', '.join(hits)}). "
+                    f"Settings > Sound > Input > Audio enhancements", True)
+
+        unique = sorted(set(active))
+        shown = ", ".join(unique[:3])
+        more = f" +{len(unique) - 3} more" if len(unique) > 3 else ""
+        return f"on for {len(unique)} other endpoint(s): {shown}{more}", False
+    except Exception:
+        return "", False
+
+
+def _section_gpu() -> int:
+    print(f"{BOLD}GPU{RESET}")
+    failures = 0
+
+    try:
+        from .config_manager import ConfigManager
+        whisper_cfg = ConfigManager(quiet=True).get_whisper_config()
+    except Exception as e:
+        Check("GPU config").fail(str(e)).print()
+        print()
+        return 1
+
+    device = whisper_cfg.get('device', 'cpu')
+    compute_type = whisper_cfg.get('compute_type', '?')
+
+    try:
+        import ctranslate2
+        cuda_count = ctranslate2.get_cuda_device_count()
+    except Exception as e:
+        Check("CTranslate2 CUDA probe").fail(str(e)).print()
+        print()
+        return 1
+
+    if device != 'cuda':
+        Check("Device").info(f"{device} (CUDA devices visible: {cuda_count})").print()
+        if cuda_count:
+            Check("Unused GPU").warn(
+                f"{cuda_count} CUDA device(s) present but device is '{device}'").print()
+        print()
+        return 0
+
+    if cuda_count:
+        Check("CUDA devices").ok(str(cuda_count)).print()
+    else:
+        Check("CUDA devices").fail(
+            "device is 'cuda' but CTranslate2 sees none; transcription will fall back to CPU").print()
+        failures += 1
+
+    # A requested compute_type is resolved against what the device supports, so the
+    # requested value alone does not tell you what actually runs.
+    try:
+        supported = sorted(ctranslate2.get_supported_compute_types(device if cuda_count else 'cpu'))
+        Check("Compute type").info(f"{compute_type}  (supported: {', '.join(supported)})").print()
+        if compute_type not in supported:
+            Check("Compute type supported").warn(
+                f"'{compute_type}' is not in the supported set; it will be substituted").print()
+    except Exception as e:
+        Check("Compute type probe").warn(str(e)).print()
 
     print()
     return failures

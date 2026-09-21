@@ -86,7 +86,10 @@ class TextPostprocessTests(unittest.TestCase):
     def test_strip_filler_words(self):
         from whisper_key.text_postprocess import postprocess
         cfg = {'strip_filler_words': True}
-        self.assertEqual(postprocess("um, hello like world", cfg), "hello world")
+        # "um" always goes. Bare "like" is a real word and stays; see
+        # test_transcript_fidelity.py for the full contract.
+        self.assertEqual(postprocess("um, hello like world", cfg), "hello like world")
+        self.assertEqual(postprocess("hello, like, world", cfg), "hello, world")
 
     def test_capitalize_first(self):
         from whisper_key.text_postprocess import postprocess
