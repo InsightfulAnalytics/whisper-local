@@ -47,6 +47,15 @@ whisper: # Whisper AI Model Settings
     # Example: ["CTranslate2", "PyInstaller", "Whisper Local"]
     hotwords: []
 
+    # Cut non-speech out of the recording before Whisper decodes it, using
+    # faster-whisper's built-in Silero VAD (separate from the TEN VAD settings
+    # under `vad`). Whisper turns a long quiet stretch into invented text: with
+    # hotwords set it recites the hotword list in a loop, without them it emits
+    # stock phrases like "Thank you". Silences over 2s are removed, keeping 0.4s
+    # either side of the speech; turn this off if words at the edge of a pause
+    # go missing. faster_whisper backend only.
+    vad_filter: true
+
     # Smart prompt from selection: when true, the currently-selected text in
     # the active app (if any) is grabbed via Ctrl+C at recording start and
     # used as Whisper's initial_prompt for that single recording. Improves

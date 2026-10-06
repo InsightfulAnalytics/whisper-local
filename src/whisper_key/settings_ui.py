@@ -451,6 +451,11 @@ def _build_general_tab(nb, cm, vars_, row_index):
     _check(tab, 'whisper.prompt_from_selection',
            'Seed prompt from selected text at recording start', v, row_index)
 
+    v = tk.BooleanVar(value=bool(_v(cfg, 'whisper', 'vad_filter', default=True)))
+    vars_['whisper.vad_filter'] = v
+    _check(tab, 'whisper.vad_filter',
+           'Cut silence before decoding (stops invented text on pauses)', v, row_index)
+
     v = tk.BooleanVar(value=bool(_v(cfg, 'clipboard', 'auto_paste', default=True)))
     vars_['clipboard.auto_paste'] = v
     _check(tab, 'clipboard.auto_paste',

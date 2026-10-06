@@ -76,6 +76,15 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
   `user_settings.yaml`.
 
 ### Fixed
+- **Quiet stretches were transcribed as invented text.** Holding the key after you stop
+  talking fed seconds of room tone to Whisper, which decoded it anyway: with hotwords set it
+  recited the hotword list on a loop ("Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX,
+  TMDL, ..."), otherwise stock phrases. The TEN VAD precheck could not stop it, because it
+  only asks whether the recording holds any speech. faster-whisper's Silero `vad_filter` now
+  removes silences over 2s before decoding (new `whisper.vad_filter`, default on; also a
+  Settings checkbox). Reproduced with 9s of speech plus 25s of -55 dBFS room tone: the exact
+  267-character loop without the filter, the clean 143-character sentence with it, decoded in
+  0.6s instead of 3.9s. faster_whisper backend only.
 - **Switching audio device leaked a capture thread.** `_execute_audio_device_change` replaced
   `self.audio_recorder` without shutting the old one down, leaving its capture thread running
   with an open InputStream on the previous device. The WASAPI host fallback makes device

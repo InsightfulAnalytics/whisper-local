@@ -38,6 +38,7 @@ class WhisperEngine:
                  initial_prompt: str = "",
                  hotwords: list = None,
                  task: str = "transcribe",
+                 vad_filter: bool = True,
                  vad_manager = None,
                  model_registry = None,
                  log_transcriptions: bool = False):
@@ -50,6 +51,7 @@ class WhisperEngine:
         self.initial_prompt = initial_prompt or None
         self.hotwords = ", ".join(hotwords) if hotwords else None
         self.task = task if task in ('transcribe', 'translate') else 'transcribe'
+        self.vad_filter = vad_filter
         self.model = None
         self.logger = logging.getLogger(__name__)
         self.registry = model_registry
@@ -209,11 +211,18 @@ class WhisperEngine:
             
             audio_data = audio_data.astype(np.float32)
             
+            # vad_filter runs faster-whisper's Silero VAD to cut non-speech out
+            # before decoding. The TEN VAD precheck above can't do this job: it only
+            # asks whether the recording holds ANY speech. Whisper decodes a long
+            # quiet stretch (key held after you stop talking) as invented text, and
+            # with hotwords set it recites the hotword list in a loop: "Power BI,
+            # Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL, PBIP, ..."
             transcribe_kwargs = dict(
                 beam_size=self.beam_size,
                 language=self.language,
                 task=self.task,
                 condition_on_previous_text=False,
+                vad_filter=self.vad_filter,
             )
             if self.initial_prompt:
                 transcribe_kwargs["initial_prompt"] = self.initial_prompt
