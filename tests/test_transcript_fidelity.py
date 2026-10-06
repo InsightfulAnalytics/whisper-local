@@ -8,6 +8,12 @@
 #     returned, including a 44-character sentence delivered as "Jax".
 #   - _trim_long_pauses gated silence against a fixed RMS, so a quiet microphone
 #     read as one long silence and had its speech spliced away.
+#
+# And one found later (2026-10-07):
+#
+#   - Whisper decoded a quiet tail after the speech as the hotword list on a loop
+#     ("Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL, ..."), because
+#     non-speech reached the decoder. faster-whisper's vad_filter now cuts it.
 
 import sys
 import unittest
@@ -127,6 +133,34 @@ class TrimLongPausesTests(unittest.TestCase):
         out, cuts = self.trim(quiet)
         self.assertEqual(cuts, 0)
         self.assertEqual(len(out), len(quiet))
+
+
+class WhisperDecodeTests(unittest.TestCase):
+    """Non-speech must be filtered out before Whisper decodes it."""
+
+    # Engine with model loading skipped and a stand-in model that records the
+    # options transcribe_audio passes to faster-whisper.
+    def engine(self, **kwargs):
+        from unittest import mock
+        from types import SimpleNamespace
+        from whisper_key.whisper_engine import WhisperEngine
+        with mock.patch.object(WhisperEngine, '_load_model'):
+            engine = WhisperEngine(**kwargs)
+        engine.model = mock.Mock()
+        engine.model.transcribe.return_value = (
+            iter([SimpleNamespace(text=' Hello.')]),
+            SimpleNamespace(language='en', language_probability=1.0))
+        return engine
+
+    def decode_options(self, engine):
+        engine.transcribe_audio(np.zeros(16000, dtype=np.float32))
+        return engine.model.transcribe.call_args.kwargs
+
+    def test_vad_filter_on_by_default(self):
+        self.assertTrue(self.decode_options(self.engine(hotwords=["DAX"]))['vad_filter'])
+
+    def test_vad_filter_can_be_turned_off(self):
+        self.assertFalse(self.decode_options(self.engine(vad_filter=False))['vad_filter'])
 
 
 class TranscriptLogTests(unittest.TestCase):

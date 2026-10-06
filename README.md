@@ -310,6 +310,7 @@ Delete the file and restart to reset to defaults. Highlights:
 | `whisper.compute_type` | `int8` | `int8`/`float16`/`float32` |
 | `whisper.language` | `auto` | Auto-detect or specific language code |
 | `whisper.hotwords` | `[]` | Words the model should favour — names, jargon |
+| `whisper.vad_filter` | `true` | Cut silences over 2s before decoding, so a pause isn't transcribed as invented text |
 | `hotkey.recording_hotkey` | `ctrl+win` | Configurable |
 | `hotkey.recording_mode` | `push_to_talk` | `push_to_talk` (hold to talk) or `toggle` |
 | `vad.vad_realtime_enabled` | `true` | Auto-stop on silence |

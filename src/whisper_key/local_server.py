@@ -113,6 +113,7 @@ def _build_engine():
             initial_prompt=whisper_cfg.get('initial_prompt', ''),
             hotwords=whisper_cfg.get('hotwords', []),
             task=whisper_cfg.get('task', 'transcribe'),
+            vad_filter=whisper_cfg.get('vad_filter', True),
             vad_manager=vad_manager, model_registry=registry,
         )
     print(f"   Backend = {backend}  ·  model = {whisper_cfg['model']}  ·  device = {whisper_cfg['device']}")

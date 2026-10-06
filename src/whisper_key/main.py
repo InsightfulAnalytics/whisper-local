@@ -192,6 +192,7 @@ def setup_whisper_engine(whisper_config, vad_manager, model_registry, log_transc
             initial_prompt=whisper_config.get('initial_prompt', ''),
             hotwords=whisper_config.get('hotwords', []),
             task=whisper_config.get('task', 'transcribe'),
+            vad_filter=whisper_config.get('vad_filter', True),
             vad_manager=vad_manager,
             model_registry=model_registry,
             log_transcriptions=log_transcriptions
