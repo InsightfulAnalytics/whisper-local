@@ -450,10 +450,13 @@ class OllamaTimeoutTests(unittest.TestCase):
                 self.rfile.read(int(self.headers['Content-Length']))
                 time.sleep(delay)
                 body = json.dumps({'response': 'Polished.'}).encode('utf-8')
-                self.send_response(200)
-                self.send_header('Content-Length', str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                try:
+                    self.send_response(200)
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except ConnectionError:
+                    pass  # the client already gave up, which is what the timeout test wants
 
             def log_message(self, *args):
                 pass
