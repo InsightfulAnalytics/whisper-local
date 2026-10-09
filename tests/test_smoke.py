@@ -434,6 +434,58 @@ class TextPostprocessTests(unittest.TestCase):
                          "alpha.\ngamma")
 
 
+class OllamaTimeoutTests(unittest.TestCase):
+    # Every dictation waits on this call, so an unreachable host must fail fast
+    # while a reachable but slow one (a cold model load) still gets its full time.
+
+    # One-shot local Ollama stand-in that answers after `delay` seconds.
+    def _slow_server(self, delay):
+        import json
+        import threading
+        import time
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers['Content-Length']))
+                time.sleep(delay)
+                body = json.dumps({'response': 'Polished.'}).encode('utf-8')
+                try:
+                    self.send_response(200)
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except ConnectionError:
+                    pass  # the client already gave up, which is what the timeout test wants
+
+            def log_message(self, *args):
+                pass
+
+        server = HTTPServer(('127.0.0.1', 0), Handler)
+        threading.Thread(target=server.handle_request, daemon=True).start()
+        self.addCleanup(server.server_close)
+        return f"http://127.0.0.1:{server.server_port}"
+
+    def test_unreachable_host_gives_up_at_connect_timeout(self):
+        import time
+        from whisper_key.text_postprocess import _ollama_generate
+        # TEST-NET-1 is never routed: the connect either blackholes or fails at once
+        cfg = {'endpoint': 'http://192.0.2.1:11434', 'timeout': 60, 'connect_timeout': 1}
+        started = time.monotonic()
+        self.assertEqual(_ollama_generate("hi", cfg), '')
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_slow_reply_is_not_cut_off_by_connect_timeout(self):
+        from whisper_key.text_postprocess import _ollama_generate
+        cfg = {'endpoint': self._slow_server(1.5), 'timeout': 10, 'connect_timeout': 0.5}
+        self.assertEqual(_ollama_generate("hi", cfg), 'Polished.')
+
+    def test_reply_slower_than_timeout_falls_back(self):
+        from whisper_key.text_postprocess import _ollama_generate
+        cfg = {'endpoint': self._slow_server(2), 'timeout': 0.5, 'connect_timeout': 2}
+        self.assertEqual(_ollama_generate("hi", cfg), '')
+
+
 class CorrectionsTests(unittest.TestCase):
     # Correction persistence (postprocess.replacements) — the learning-loop store.
     def _with_temp_settings(self):
