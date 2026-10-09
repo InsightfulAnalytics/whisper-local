@@ -14,6 +14,12 @@
 #   - Whisper decoded a quiet tail after the speech as the hotword list on a loop
 #     ("Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL, ..."), because
 #     non-speech reached the decoder. faster-whisper's vad_filter now cuts it.
+#
+# And (2026-10-09):
+#
+#   - The polish guard's length and similarity thresholds let through outputs
+#     that dropped a few words of a long sentence ("I notice that ..."). The
+#     guard now compares words, not characters.
 
 import sys
 import unittest
@@ -62,23 +68,51 @@ class PolishGuardTests(unittest.TestCase):
         self.safe = _polish_is_safe
 
     def test_truncation_rejected(self):
-        self.assertFalse(self.safe("x" * 44, "Jax", {}))
-        self.assertFalse(self.safe("y" * 83, "I love it. The report is awesome.", {}))
+        self.assertFalse(self.safe("x" * 44, "Jax"))
+        self.assertFalse(self.safe("y" * 83, "I love it. The report is awesome."))
 
     def test_paraphrase_rejected(self):
         self.assertFalse(self.safe(
             "the report is slow we should fix it",
-            "The dashboard performs poorly and needs attention.", {}))
+            "The dashboard performs poorly and needs attention."))
 
-    def test_punctuation_accepted(self):
+    # Real qwen2.5:3b polishes from 2026-10-07 and 2026-10-09. Each one dropped or
+    # changed only a few words of a long sentence, inside the old 15% length and
+    # 0.80 similarity thresholds, so every one of them was delivered.
+    def test_small_word_edits_rejected(self):
+        self.assertFalse(self.safe(
+            "I notice that the dictation coming from the server is a little bit slow today, "
+            "even on the second or third dictation, not just a delay on the initial response.",
+            "The dictation coming from the server is a little bit slow today, even on the "
+            "second or third dictation, not just a delay on the initial response."))
+        self.assertFalse(self.safe(
+            "For the AI coding crash course, is it possible to get all of the notes that are "
+            "underneath the lessons all in the one page? So I don't need to go back and look "
+            "for things.",
+            "For the AI coding crash course, is it possible to get all of the notes underneath "
+            "the lessons on one page? I don't need to go back and look for things."))
+        self.assertFalse(self.safe(
+            "And notice that the LLM is only have a 4K token window.",
+            "Notice that the LLM only has a 4K token window."))
+        self.assertFalse(self.safe(
+            "It started going on about Power BI, Microsoft Fabric with a whole bunch of things.",
+            "It started going on about Power BI and Microsoft Fabric with a whole bunch of things."))
+
+    def test_punctuation_and_casing_accepted(self):
         self.assertTrue(self.safe(
             "the report is slow we should fix it",
-            "The report is slow. We should fix it.", {}))
-        self.assertTrue(self.safe("Hello world.", "Hello world.", {}))
-
-    def test_thresholds_are_configurable(self):
+            "The report is slow. We should fix it."))
+        self.assertTrue(self.safe("Hello world.", "Hello world."))
         self.assertTrue(self.safe(
-            "x" * 100, "x" * 50, {'max_length_shrink': 0.9, 'min_similarity': 0.1}))
+            "in my home office. so something cobbled together",
+            "In my home office. So something cobbled-together"))
+
+    def test_fillers_and_stutters_may_go(self):
+        self.assertTrue(self.safe("Um, the report is uh slow.", "The report is slow."))
+        self.assertTrue(self.safe(
+            "so maybe I can can I use the housing", "So maybe I can I use the housing?"))
+        self.assertTrue(self.safe("follow a a guide", "Follow a guide."))
+        self.assertTrue(self.safe("the um the report", "The report."))
 
 
 class TrimLongPausesTests(unittest.TestCase):

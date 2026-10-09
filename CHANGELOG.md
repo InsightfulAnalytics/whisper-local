@@ -8,12 +8,17 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
 - **Transcript fidelity guards.** A dictation quality audit found three ways the app could
   deliver words you did not say. All three are now guarded:
   - The LLM polish stage replaced the transcript with whatever the model returned, with no
-    length or similarity check and success logged only at DEBUG. A 3B quantised model
-    routinely paraphrases or truncates, and one 44-character sentence was delivered as
-    "Jax". Polish output is now rejected if it shrinks by more than 15%, grows by more than
-    30%, or falls below 0.80 similarity to the input, and every rejection is logged at
-    WARNING. Thresholds are configurable: `postprocess.llm.max_length_shrink`,
-    `max_length_growth`, `min_similarity`.
+    check and success logged only at DEBUG. A 3B quantised model routinely paraphrases or
+    truncates, and one 44-character sentence was delivered as "Jax". Polish output is now
+    compared word by word with the input and rejected if it deletes, adds or changes any
+    spoken word. Punctuation, casing, filler sounds (um, uh, er) and a word said twice by
+    mistake are the only things it may change. Every rejection is logged at WARNING. A
+    length and similarity threshold was tried first and let small edits through: on 65
+    real dictations it delivered 25 polishes that had dropped or changed words ("I notice
+    that ...", "So I don't need" to "I don't need", "is only have" to "only has").
+  - The default polish prompt now asks for only what the guard accepts and names the
+    deletions it allows. A prompt that also asks to fix grammar or remove false starts
+    mostly produces output the guard throws away: 43 of 46 changed outputs on that test.
   - `postprocess.strip_filler_words` deleted the ordinary English words "like" and
     "you know" on sight, turning "I would like to see" into "I would to see". They are now
     removed only when fenced by commas on both sides ("so, like, we shipped it"). "um" and
@@ -76,6 +81,13 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
   `user_settings.yaml`.
 
 ### Fixed
+- **An unreachable Ollama endpoint stalled every dictation for about 21 seconds.** The
+  polish call used one timeout for both connecting and waiting for the reply, so it had to
+  be long enough for a cold model load (`timeout: 60`). Against an address that no longer
+  answered (a LAN server whose DHCP lease changed) each dictation sat through Windows' full
+  TCP connect retry before falling back to the raw text. Connecting now has its own
+  `postprocess.llm.connect_timeout` (default 2s), the reply keeps `timeout`, and the
+  warning names the host it could not reach.
 - **Quiet stretches were transcribed as invented text.** Holding the key after you stop
   talking fed seconds of room tone to Whisper, which decoded it anyway: with hotwords set it
   recited the hotword list on a loop ("Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX,
