@@ -20,6 +20,12 @@
 #   - The polish guard's length and similarity thresholds let through outputs
 #     that dropped a few words of a long sentence ("I notice that ..."). The
 #     guard now compares words, not characters.
+#
+# And (2026-10-18):
+#
+#   - A polish that kept every word but put a comma after nearly each one passed
+#     the word check. The guard now also caps how many word gaps a polish may
+#     punctuate.
 
 import sys
 import unittest
@@ -106,6 +112,30 @@ class PolishGuardTests(unittest.TestCase):
         self.assertTrue(self.safe(
             "in my home office. so something cobbled together",
             "In my home office. So something cobbled-together"))
+
+    # Real qwen2.5:1.5b polish from 2026-10-18: every word kept, a comma after
+    # almost every one of them
+    def test_comma_flood_rejected(self):
+        self.assertFalse(self.safe(
+            "Nice canvas and chrome layout which allows you to create a customized filter "
+            "pane which is either expanded by default or able to collapse a clear filters "
+            "button.",
+            "Nice, canvas, and chrome, layout, which, allows, you, to, create, a, customized, "
+            "filter, pane, which, is, either, expanded, by, default, or, able, to, collapse, "
+            "a, clear, filters, button."))
+        self.assertFalse(self.safe(
+            "the report is slow and we should fix it before the demo on friday",
+            "The. Report. Is. Slow. And. We. Should. Fix. It. Before. The. Demo. On. Friday."))
+
+    def test_ordinary_commas_accepted(self):
+        self.assertTrue(self.safe(
+            "Now the semantic model is still king and I think Claude Dashboards and Power BI "
+            "actually really work well together",
+            "Now, the semantic model is still king, and I think Claude Dashboards and Power BI "
+            "actually really work well together."))
+        self.assertTrue(self.safe("well yes okay", "Well, yes, okay."))
+        self.assertTrue(self.safe(
+            "first 30 60 or 90 days", "First 30, 60, or 90 days."))
 
     def test_fillers_and_stutters_may_go(self):
         self.assertTrue(self.safe("Um, the report is uh slow.", "The report is slow."))
