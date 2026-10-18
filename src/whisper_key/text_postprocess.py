@@ -126,10 +126,40 @@ def _polish_is_safe(before: str, after: str) -> bool:
             f"LLM polish rejected: it {_EDIT_VERBS[tag]} spoken words "
             f"({i2 - i1} said, {j2 - j1} returned); using the raw transcript")
         return False
+
+    added, gaps = _added_punctuated_gaps(before, after)
+    if added > max(_ADDED_MARK_SLACK, gaps * _MAX_ADDED_MARK_SHARE):
+        logger.warning(
+            f"LLM polish rejected: it punctuated {added} more of {gaps} word gaps; "
+            f"using the raw transcript")
+        return False
     return True
 
 
 _EDIT_VERBS = {'delete': 'deleted', 'insert': 'added', 'replace': 'changed'}
+
+# Punctuation is free, but not unlimited. qwen2.5:1.5b once returned a sentence
+# with a comma after almost every word ("Nice, canvas, and chrome, layout, which,
+# allows, you, to, ..."): every word intact, so the word check passed it. Across
+# 47 logged polishes a good one never punctuated more than one extra gap in nine,
+# so more than one in four is a model stuck in a pattern. The slack keeps short
+# replies such as "Well, yes, okay." legal. Hyphens don't count: joining
+# "cobbled together" into "cobbled-together" is spelling, not a clause break.
+_CLAUSE_MARK = re.compile('[,;:.!?–—]')
+_MAX_ADDED_MARK_SHARE = 0.25
+_ADDED_MARK_SLACK = 3
+
+
+# How many more word gaps carry a clause mark after the polish than before, and
+# how many gaps the polished text has in all
+def _added_punctuated_gaps(before: str, after: str) -> tuple:
+    def punctuated(text):
+        gaps = _SPOKEN_WORD.split(text.lower().replace('’', "'"))[1:-1]
+        return sum(1 for gap in gaps if _CLAUSE_MARK.search(gap)), len(gaps)
+
+    marked_before, _ = punctuated(before)
+    marked_after, gaps = punctuated(after)
+    return marked_after - marked_before, gaps
 
 
 # A deleted run is disposable when it holds only filler sounds plus, at most, an
