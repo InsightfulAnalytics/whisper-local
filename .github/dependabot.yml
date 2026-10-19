@@ -6,6 +6,11 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    # One PR per run instead of one per package: each PR sends several emails
+    groups:
+      pip:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -15,6 +20,10 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      actions:
+        patterns:
+          - "*"
     labels:
       - "ci"
     commit-message:
