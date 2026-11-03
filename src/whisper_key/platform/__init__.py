@@ -18,7 +18,8 @@ IS_WINDOWS = PLATFORM == 'windows'
 # The mirrored backend API (see docs/platform-abstraction.md). Every name here
 # exists as a module under both macos/ and windows/.
 BACKEND_MODULES = ('instance_lock', 'keyboard', 'hotkeys', 'paths', 'app',
-                   'permissions', 'icons', 'gpu', 'console', 'foreground')
+                   'permissions', 'icons', 'gpu', 'console', 'foreground',
+                   'audio_endpoints')
 
 
 # Bind `platform.<name>` to this OS's backend on FIRST USE (PEP 562) rather than

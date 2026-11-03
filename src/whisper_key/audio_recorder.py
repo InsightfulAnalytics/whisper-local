@@ -13,9 +13,14 @@
 #     Whisper's 16 kHz only at stop time. This avoids resampling per chunk during
 #     a recording, which would burn CPU.
 #
-#   • Mid-recording USB disconnects trigger a 3-retry recovery loop that falls
-#     back to the system default input. Silent-mic (peak amplitude near zero)
-#     surfaces a console warning on stop.
+#   • The stream is watched, not trusted. A WASAPI stream whose device vanished
+#     (USB replug, a device reset, waking from Modern Standby) can stay "active"
+#     without raising or calling back, so a stall is detected by the callbacks
+#     stopping. Stalls, open errors and microphones being plugged in or removed
+#     all reopen the stream on a freshly reloaded PortAudio device list, and the
+#     loop keeps retrying for as long as no microphone is available.
+#
+#   • Silent-mic (peak amplitude near zero) surfaces a console warning on stop.
 
 import collections
 import logging
@@ -40,6 +45,11 @@ class AudioRecorder:
     SILENCE_RMS_THRESHOLD = 0.005
     LONG_PAUSE_SECONDS = 2.0
     LONG_PAUSE_REPLACEMENT_SECONDS = 0.4
+    # Stream health. Callbacks normally arrive every ~16 ms, so 2 s without one
+    # is a dead stream, not a slow one.
+    STALL_SECONDS = 2.0
+    DEVICE_CHECK_SECONDS = 2.0
+    REOPEN_RETRY_SECONDS = 2.0
 
     def __init__(self,
                  on_vad_event: Callable[[VadEvent], None],
@@ -88,16 +98,8 @@ class AudioRecorder:
         self._test_audio_source()
 
         self.continuous_streaming = self._setup_continuous_streaming()
+        self._apply_device_rate()
 
-        self._recording_rate = self._get_recording_sample_rate()
-        self._needs_resampling_cached = self._needs_resampling()
-        if self._needs_resampling_cached:
-            self._vad_blocksize = int(VAD_CHUNK_SIZE * self._recording_rate / self.WHISPER_SAMPLE_RATE)
-        else:
-            self._vad_blocksize = VAD_CHUNK_SIZE
-
-        chunk_seconds = self._vad_blocksize / self._recording_rate
-        self._preroll_max_chunks = max(1, int(self.PREROLL_SECONDS / chunk_seconds))
         self._buffer = collections.deque()
         # Guards the ring buffer. The PortAudio callback appends/trims on its own
         # thread while stop/cancel/max-duration snapshot+clear from other threads;
@@ -106,9 +108,15 @@ class AudioRecorder:
         # ops (append, snapshot, clear), so it won't stall the audio callback.
         self._buffer_lock = threading.Lock()
 
+        # Recovery state. The callback count is the stall detector's heartbeat;
+        # the endpoint fingerprint is what "microphones changed" is compared to.
+        self._callback_count = 0
+        self._endpoint_fingerprint = self._read_endpoint_fingerprint()
+        self._outage_reason = None
+        self._outage_started = 0.0
+
         self._capture_running = False
         self._capture_thread = None
-        self._stream_error = None
         self._current_level = 0.0
         self._start_capture()
 
@@ -119,11 +127,11 @@ class AudioRecorder:
 
     def _setup_continuous_streaming(self):
         if self.streaming_manager and self.streaming_manager.is_available():
-            recognizer = self.streaming_manager.create_continuous_recognizer(
+            # Its recording rate is set by _apply_device_rate, which also runs
+            # whenever a reconnect lands on a device with a different rate.
+            return self.streaming_manager.create_continuous_recognizer(
                 result_callback=self._handle_streaming_result
             )
-            recognizer.set_recording_rate(self._get_recording_sample_rate())
-            return recognizer
         return None
 
     def _handle_streaming_result(self, text: str, is_final: bool):
@@ -131,6 +139,10 @@ class AudioRecorder:
             self.on_streaming_result(text, is_final)
 
     def resolve_device(self, device):
+        # A chosen device is remembered by name as well as index: PortAudio
+        # renumbers devices whenever the stream recovery reloads its list.
+        self._preferred_device_name = None
+        self._preferred_hostapi = None
         if device == "default" or device is None:
             self.device = None
             self._resolve_hostapi(None)
@@ -140,6 +152,8 @@ class AudioRecorder:
                 if device_info.get('max_input_channels', 0) > 0:
                     self.device = device
                     self._resolve_hostapi(device_info)
+                    self._preferred_device_name = device_info['name']
+                    self._preferred_hostapi = self.device_hostapi
                 else:
                     self.logger.warning(f"Selected device {device} has no input channels; using default input instead")
                     self.device = None
@@ -173,6 +187,21 @@ class AudioRecorder:
             return self.device_native_rate
         return self.WHISPER_SAMPLE_RATE
 
+    # Derives every rate-dependent setting from the resolved device. Runs at
+    # startup and again on each stream reopen, because a reconnect can land on
+    # a device with a different native rate.
+    def _apply_device_rate(self):
+        self._recording_rate = self._get_recording_sample_rate()
+        self._needs_resampling_cached = self._needs_resampling()
+        if self._needs_resampling_cached:
+            self._vad_blocksize = int(VAD_CHUNK_SIZE * self._recording_rate / self.WHISPER_SAMPLE_RATE)
+        else:
+            self._vad_blocksize = VAD_CHUNK_SIZE
+        chunk_seconds = self._vad_blocksize / self._recording_rate
+        self._preroll_max_chunks = max(1, int(self.PREROLL_SECONDS / chunk_seconds))
+        if self.continuous_streaming:
+            self.continuous_streaming.set_recording_rate(self._recording_rate)
+
     def _resample_audio(self, audio: np.ndarray, orig_rate: int, target_rate: int) -> np.ndarray:
         if orig_rate == target_rate or len(audio) == 0:
             return audio
@@ -204,60 +233,186 @@ class AudioRecorder:
             self.logger.error(f"Audio source test failed: {e}")
             raise
 
+    # ---- Capture loop and stream recovery ----
+
     def _start_capture(self):
         self._capture_running = True
         self._capture_thread = threading.Thread(target=self._capture_loop, daemon=True, name="audio-capture")
         self._capture_thread.start()
 
+    # Runs for the life of the app: opens the stream, watches it, and reopens it
+    # whenever it fails to open, stalls, or the set of microphones changes. It
+    # never gives up; with no microphone available it keeps retrying quietly.
     def _capture_loop(self):
-        retry_count = 0
-        max_retries = 3
-        while self._capture_running and retry_count <= max_retries:
+        while self._capture_running:
             try:
-                with sd.InputStream(samplerate=self._recording_rate,
-                                    channels=self.channels,
-                                    callback=self._audio_callback,
-                                    dtype=self.STREAM_DTYPE,
-                                    blocksize=self._vad_blocksize if self.continuous_vad else None,
-                                    device=self.device,
-                                    latency='low'):
-                    retry_count = 0
-                    while self._capture_running:
-                        if self.is_recording:
-                            self._check_max_duration_exceeded()
-                        sd.sleep(self.LOOP_SLEEP_MS)
-                    return
+                stream = self._open_stream()
             except Exception as e:
-                if not self._capture_running:
-                    return
-                retry_count += 1
-                self._stream_error = e
-                msg = str(e).lower()
-                is_disconnect = any(s in msg for s in (
-                    'unanticipated', 'invalid device', 'device unavailable',
-                    'no default input', 'errno -9999', 'errno -9988',
-                ))
-                if is_disconnect and retry_count <= max_retries:
-                    self.logger.warning(f"Audio stream lost ({e}); recovering to default device (attempt {retry_count}/{max_retries})")
-                    print(f"⚠ Audio device disconnected — falling back to default input")
-                    if self.is_recording:
-                        with self._buffer_lock:
-                            self.is_recording = False
-                            self._buffer.clear()
-                    self.device = None
-                    try:
-                        self._resolve_hostapi(None)
-                        self._recording_rate = self._get_recording_sample_rate()
-                        self._needs_resampling_cached = self._needs_resampling()
-                    except Exception as resolve_err:
-                        self.logger.error(f"Could not resolve default device: {resolve_err}")
-                    time.sleep(0.5)
-                    continue
-                self.logger.error(f"Audio capture stream error: {e}")
-                print(f"Audio capture failed: {e}")
+                first_failure = self._outage_reason is None
+                self._report_outage(f"could not open the microphone ({e})")
+                # The first failure is retried at once: it is usually a stale
+                # PortAudio device list, or one initialised on another thread
+                # (WASAPI then refuses to start the stream), and a reload on this
+                # thread fixes both. Repeat failures mean no microphone: back off.
+                if not first_failure:
+                    self._sleep_while_running(self.REOPEN_RETRY_SECONDS)
+                if self._capture_running:
+                    self._reload_devices()
+                continue
+
+            self._report_recovered()
+            should_reopen = self._watch_stream()
+            self._close_stream(stream)
+            if not should_reopen:
                 return
+            self._reload_devices()
+
+    def _open_stream(self):
+        stream = sd.InputStream(samplerate=self._recording_rate,
+                                channels=self.channels,
+                                callback=self._audio_callback,
+                                dtype=self.STREAM_DTYPE,
+                                blocksize=self._vad_blocksize if self.continuous_vad else None,
+                                device=self.device,
+                                latency='low')
+        try:
+            stream.start()
+        except Exception:
+            stream.close()
+            raise
+        return stream
+
+    # Blocks while the stream is healthy. Returns True when it should be
+    # reopened, False when the app is shutting down.
+    def _watch_stream(self) -> bool:
+        heartbeat = self._callback_count
+        silent_seconds = 0.0
+        last_device_check = time.monotonic()
+        longest_counted_tick = 2 * self.LOOP_SLEEP_MS / 1000
+        while self._capture_running:
+            tick_start = time.monotonic()
+            sd.sleep(self.LOOP_SLEEP_MS)
+            now = time.monotonic()
+            if self.is_recording:
+                self._check_max_duration_exceeded()
+
+            # Stall: the callbacks have stopped. Only time this loop was itself
+            # awake counts, so a laptop waking from sleep isn't read as a stall.
+            if self._callback_count != heartbeat:
+                heartbeat = self._callback_count
+                silent_seconds = 0.0
+            else:
+                silent_seconds += min(now - tick_start, longest_counted_tick)
+                if silent_seconds >= self.STALL_SECONDS:
+                    self._report_outage(f"no audio from the microphone for {silent_seconds:.0f}s")
+                    return True
+
+            # Microphones plugged in or removed: reopen so the stream follows the
+            # system default, or returns to the chosen device. Deferred while
+            # recording, because the current stream is still delivering audio.
+            if not self.is_recording and now - last_device_check >= self.DEVICE_CHECK_SECONDS:
+                last_device_check = now
+                if self._read_endpoint_fingerprint() != self._endpoint_fingerprint:
+                    self.logger.info("Microphones connected or removed; reopening the audio stream")
+                    return True
+        return False
+
+    # Abort, not stop: nothing in a stream being replaced is worth draining, and
+    # each step is attempted even if the dead device makes the other one fail.
+    def _close_stream(self, stream):
+        for close_step in (stream.abort, stream.close):
+            try:
+                close_step()
+            except Exception as e:
+                self.logger.debug(f"Ignoring error while closing the audio stream: {e}")
+
+    # Rebuilds PortAudio's device list (a snapshot taken at initialisation, so a
+    # replugged microphone is invisible without this), then re-resolves the
+    # device and every rate that depends on it. Only call with no stream open.
+    def _reload_devices(self):
+        previous_rate = self._recording_rate
+        self._endpoint_fingerprint = self._read_endpoint_fingerprint()
+        # Separate steps: if an earlier reload terminated PortAudio and then
+        # failed to start it again, terminating now fails, and that must not stop
+        # this attempt from starting it.
+        try:
+            sd._terminate()
+        except Exception as e:
+            self.logger.debug(f"PortAudio was not running before the reload: {e}")
+        try:
+            sd._initialize()
+            self.device = self._find_preferred_device()
+            self._resolve_hostapi(None if self.device is None else sd.query_devices(self.device))
+        except Exception as e:
+            self.logger.warning(f"Could not reload the audio device list: {e}")
+            self.device = None
+            self._resolve_hostapi(None)
+        self._apply_device_rate()
+
+        # Idle pre-roll is stale once the stream is replaced. A recording in
+        # progress keeps its audio, unless the new device runs at another rate.
+        with self._buffer_lock:
+            if not self.is_recording or self._recording_rate != previous_rate:
+                self._buffer.clear()
+
+    # Finds the user's chosen device again by name, since a reload renumbers
+    # devices. While it is unplugged, the same host API's default input stands
+    # in (a WASAPI setup stays on WASAPI); None means the system default.
+    def _find_preferred_device(self) -> Optional[int]:
+        if self._preferred_device_name is None:
+            return None
+        for index, info in enumerate(sd.query_devices()):
+            if (info['name'] == self._preferred_device_name
+                    and info.get('max_input_channels', 0) > 0
+                    and sd.query_hostapis(info['hostapi'])['name'] == self._preferred_hostapi):
+                return index
+        for hostapi in sd.query_hostapis():
+            if hostapi['name'] == self._preferred_hostapi and hostapi.get('default_input_device', -1) >= 0:
+                return hostapi['default_input_device']
+        return None
+
+    # Snapshot of the active microphones from the platform layer. None (macOS,
+    # an unsupported OS, an unreadable registry) disables change detection.
+    @staticmethod
+    def _read_endpoint_fingerprint():
+        try:
+            from .platform import audio_endpoints
+        except ImportError:
+            return None
+        return audio_endpoints.capture_fingerprint()
+
+    def _sleep_while_running(self, seconds: float):
+        deadline = time.monotonic() + seconds
+        while self._capture_running and time.monotonic() < deadline:
+            time.sleep(self.LOOP_SLEEP_MS / 1000)
+
+    # An outage is announced once, not on every retry, and its end is announced
+    # too, so the log shows how long dictation was unavailable.
+    def _report_outage(self, reason: str):
+        if self._outage_reason is None:
+            self._outage_started = time.monotonic()
+            self.logger.warning(f"Audio stream lost: {reason}; reconnecting")
+            print(f"⚠ Microphone lost ({reason}); reconnecting...")
+        self._outage_reason = reason
+
+    def _report_recovered(self):
+        if self._outage_reason is None:
+            return
+        try:
+            info = sd.query_devices(self.device) if self.device is not None else sd.query_devices(kind='input')
+            device_name = info['name']
+        except Exception:
+            device_name = "the default input"
+        outage_seconds = time.monotonic() - self._outage_started
+        self.logger.info(f"Audio stream recovered on {device_name} after {outage_seconds:.1f}s")
+        print(f"✓ Microphone reconnected: {device_name}")
+        self._outage_reason = None
+
+    # ---- Audio callback and recording ----
 
     def _audio_callback(self, audio_data, frames, _time, status):
+        # Heartbeat for the stall detector in _watch_stream.
+        self._callback_count += 1
         chunk = audio_data.copy()
         recording = self.is_recording
 
