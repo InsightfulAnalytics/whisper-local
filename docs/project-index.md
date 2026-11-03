@@ -54,6 +54,7 @@ Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key
 | **Console Welcome** | `onboarding_tutorial.py` | One-time first-launch console welcome banner | - |
 | **Whisper.cpp Backend** | `whisper_engine_cpp.py` | Opt-in `whisper_cpp` backend mirroring WhisperEngine's API | pywhispercpp |
 | **Foreground App** | `platform/*/foreground.py` | Detects the active window/app for per-app rules | pywin32 / pyobjc |
+| **Audio Endpoints** | `platform/*/audio_endpoints.py` | Notices microphones being plugged in or removed (Windows; macOS no-op) | winreg |
 | **Console Control** | `platform/windows/console.py` | Show/hide/own the console window (pyapp builds) | ctypes |
 
 ## Project Structure
@@ -79,6 +80,7 @@ whisper-local/
 │       │   └── {macos,windows}/       # Platform-specific implementations
 │       │       ├── assets/            # Platform-specific assets
 │       │       ├── app.py             # Thread requirements, getch()
+│       │       ├── audio_endpoints.py # Microphone plug/unplug detection
 │       │       ├── hotkeys.py         # Hotkey detection
 │       │       ├── icons.py           # Tray icons
 │       │       ├── instance_lock.py   # Instance control
