@@ -24,8 +24,43 @@ if sys.platform == "win32":
                     except OSError:
                         pass
 
+import re
+
 import numpy as np
 from faster_whisper import WhisperModel
+
+
+# Whisper is prompted with the hotword list, and on a stretch it can't hear as
+# speech it sometimes recites that list back on a loop: "...shown in the slices
+# Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL, PBIP, DAX, TMDL,". The
+# vad_filter cuts long silences, but it keeps gaps under 2s, pads speech by 400ms
+# and passes clicks or breathing it scores as speech, so some of these still reach
+# the decoder. A run is an echo when ECHO_MIN_ITEMS or more hotwords follow one
+# another with nothing but punctuation between them AND one of them repeats.
+# Someone listing their tools names each one once ("Power BI, Microsoft Fabric,
+# DAX, TMDL, PBIP and Deneb"), so a plain list survives.
+ECHO_MIN_ITEMS = 4
+
+
+def strip_hotword_echo(text: str, hotwords: list) -> str:
+    if not text or not hotwords:
+        return text
+
+    # Longest first so "Power Query" wins over a shorter overlapping hotword, and
+    # any whitespace inside a multi-word hotword matches
+    names = '|'.join(re.escape(word).replace(r'\ ', r'\s+')
+                     for word in sorted(hotwords, key=len, reverse=True))
+    item = rf'(?<![\w-])(?:{names})(?![\w-])'
+    # The run takes the spaces either side with it, so a cut leaves one space
+    run = re.compile(rf'[ \t]*{item}(?:[\s,.;]+{item}){{{ECHO_MIN_ITEMS - 1},}}[\s,.;]*',
+                     re.IGNORECASE)
+
+    def drop_if_echo(match):
+        said = [' '.join(name.lower().split())
+                for name in re.findall(item, match.group(0), re.IGNORECASE)]
+        return ' ' if len(set(said)) < len(said) else match.group(0)
+
+    return run.sub(drop_if_echo, text).strip()
 
 
 class WhisperEngine:
@@ -50,6 +85,7 @@ class WhisperEngine:
         self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
         self.hotwords = ", ".join(hotwords) if hotwords else None
+        self.hotword_list = list(hotwords or [])
         self.task = task if task in ('transcribe', 'translate') else 'transcribe'
         self.vad_filter = vad_filter
         self.model = None
@@ -248,7 +284,16 @@ class WhisperEngine:
                 self.logger.info(f"Transcribed text: '{transcribed_text}'")
             else:
                 self.logger.info(f"Transcribed {len(transcribed_text)} chars")
-            
+
+            # Cut any recital of the hotword prompt before the text goes anywhere.
+            # The raw decode is logged above, so the dropped part stays traceable.
+            echo_free = strip_hotword_echo(transcribed_text, self.hotword_list)
+            if echo_free != transcribed_text:
+                self.logger.warning(
+                    f"Dropped a hotword echo from the transcript "
+                    f"({len(transcribed_text) - len(echo_free)} chars)")
+                transcribed_text = echo_free
+
             if transcribed_text:
                 print(f"   ✓ Transcribed: '{transcribed_text}'")
                 return transcribed_text

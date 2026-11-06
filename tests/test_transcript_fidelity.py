@@ -26,6 +26,11 @@
 #   - A polish that kept every word but put a comma after nearly each one passed
 #     the word check. The guard now also caps how many word gaps a polish may
 #     punctuate.
+#
+# And (2026-10-19):
+#
+#   - The hotword loop came back with vad_filter on, after a pause the filter
+#     kept. The engine now cuts a repeating run of hotwords from the decode.
 
 import sys
 import unittest
@@ -225,6 +230,64 @@ class WhisperDecodeTests(unittest.TestCase):
 
     def test_vad_filter_can_be_turned_off(self):
         self.assertFalse(self.decode_options(self.engine(vad_filter=False))['vad_filter'])
+
+    def test_hotword_echo_cut_from_decode(self):
+        from types import SimpleNamespace
+        engine = self.engine(hotwords=HOTWORDS)
+        engine.model.transcribe.return_value = (
+            iter([SimpleNamespace(text=' It is not really big enough.'),
+                  SimpleNamespace(text=' Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL,')]),
+            SimpleNamespace(language='en', language_probability=1.0))
+        self.assertEqual(engine.transcribe_audio(np.zeros(16000, dtype=np.float32)),
+                         "It is not really big enough.")
+
+
+HOTWORDS = ["Power BI", "Microsoft Fabric", "DAX", "TMDL", "PBIP", "PBIR", "Deneb",
+            "Vega-Lite", "Direct Lake", "lakehouse", "Power Query", "Tabular Editor"]
+LOOP = ("Power BI, Microsoft Fabric, DAX, TMDL, PBIP, DAX, TMDL, PBIP, DAX, TMDL, "
+        "PBIP, DAX, TMDL, PBIP, DAX, TMDL,")
+
+
+class HotwordEchoTests(unittest.TestCase):
+    """A recited hotword prompt is cut; a spoken list of tools is not."""
+
+    def setUp(self):
+        from whisper_key.whisper_engine import strip_hotword_echo
+        self.strip = lambda text: strip_hotword_echo(text, HOTWORDS)
+
+    # The three real decodes from 2026-09-28, 2026-10-07 and 2026-10-19
+    def test_real_loops_cut(self):
+        self.assertEqual(
+            self.strip("a bunch of useful information that can help me in my setup, "
+                       "shortcut keys, etc. " + LOOP),
+            "a bunch of useful information that can help me in my setup, shortcut keys, etc.")
+        self.assertEqual(
+            self.strip("My current standing desk is not really big enough. " + LOOP),
+            "My current standing desk is not really big enough.")
+        self.assertEqual(
+            self.strip("the ones that are actually shown in the slices " + LOOP),
+            "the ones that are actually shown in the slices")
+
+    def test_echo_mid_text_cut(self):
+        self.assertEqual(
+            self.strip("First part. DAX, TMDL, PBIP, DAX, TMDL. Second part."),
+            "First part. Second part.")
+
+    def test_all_echo_leaves_nothing(self):
+        self.assertEqual(self.strip(LOOP), "")
+
+    def test_spoken_lists_survive(self):
+        for text in (
+            "We cover Power BI, Microsoft Fabric, DAX, TMDL, PBIP, PBIR and Deneb.",
+            "Power BI, Microsoft Fabric, DAX, TMDL, PBIP, PBIR, Deneb, Vega-Lite.",
+            "DAX. DAX is the language and DAX is hard.",
+            "Use Power Query, not DAX, then DAX again for the measure.",
+        ):
+            self.assertEqual(self.strip(text), text)
+
+    def test_no_hotwords_no_change(self):
+        from whisper_key.whisper_engine import strip_hotword_echo
+        self.assertEqual(strip_hotword_echo(LOOP, []), LOOP)
 
 
 class TranscriptLogTests(unittest.TestCase):

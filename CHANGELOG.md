@@ -97,6 +97,12 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
   Settings checkbox). Reproduced with 9s of speech plus 25s of -55 dBFS room tone: the exact
   267-character loop without the filter, the clean 143-character sentence with it, decoded in
   0.6s instead of 3.9s. faster_whisper backend only.
+- **The hotword loop still got through with `vad_filter` on.** A 70s dictation on
+  2026-10-19 ended in the same recital after a pause, with the filter having removed 18s of
+  silence: it keeps gaps under 2s, pads speech by 400ms and passes noise it scores as speech.
+  The engine now cuts any run of four or more hotwords that repeats one of them, which a
+  recital always does and a spoken list of tools does not. Across all 1,111 logged
+  transcripts it changes only the three real loops. faster_whisper backend only.
 - **Switching audio device leaked a capture thread.** `_execute_audio_device_change` replaced
   `self.audio_recorder` without shutting the old one down, leaving its capture thread running
   with an open InputStream on the previous device. The WASAPI host fallback makes device
