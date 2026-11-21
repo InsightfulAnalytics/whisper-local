@@ -418,6 +418,14 @@ overlay: # Floating speech-level overlay (Wispr-style bottom-center bar)
     # through it to apps below). Set to false if you want to interact with
     # the overlay itself.
     click_through: true
+    # Linux (Hyprland) only: the focused window's border glows while you
+    # dictate, flowing and brightening with your voice, pulses amber while
+    # transcribing, then flashes green or red. Ignored on Windows and macOS.
+    window_glow: true
+    # Border width in pixels while the glow shows (0 keeps your theme's). A
+    # wider border is easier to see, but the window resizes slightly when
+    # recording starts and ends.
+    window_glow_border: 5
 
 postprocess: # Transcription post-processing pipeline
     # Inline voice formatting: say "comma", "period", "new line", "new paragraph",

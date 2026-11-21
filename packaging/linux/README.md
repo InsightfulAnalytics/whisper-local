@@ -63,6 +63,17 @@ Exit status 3 means the app is not running.
 
 `journalctl --user -u whisper-local` shows the console output.
 
+## Recording indicators
+
+Besides the level pill at the bottom of the screen, the focused window's border
+glows while you dictate: a cyan-to-violet gradient that flows faster and
+brightens as you speak, amber while transcribing, then a green or red flash. It
+uses a named Hyprland window rule and a window tag, so the border returns to the
+theme colour afterwards. The border widens to 5 px while it shows
+(`overlay.window_glow_border`; 0 keeps the theme's width), so the window resizes
+slightly when recording starts and ends. Turn the glow off with
+`overlay.window_glow: false`.
+
 ## How text reaches the app
 
 Paste copies the text with `wl-copy`, then sends Ctrl+V through Hyprland's

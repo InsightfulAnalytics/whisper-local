@@ -36,6 +36,8 @@ Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key
 | **Hotkey Cheat Sheet** | `cheat_sheet.py` | Window listing currently configured hotkeys | tkinter |
 | **First-Run Welcome** | `first_run.py` | One-time onboarding window on first launch | tkinter |
 | **Level Overlay** | `level_overlay.py` | Floating level meter + streaming text pill | tkinter |
+| **Window Glow** | `window_glow.py` + `platform/*/window_glow.py` | Focused-window border glow while recording (Hyprland; no-op elsewhere) | Hyprland window rules |
+| **Recording Indicators** | `indicators.py` | Fans indicator calls out to the level pill and the window glow | - |
 | **Fallback Window** | `fallback_window.py` | Capture window when no text field is focused | tkinter |
 | **Transforms** | `transforms.py` | Wispr-style AI text transforms via Ollama | ruamel.yaml |
 | **Dictionary** | `dictionary.py` | Hotword add/remove/list, add-word dialog, history mining | tkinter, ruamel.yaml |
