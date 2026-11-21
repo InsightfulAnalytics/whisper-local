@@ -14,10 +14,19 @@
 # Prefer the repo venv: it is an absolute path (so this works when git is driven
 # from an editor or GUI with a bare PATH) and it matches the version CI pins,
 # which a bare `python` on PATH may not.
-if [ -x .venv/Scripts/python.exe ]; then
+#
+# A checkout on a drive shared with another OS can hold that OS's venv, and an
+# NTFS mount marks every file executable, so `-x` alone picks a Windows .exe on
+# Linux. Use an interpreter only if it actually starts here. On Linux the
+# installer's venv (packaging/linux/install.sh) has every test dependency.
+runs() { [ -x "$1" ] && "$1" -c "" >/dev/null 2>&1; }
+LINUX_APP_VENV_PYTHON="${XDG_DATA_HOME:-$HOME/.local/share}/whisper-local/venv/bin/python"
+if runs .venv/Scripts/python.exe; then
     PYTHON=.venv/Scripts/python.exe          # Windows layout
-elif [ -x .venv/bin/python ]; then
+elif runs .venv/bin/python; then
     PYTHON=.venv/bin/python                  # macOS / Linux layout
+elif runs "$LINUX_APP_VENV_PYTHON"; then
+    PYTHON=$LINUX_APP_VENV_PYTHON            # Linux install (packaging/linux)
 else
     for candidate in python3 python py; do
         if command -v "$candidate" >/dev/null 2>&1; then
