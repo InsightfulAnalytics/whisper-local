@@ -54,6 +54,10 @@ hl.window_rule({
   no_anim = true,
 })
 
+-- The edge glow (a click-through overlay at the bottom of the focused window)
+-- fades and ripples by itself, so Hyprland's layer animation is turned off.
+hl.layer_rule({ match = { namespace = "^whisper-local-glow$" }, no_anim = true })
+
 -- Omarchy stops push-to-talk with a release binding on Right Alt, and Hyprland
 -- skips a release binding once another key or mouse button was released during
 -- the hold. Report Right Alt's own release too; a stop the app already handled

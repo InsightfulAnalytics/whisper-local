@@ -138,7 +138,7 @@ pip install -e .
 Tested on [Omarchy](https://omarchy.org) (Arch Linux, Hyprland 0.56) with an NVIDIA GPU. Whisper Local installs as one of Omarchy's dictation backends, beside Superwhisper and Voxtype, and uses the same keys. Wayland gives no app a global keyboard hook, so Hyprland owns the keys and sends them to the app.
 
 ```bash
-sudo pacman -S --needed portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator uv
+sudo pacman -S --needed portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator gtk4-layer-shell uv
 git clone https://github.com/InsightfulAnalytics/whisper-local.git
 cd whisper-local
 packaging/linux/install.sh
@@ -406,7 +406,7 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 `faster-whisper` · `ctranslate2` · `sounddevice` · `ten-vad` · `pyperclip` · `pystray` · `ruamel.yaml` · `playsound3`
 **Windows-only:** `global-hotkeys` · `pywin32` · ctypes `SendInput`
 **macOS-only:** `pyobjc-framework-Quartz` · `pyobjc-framework-ApplicationServices`
-**Linux-only:** Hyprland IPC (hotkeys, paste, window glow) · `wl-clipboard` · AppIndicator tray via PyGObject · `nvidia-cublas-cu12`
+**Linux-only:** Hyprland IPC (hotkeys, paste) · `wl-clipboard` · AppIndicator tray via PyGObject · GTK 4 layer-shell (edge glow) · `nvidia-cublas-cu12`
 
 ---
 
