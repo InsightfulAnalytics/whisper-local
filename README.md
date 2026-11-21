@@ -2,7 +2,7 @@
 
 # Whisper Local
 
-### Free, Open-Source, **100% Offline** AI Dictation for Windows & macOS
+### Free, Open-Source, **100% Offline** AI Dictation for Windows, macOS & Linux
 
 **Press a hotkey. Speak. Your words appear at the cursor.**
 No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://github.com/openai/whisper).
@@ -11,7 +11,7 @@ No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://git
 [![Release](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml/badge.svg)](https://github.com/InsightfulAnalytics/whisper-local/actions/workflows/release.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](#-quick-start)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#-quick-start)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 [**Quick Start**](#-quick-start) · [**Features**](#-features) · [**vs. Wispr Flow / Dragon**](#-why-whisper-local) · [**Voice Commands**](#-voice-commands) · [**Contributing**](#-contributing)
@@ -26,7 +26,7 @@ No cloud. No subscription. No telemetry. Powered by [OpenAI Whisper](https://git
 
 Whisper Local is a **free, open-source, fully offline alternative to Wispr Flow, Dragon, and Otter** for anyone who wants **AI dictation without shipping their audio to the cloud**. It runs on [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) and drops **push-to-talk speech-to-text into any application** you can put a cursor in — chat windows, code editors, browsers, terminals, design tools, you name it. Self-hosted, hackable, and MIT-licensed.
 
-**Looking for:** *Wispr Flow alternative*, *offline voice typing*, *local Whisper dictation*, *free Dragon NaturallySpeaking alternative*, *privacy-first speech-to-text*, *Windows voice dictation without cloud*, *macOS push-to-talk transcription*. You found it.
+**Looking for:** *Wispr Flow alternative*, *offline voice typing*, *local Whisper dictation*, *free Dragon NaturallySpeaking alternative*, *privacy-first speech-to-text*, *Windows voice dictation without cloud*, *macOS push-to-talk transcription*, *Linux voice typing on Hyprland*. You found it.
 
 ---
 
@@ -70,7 +70,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 
 ## 🎯 Features
 
-- 🎙️ **Global push-to-talk hotkey** — start recording from any app with `Ctrl+Win` (Windows) or `Fn+Ctrl` (macOS)
+- 🎙️ **Global push-to-talk hotkey** — start recording from any app with `Ctrl+Win` (Windows), `Fn+Ctrl` (macOS), or `Alt+Space` / hold `Right Alt` (Linux on Omarchy)
 - ⚡ **Pre-roll buffer + warmup** — captures the 500 ms before you press the key *and* pre-loads Whisper at boot, so the first word is never clipped and the first recording feels instant
 - 🔵 **Floating level overlay** — a small pill at the screen edge shows you're being heard, with the transcript appearing next to the level bar (Wispr Flow–style). Optional [real-time streaming preview](docs/streaming.md) shows words *as you speak*.
 - 📝 **Inline voice formatting** — say "comma", "period", "question mark", "new paragraph", "open quote", etc. mid-sentence. **Fully customizable** for any language via `postprocess.inline_formatting_replacements` (e.g. map Polish phrases to punctuation, or "arrow" → →)
@@ -102,7 +102,7 @@ It's a **community tool**, not a product — no support SLA, no roadmap committe
 - 🛡️ **Auto-recovery** — silently reconnects when a USB mic is unplugged mid-recording
 - 🛡️ **Crash reports** — uncaught errors write a self-contained dump to disk
 - 🪟 **System tray UI** — model selection, mic selection, profile switch, diagnostics
-- 🍎 **Cross-platform** — Windows 10+, macOS
+- 🍎 **Cross-platform** — Windows 10+, macOS, and Linux (tested on [Omarchy](https://omarchy.org) with Hyprland)
 
 ---
 
@@ -133,6 +133,20 @@ cd whisper-local
 pip install -e .
 ```
 
+### Option 4: Linux (Omarchy / Hyprland)
+
+Tested on [Omarchy](https://omarchy.org) (Arch Linux, Hyprland 0.56) with an NVIDIA GPU. Whisper Local installs as one of Omarchy's dictation backends, beside Superwhisper and Voxtype, and uses the same keys. Wayland gives no app a global keyboard hook, so Hyprland owns the keys and sends them to the app.
+
+```bash
+sudo pacman -S --needed portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator uv
+git clone https://github.com/InsightfulAnalytics/whisper-local.git
+cd whisper-local
+packaging/linux/install.sh
+whisper-local-use whisper-local    # make it Omarchy's dictation backend
+```
+
+It runs as a systemd user service and starts at login. `whisper-local-use superwhisper` switches back without uninstalling anything. Other Linux desktops are untested: the hotkeys and paste rely on Hyprland. Details: **[packaging/linux/README.md](packaging/linux/README.md)**.
+
 ### Launch
 
 | | |
@@ -145,13 +159,14 @@ First launch downloads the default [`base`](https://huggingface.co/Systran/faste
 
 ### Use it
 
-| Action | Windows | macOS |
-|---|---|---|
-| Hold to record | `Ctrl+Win` | `Fn+Ctrl` |
-| Stop & paste | release key (push-to-talk) or `Ctrl` | release or `Fn` |
-| Stop & auto-send (Enter) | `Alt` | `Option` |
-| Cancel | `Esc` | `Shift` |
-| Voice command mode | `Alt+Win` | `Fn+Command` |
+| Action | Windows | macOS | Linux (Omarchy) |
+|---|---|---|---|
+| Hold to record | `Ctrl+Win` | `Fn+Ctrl` | `Right Alt` |
+| Start / stop (toggle) | | | `Alt+Space` or `Ctrl+Alt+Space` |
+| Stop & paste | release key (push-to-talk) or `Ctrl` | release or `Fn` | release, or the toggle key again |
+| Stop & auto-send (Enter) | `Alt` | `Option` | |
+| Cancel | `Esc` | `Shift` | `Esc` |
+| Voice command mode | `Alt+Win` | `Fn+Command` | |
 
 ### Verify everything works
 
@@ -169,6 +184,7 @@ Speak a trigger to run keyboard shortcuts, type snippets, or launch programs. De
 
 - **Windows:** `%APPDATA%\whisperkey\commands.yaml`
 - **macOS:** `~/.whisperkey/commands.yaml`
+- **Linux:** `~/.config/whisperkey/commands.yaml`
 
 ```yaml
 commands:
@@ -195,7 +211,7 @@ Edits hot-reload — no app restart required. See **[docs/voice-commands.md](doc
 
 On first launch, Whisper Local detects your GPU and offers one-press install of the required runtime libraries. Supports **NVIDIA CUDA** and **AMD ROCm**.
 
-For manual setup or AMD RDNA 1, see **[docs/gpu-setup.md](docs/gpu-setup.md)**.
+For manual setup or AMD RDNA 1, see **[docs/gpu-setup.md](docs/gpu-setup.md)**. On Linux, `packaging/linux/install.sh` adds CUDA 12's cuBLAS for NVIDIA GPUs (the `cuda` extra).
 
 ---
 
@@ -300,6 +316,7 @@ Local settings live at:
 
 - **Windows:** `%APPDATA%\whisperkey\user_settings.yaml`
 - **macOS:** `~/.whisperkey/user_settings.yaml`
+- **Linux:** `~/.config/whisperkey/user_settings.yaml`
 
 Delete the file and restart to reset to defaults. Highlights:
 
@@ -389,6 +406,7 @@ After setup, **zero network traffic**. Confirm by running `whisper-local --docto
 `faster-whisper` · `ctranslate2` · `sounddevice` · `ten-vad` · `pyperclip` · `pystray` · `ruamel.yaml` · `playsound3`
 **Windows-only:** `global-hotkeys` · `pywin32` · ctypes `SendInput`
 **macOS-only:** `pyobjc-framework-Quartz` · `pyobjc-framework-ApplicationServices`
+**Linux-only:** Hyprland IPC (hotkeys, paste, window glow) · `wl-clipboard` · AppIndicator tray via PyGObject · `nvidia-cublas-cu12`
 
 ---
 
@@ -445,6 +463,6 @@ MIT licensed; the original copyright is preserved in [`LICENSE`](LICENSE).
 
 [GitHub](https://github.com/InsightfulAnalytics) · [Discussions](https://github.com/InsightfulAnalytics/whisper-local/discussions) · [Report a bug](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/InsightfulAnalytics/whisper-local/issues/new?template=feature_request.yml)
 
-<sub>Tags: whisper · dictation · speech-to-text · voice-typing · transcription · ai-dictation · local-ai · offline · push-to-talk · voice-recognition · accessibility · faster-whisper · privacy · self-hosted · wispr-flow-alternative · dragon-naturallyspeaking-alternative · otter-alternative · ollama · voice-commands · windows · macos · python</sub>
+<sub>Tags: whisper · dictation · speech-to-text · voice-typing · transcription · ai-dictation · local-ai · offline · push-to-talk · voice-recognition · accessibility · faster-whisper · privacy · self-hosted · wispr-flow-alternative · dragon-naturallyspeaking-alternative · otter-alternative · ollama · voice-commands · windows · macos · linux · omarchy · hyprland · python</sub>
 
 </div>
