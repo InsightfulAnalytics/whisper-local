@@ -39,8 +39,10 @@ def is_supported() -> bool:
     return hyprland.is_available() and bool(_layer_shell_library())
 
 
+# -P keeps the working directory off sys.path, so a file planted in the folder
+# the app was started from can't stand in for one of the helper's imports.
 def _helper_command():
-    return [sys.executable, '-m', _HELPER_MODULE]
+    return [sys.executable, '-P', '-m', _HELPER_MODULE]
 
 
 # ---------------------------------------------------------------------------
