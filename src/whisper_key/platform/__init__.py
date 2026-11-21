@@ -23,7 +23,7 @@ IS_LINUX = PLATFORM == 'linux'
 # exists as a module under macos/, windows/ and linux/.
 BACKEND_MODULES = ('instance_lock', 'keyboard', 'hotkeys', 'paths', 'app',
                    'permissions', 'icons', 'gpu', 'console', 'foreground',
-                   'audio_endpoints')
+                   'audio_endpoints', 'window_glow')
 
 
 # Bind `platform.<name>` to this OS's backend on FIRST USE (PEP 562) rather than

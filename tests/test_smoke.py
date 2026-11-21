@@ -908,7 +908,7 @@ class PartialInitShutdownTests(unittest.TestCase):
         from unittest import mock
         sm = StateManager.__new__(StateManager)  # skip __init__ — simulate partial construction
         sm.audio_recorder = None
-        sm.level_overlay = None
+        sm.indicators = None
         sm.system_tray = mock.Mock()
         sm.shutdown()  # must not raise
         sm.system_tray.stop.assert_called_once()
@@ -1438,6 +1438,77 @@ class StreamingDeliveryWorkerTests(unittest.TestCase):
 # stops the "works on my machine, red on Windows/macOS CI" import regression from
 # coming back; it had been patched away four times with one-off skipTest calls
 # before the cause was traced to the platform package importing its backends eagerly.
+class WindowGlowTests(unittest.TestCase):
+    def test_gradient_is_hyprland_syntax(self):
+        from whisper_key.window_glow import gradient
+        self.assertEqual(gradient(('00e5ff', '7c4dff'), 1.0, 370),
+                         'rgba(00e5ffff) rgba(7c4dffff) 10deg')
+
+    def test_recording_gradient_brightens_with_level(self):
+        from whisper_key.window_glow import recording_gradient
+        quiet = recording_gradient(0.0, 0)
+        loud = recording_gradient(1.0, 0)
+        self.assertIn('rgba(00e5ff59)', quiet)   # base colour at 35% alpha
+        self.assertNotIn('00e5ff', loud)          # flared towards white
+        self.assertTrue(loud.split()[0].endswith('ff)'))
+        self.assertEqual(recording_gradient(5.0, 0), loud)  # clamped
+
+    def test_flash_ends_and_hides(self):
+        from whisper_key.window_glow import WindowGlow, SUCCESS_COLOR
+        glow = WindowGlow(level_provider=lambda: 0.0)
+        glow._flash(SUCCESS_COLOR, 0.4)
+        start = glow._flash_until - 0.4
+        self.assertIn(SUCCESS_COLOR, glow._next_frame(start + 0.1, 0.03))
+        self.assertIsNone(glow._next_frame(start + 0.5, 0.03))
+
+    def test_unavailable_without_a_compositor(self):
+        from unittest import mock
+        from whisper_key.window_glow import WindowGlow
+        glow = WindowGlow(level_provider=lambda: 0.0)
+        glow._backend = mock.Mock(is_supported=mock.Mock(return_value=False))
+        self.assertFalse(glow.available)
+        glow.start()
+        self.assertIsNone(glow._thread)
+
+    def test_frames_carry_the_configured_border_size(self):
+        import time
+        from unittest import mock
+        from whisper_key.window_glow import WindowGlow
+        glow = WindowGlow(level_provider=lambda: 0.02, border_size=5)
+        glow._backend = mock.Mock(is_supported=mock.Mock(return_value=True))
+        glow.start()
+        glow.show_recording()
+        time.sleep(0.15)
+        glow.shutdown()
+        gradient, border_size = glow._backend.paint.call_args.args
+        self.assertEqual(border_size, 5)
+        self.assertTrue(gradient.endswith('deg'))
+        glow._backend.clear.assert_called()
+
+    def test_indicators_fan_out_and_skip_missing_methods(self):
+        from unittest import mock
+        from whisper_key.indicators import RecordingIndicators
+        pill = mock.Mock()
+        glow = mock.Mock(spec=['show_recording'])
+        group = RecordingIndicators([pill, glow])
+        self.assertTrue(group)
+        self.assertFalse(RecordingIndicators([]))
+        group.show_recording()
+        group.set_position('top-left')
+        pill.show_recording.assert_called_once_with()
+        glow.show_recording.assert_called_once_with()
+        pill.set_position.assert_called_once_with('top-left')
+
+    def test_one_failing_indicator_does_not_stop_the_others(self):
+        from unittest import mock
+        from whisper_key.indicators import RecordingIndicators
+        broken = mock.Mock()
+        broken.hide.side_effect = RuntimeError("boom")
+        working = mock.Mock()
+        RecordingIndicators([broken, working]).hide()
+        working.hide.assert_called_once_with()
+
+
 class LeanImportContractTests(unittest.TestCase):
 
     # Out-of-process on purpose: by the time this runs, sys.modules in THIS

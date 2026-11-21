@@ -10,7 +10,8 @@
 #                                                     ▼
 #                                            stats + transcripts + audit
 #
-# Also owns the LevelOverlay + FallbackWindow lifecycle and the cross-cutting
+# Also owns the recording indicators (LevelOverlay pill + WindowGlow, fanned
+# out by RecordingIndicators), the FallbackWindow lifecycle and the cross-cutting
 # concerns: profile activation, app-rule application, AI rephrase, command mode,
 # and the continuous-dictation restart loop.
 #
@@ -46,6 +47,8 @@ from .audit_log import record as audit_record
 from .transcript_log import record_transcript
 from .platform import foreground
 from .level_overlay import LevelOverlay
+from .window_glow import WindowGlow
+from .indicators import RecordingIndicators
 from .fallback_window import FallbackWindow
 
 class StateManager:
@@ -96,7 +99,7 @@ class StateManager:
         self.transforms_manager = TransformsManager(
             llm_config_provider=lambda: (config_manager.get_postprocess_config().get('llm') or {}),
         )
-        self.level_overlay = None
+        self.indicators = None
         self.fallback_window = FallbackWindow()
 
     def attach_components(self,
@@ -112,17 +115,26 @@ class StateManager:
             pass
 
         overlay_cfg = self.config_manager.config.get('overlay', {}) or {}
+        indicators = []
         if overlay_cfg.get('enabled', True):
             try:
-                self.level_overlay = LevelOverlay(
+                pill = LevelOverlay(
                     level_provider=self.audio_recorder.get_current_level,
                     click_through=overlay_cfg.get('click_through', True),
                     position=overlay_cfg.get('position', 'bottom-center'),
                 )
-                self.level_overlay.start()
+                pill.start()
+                indicators.append(pill)
             except Exception as e:
                 self.logger.warning(f"Level overlay disabled: {e}")
-                self.level_overlay = None
+        # Only where the compositor can restyle another app's window (Hyprland).
+        if overlay_cfg.get('window_glow', True):
+            glow = WindowGlow(level_provider=self.audio_recorder.get_current_level,
+                              border_size=overlay_cfg.get('window_glow_border', 0))
+            if glow.available:
+                glow.start()
+                indicators.append(glow)
+        self.indicators = RecordingIndicators(indicators) if indicators else None
     
     def handle_max_recording_duration_reached(self, audio_data):
         self.logger.info("Max recording duration reached - starting transcription")
@@ -151,8 +163,8 @@ class StateManager:
             display_text = text if len(text) < 67 else "..." + text[-64:]
             print(f"\r   {display_text:<70}", end="", flush=True)
             self._streaming_display_active = True
-        if self.level_overlay and text:
-            self.level_overlay.set_streaming_text(text)
+        if self.indicators and text:
+            self.indicators.set_streaming_text(text)
 
     def _clear_streaming_display(self):
         if self._streaming_display_active:
@@ -189,8 +201,8 @@ class StateManager:
         self.audio_recorder.cancel_recording()
         self.audio_feedback.play_cancel_sound()
         self.system_tray.update_state("idle")
-        if self.level_overlay:
-            self.level_overlay.hide()
+        if self.indicators:
+            self.indicators.hide()
     
     def cancel_recording_hotkey_pressed(self) -> bool:
         current_state = self.get_current_state()
@@ -258,8 +270,8 @@ class StateManager:
         if self.audio_recorder.start_recording():
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
-            if self.level_overlay:
-                self.level_overlay.show_recording()
+            if self.indicators:
+                self.indicators.show_recording()
 
     def start_command_recording(self):
         if not self.can_start_recording():
@@ -277,8 +289,8 @@ class StateManager:
             self.config_manager.print_command_stop_instructions()
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
-            if self.level_overlay:
-                self.level_overlay.show_recording()
+            if self.indicators:
+                self.indicators.show_recording()
 
     def _begin_recording(self):
         self._apply_recording_context()
@@ -293,8 +305,8 @@ class StateManager:
             self.config_manager.print_stop_instructions_based_on_config()
             self.audio_feedback.play_start_sound()
             self.system_tray.update_state("recording")
-            if self.level_overlay:
-                self.level_overlay.show_recording()
+            if self.indicators:
+                self.indicators.show_recording()
 
     # Decide whether this (plain dictation) recording should stream finalized
     # phrases to the cursor live, and if so spin up the delivery worker. Only the
@@ -356,8 +368,8 @@ class StateManager:
         self.recent_transcriptions.appendleft(text)
         self.system_tray.refresh_menu()
         self.audio_feedback.play_transcription_complete_sound()
-        if self.level_overlay:
-            self.level_overlay.flash_success()
+        if self.indicators:
+            self.indicators.flash_success()
 
         fg = foreground.get_foreground_app() or {}
         record_transcription(char_count=len(text), duration_seconds=duration, app=fg.get('exe', ''))
@@ -465,8 +477,8 @@ class StateManager:
             if audio_data is None:
                 self.system_tray.notify("No audio captured — was the mic muted?")
                 # Flash the overlay too — tray balloons are often suppressed by Windows.
-                if self.level_overlay:
-                    self.level_overlay.flash_failure("No audio — mic muted?")
+                if self.indicators:
+                    self.indicators.flash_failure("No audio — mic muted?")
                 return
 
             duration = self.audio_recorder.get_audio_duration(audio_data)
@@ -482,24 +494,24 @@ class StateManager:
             self.logger.info(f"Recorded {duration:.1f} seconds, transcribing")
 
             self.system_tray.update_state("processing")
-            if self.level_overlay:
-                self.level_overlay.show_processing()
+            if self.indicators:
+                self.indicators.show_processing()
 
             transcribed_text = self.whisper_engine.transcribe_audio(audio_data)
 
             if not transcribed_text:
                 self.system_tray.notify("Transcription was empty (silence or noise only).")
-                if self.level_overlay:
-                    self.level_overlay.flash_failure("No speech detected")
+                if self.indicators:
+                    self.indicators.flash_failure("No speech detected")
                 return
 
             if command_mode:
                 matched = self._handle_command_transcription(transcribed_text, use_auto_enter)
-                if self.level_overlay:
+                if self.indicators:
                     if matched:
-                        self.level_overlay.flash_success()
+                        self.indicators.flash_success()
                     else:
-                        self.level_overlay.flash_failure()
+                        self.indicators.flash_failure()
                 return
 
             if rephrase_mode and rephrase_selection:
@@ -523,8 +535,8 @@ class StateManager:
             # with auto-enter would just press Enter into the focused field).
             if not transcribed_text or not transcribed_text.strip():
                 self.logger.info("Post-processing produced empty text; nothing to deliver")
-                if self.level_overlay:
-                    self.level_overlay.flash_failure("Nothing to type")
+                if self.indicators:
+                    self.indicators.flash_failure("Nothing to type")
                 return
 
             if rule and rule.get('suppress'):
@@ -534,8 +546,8 @@ class StateManager:
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.system_tray.notify("Delivery suppressed for this app — text on clipboard.")
-                if self.level_overlay:
-                    self.level_overlay.flash_success()
+                if self.indicators:
+                    self.indicators.flash_success()
                 return
 
             if not self._foreground_is_textable():
@@ -549,8 +561,8 @@ class StateManager:
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.system_tray.notify("Captured your dictation — see the popup.")
-                if self.level_overlay:
-                    self.level_overlay.flash_success()
+                if self.indicators:
+                    self.indicators.flash_success()
                 return
 
             effective_auto_enter = use_auto_enter
@@ -592,8 +604,8 @@ class StateManager:
                 self.recent_transcriptions.appendleft(transcribed_text)
                 self.system_tray.refresh_menu()
                 self.audio_feedback.play_transcription_complete_sound()
-                if self.level_overlay:
-                    self.level_overlay.flash_success()
+                if self.indicators:
+                    self.indicators.flash_success()
                 fg = foreground.get_foreground_app() or {}
                 record_transcription(
                     char_count=len(transcribed_text),
@@ -605,14 +617,14 @@ class StateManager:
                 audit_enabled = (self.config_manager.config.get('audit') or {}).get('enabled', False)
                 audit_record('delivered', transcribed_text, fg.get('exe', ''), audit_enabled)
                 self._maybe_restart_continuous()
-            elif self.level_overlay:
-                self.level_overlay.flash_failure()
+            elif self.indicators:
+                self.indicators.flash_failure()
             
         except Exception as e:
             self.logger.error(f"Error in processing workflow: {e}")
             print(f"❌ Error processing recording: {e}")
-            if self.level_overlay:
-                self.level_overlay.flash_failure()
+            if self.indicators:
+                self.indicators.flash_failure()
 
         finally:
             # Safety net: if a streaming-delivery worker is still around (e.g. the
@@ -701,8 +713,8 @@ class StateManager:
                 self.audio_recorder.stop_recording()
             self.audio_recorder.shutdown()
 
-        if self.level_overlay:
-            self.level_overlay.shutdown()
+        if self.indicators:
+            self.indicators.shutdown()
 
         self.system_tray.stop()
     
@@ -812,8 +824,8 @@ class StateManager:
             backend = _provider(llm_cfg)
             print(f"   ✗ Rephrase failed — {backend} unreachable or returned nothing")
             self.system_tray.notify(f"Rephrase failed — check the {backend} backend")
-            if self.level_overlay:
-                self.level_overlay.flash_failure()
+            if self.indicators:
+                self.indicators.flash_failure()
             return
 
         try:
@@ -832,8 +844,8 @@ class StateManager:
         self.recent_transcriptions.appendleft(polished)
         self.system_tray.refresh_menu()
         self.system_tray.notify("Rephrased and pasted")
-        if self.level_overlay:
-            self.level_overlay.flash_success()
+        if self.indicators:
+            self.indicators.flash_success()
         self.logger.info(f"Rephrase complete: {len(selection)} -> {len(polished)} chars")
         print(f"   ✓ Rephrased and pasted")
 
@@ -853,9 +865,9 @@ class StateManager:
 
 
     def set_overlay_position(self, name: str) -> bool:
-        if not self.level_overlay:
+        if not self.indicators:
             return False
-        self.level_overlay.set_position(name)
+        self.indicators.set_position(name)
         self.config_manager.update_user_setting('overlay', 'position', name)
         self.logger.info(f"Overlay position set to {name}")
         return True
@@ -883,11 +895,11 @@ class StateManager:
 
     def apply_transform(self, name: str) -> bool:
         success = self.transforms_manager.apply(name)
-        if self.level_overlay:
+        if self.indicators:
             if success:
-                self.level_overlay.flash_success()
+                self.indicators.flash_success()
             else:
-                self.level_overlay.flash_failure()
+                self.indicators.flash_failure()
         return success
 
     def list_transforms(self) -> list:
