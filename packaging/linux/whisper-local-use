@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Switches Omarchy's dictation between Whisper Local and Superwhisper, so the
+# same keys (Alt+Space, Ctrl+Alt+Space, hold Right Alt, Escape) drive one or
+# the other. The backend that is switched off keeps its install and settings;
+# only its service stops and stops starting at login.
+#
+#   whisper-local-use                 # print the current backend
+#   whisper-local-use whisper-local
+#   whisper-local-use superwhisper
+
+set -euo pipefail
+
+case "${1:-}" in
+  "")
+    omarchy-default-dictation
+    exit 0
+    ;;
+  whisper-local)
+    on=whisper-local
+    off=superwhisper
+    ;;
+  superwhisper)
+    on=superwhisper
+    off=whisper-local
+    ;;
+  *)
+    echo "Usage: whisper-local-use [whisper-local|superwhisper]" >&2
+    exit 1
+    ;;
+esac
+
+# Stops the current backend's recording, then saves the new default.
+omarchy-dictation-use "$on"
+
+if systemctl --user cat "$off.service" &>/dev/null; then
+  systemctl --user disable --now "$off.service" 2>/dev/null || true
+fi
+systemctl --user enable --now "$on.service"
+
+# Omarchy loads the selected backend's shortcuts.lua when the config loads.
+hyprctl reload config-only >/dev/null
+echo "Dictation now uses $on."

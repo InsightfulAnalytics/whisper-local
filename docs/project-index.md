@@ -1,6 +1,6 @@
-Local faster-whisper speech-to-text app with global hotkeys for Windows 10+ and macOS
+Local faster-whisper speech-to-text app with global hotkeys for Windows 10+, macOS and Linux (Omarchy/Hyprland)
 
-Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local), maintained as `InsightfulAnalytics/whisper-local` by Tim. Internal Python module name remains `whisper_key`; the config directory remains `%APPDATA%\whisperkey` (`~/.whisperkey` on macOS).
+Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key-local), maintained as `InsightfulAnalytics/whisper-local` by Tim. Internal Python module name remains `whisper_key`; the config directory remains `%APPDATA%\whisperkey` (`~/.whisperkey` on macOS, `~/.config/whisperkey` on Linux). Linux install and Omarchy integration: `packaging/linux/README.md`.
 
 - Start here: `state_manager.py` coordinates all components workflow
 
@@ -19,6 +19,7 @@ Open-source fork of [PinW/whisper-key-local](https://github.com/PinW/whisper-key
 | **Hotkey Detection** | `hotkey_listener.py` | Global hotkey monitoring | global-hotkeys (Win), NSEvent (Mac) |
 | **Configuration** | `config_manager.py` | YAML settings management & validation | ruamel.yaml |
 | **System Integration** | `system_tray.py` | System tray icon & menu interface | pystray, Pillow |
+| **Control Socket** | `control_socket.py` | Unix-socket start/stop/toggle/cancel + `whisper-local-ctl` (Linux hotkeys arrive this way) | socket |
 | **Instance Management** | `instance_manager.py` | Single instance enforcement | win32event (Win), fcntl (Mac) |
 | **Voice Commands** | `voice_commands.py` | Trigger matching & command execution | subprocess |
 | **Platform Abstraction** | `platform/` | OS-specific implementations | pywin32 (Win), pyobjc (Mac) |
@@ -77,7 +78,7 @@ whisper-local/
 │       │   ├── sounds/                # Audio feedback sounds
 │       ├── platform/                  # Platform abstraction layer
 │       │   ├── __init__.py            # Platform detection & import routing
-│       │   └── {macos,windows}/       # Platform-specific implementations
+│       │   └── {macos,windows,linux}/ # Platform-specific implementations
 │       │       ├── assets/            # Platform-specific assets
 │       │       ├── app.py             # Thread requirements, getch()
 │       │       ├── audio_endpoints.py # Microphone plug/unplug detection

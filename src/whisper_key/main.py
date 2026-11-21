@@ -36,6 +36,7 @@ from .audio_feedback import AudioFeedback
 from .instance_manager import cleanup_pid_file, guard_against_multiple_instances
 from .model_registry import ModelRegistry
 from .streaming_manager import StreamingManager
+from . import control_socket
 from .voice_commands import VoiceCommandManager
 from .hardware_detection import detect_and_print as detect_hardware
 from .onboarding import check_gpu
@@ -255,8 +256,9 @@ def run_gpu_onboarding(config_manager, whisper_config):
     # defer it — leave status 'pending' and let the next normal (console) launch
     # handle it. Without this, a first-ever windowless launch on a GPU machine
     # could hang on the prompt. (sys.stdout is reassigned to devnull earlier under
-    # pythonw, so sys.stdin is the reliable no-console signal here.)
-    if sys.stdin is None:
+    # pythonw, so sys.stdin is the reliable no-console signal here. A systemd
+    # user service has a stdin, but it is /dev/null, not a terminal.)
+    if sys.stdin is None or not sys.stdin.isatty():
         logging.getLogger(__name__).info("Skipping GPU onboarding prompt (no console); deferring to next launch")
         return whisper_config
     gpu_class, gpu_name, ct2_works = detect_hardware(whisper_config['device'])
@@ -293,7 +295,11 @@ def setup_hotkey_listener(hotkey_config, state_manager, voice_commands_enabled=T
         recording_mode=hotkey_config.get('recording_mode', 'push_to_talk')
     )
 
-def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, logger: logging.Logger):
+def shutdown_app(hotkey_listener: HotkeyListener, state_manager: StateManager, logger: logging.Logger,
+                 control_server=None):
+    if control_server:
+        control_server.stop()
+
     try:
         if hotkey_listener and hotkey_listener.is_active():
             logger.info("Stopping hotkey listener...")
@@ -476,6 +482,7 @@ def main():
     
     hotkey_listener = None
     state_manager = None
+    control_server = None
     logger = None
     
     try:
@@ -536,6 +543,12 @@ def main():
             raise
 
         system_tray.start()
+
+        # Where the platform can't hook keys globally (Linux/Wayland), the
+        # compositor's bindings drive dictation through this socket instead.
+        if control_socket.is_supported():
+            control_server = control_socket.ControlServer(state_manager, test_instance=args.test)
+            control_server.start()
 
         if clipboard_config['auto_paste']:
             if not permissions.check_accessibility_permission():
@@ -610,7 +623,7 @@ def main():
             pass
 
     finally:
-        shutdown_app(hotkey_listener, state_manager, logger)
+        shutdown_app(hotkey_listener, state_manager, logger, control_server)
         cleanup_pid_file(instance_name)
 
 if __name__ == "__main__":

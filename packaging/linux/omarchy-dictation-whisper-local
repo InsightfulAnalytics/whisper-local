@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# omarchy:summary=Record dictation using Whisper Local
+# omarchy:args=<start|stop|toggle>
+#
+# Omarchy's dictation adapter for Whisper Local, installed to ~/.local/bin.
+# omarchy-dictation calls it for Omarchy's dictation keys while whisper-local
+# is the selected backend; it forwards the command to the app's control socket.
+
+case "${1:-}" in
+  start | toggle)
+    whisper-local-ctl "$1" >/dev/null
+    status=$?
+    # 3: nothing is listening. Start the service rather than lose every press
+    # until someone notices; the model takes a few seconds to load.
+    if ((status == 3)); then
+      notify-send -a "Whisper Local" "Whisper Local is starting" "Try again once it has loaded its model."
+      systemctl --user start whisper-local.service
+    fi
+    ;;
+  stop)
+    # Omarchy stops the previous backend when switching; succeed when not running.
+    whisper-local-ctl stop >/dev/null 2>&1
+    exit 0
+    ;;
+  *)
+    echo "Usage: omarchy dictation whisper-local <start|stop|toggle>" >&2
+    exit 1
+    ;;
+esac

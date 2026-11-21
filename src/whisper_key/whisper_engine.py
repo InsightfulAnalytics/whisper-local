@@ -23,6 +23,28 @@ if sys.platform == "win32":
                         ctypes.CDLL(_dll)
                     except OSError:
                         pass
+# On Linux the same wheels put their libraries under nvidia/<pkg>/lib, and
+# ctranslate2 dlopens "libcublas.so.12" by name. LD_LIBRARY_PATH is read once at
+# process start, so preload each library globally instead: a later dlopen by
+# soname then finds the copy already in memory. Two passes, because a library
+# can need a sibling (cublas needs cublasLt) that sorts after it.
+elif sys.platform == "linux":
+    import ctypes
+    import glob
+    import importlib.util
+    import os
+    _nvidia_spec = importlib.util.find_spec("nvidia")
+    if _nvidia_spec and _nvidia_spec.submodule_search_locations:
+        _pending = sorted(_lib for _root in _nvidia_spec.submodule_search_locations
+                          for _lib in glob.glob(os.path.join(_root, "*", "lib", "lib*.so*")))
+        for _attempt in range(2):
+            _failed = []
+            for _lib in _pending:
+                try:
+                    ctypes.CDLL(_lib, mode=ctypes.RTLD_GLOBAL)
+                except OSError:
+                    _failed.append(_lib)
+            _pending = _failed
 
 import numpy as np
 from faster_whisper import WhisperModel
