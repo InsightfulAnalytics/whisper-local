@@ -129,8 +129,7 @@ class StateManager:
                 self.logger.warning(f"Level overlay disabled: {e}")
         # Only where the compositor can restyle another app's window (Hyprland).
         if overlay_cfg.get('window_glow', True):
-            glow = WindowGlow(level_provider=self.audio_recorder.get_current_level,
-                              border_size=overlay_cfg.get('window_glow_border', 0))
+            glow = WindowGlow(level_provider=self.audio_recorder.get_current_level)
             if glow.available:
                 glow.start()
                 indicators.append(glow)

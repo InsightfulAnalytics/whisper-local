@@ -9,7 +9,7 @@ Superwhisper and Voxtype, and uses the same keys they do.
 ## Install
 
 ```bash
-sudo pacman -S --needed portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator uv
+sudo pacman -S --needed portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator gtk4-layer-shell uv
 packaging/linux/install.sh
 whisper-local-use whisper-local
 ```
@@ -65,13 +65,18 @@ Exit status 3 means the app is not running.
 
 ## Recording indicators
 
-Besides the level pill at the bottom of the screen, the focused window's border
-glows while you dictate: a cyan-to-violet gradient that flows faster and
-brightens as you speak, amber while transcribing, then a green or red flash. It
-uses a named Hyprland window rule and a window tag, so the border returns to the
-theme colour afterwards. The border widens to 5 px while it shows
-(`overlay.window_glow_border`; 0 keeps the theme's width), so the window resizes
-slightly when recording starts and ends. Turn the glow off with
+Besides the level pill at the bottom of the screen, a glow pools along the
+bottom edge of the focused window while you dictate. It takes the Omarchy
+theme's accent colour, ripples and climbs the window's sides as you speak,
+breathes while transcribing, then flashes green or red. It follows focus if
+you switch windows mid-recording.
+
+A small helper process draws it (`glow_helper.py`: about 10% of one CPU core
+and 75 MB of memory while it shows, no CPU while hidden). It's a click-through layer-shell overlay
+that never takes focus, so the paste still lands in your window. It runs apart
+from the app because it needs GTK 4, and the tray icon already loads GTK 3.
+`shortcuts.lua` turns off Hyprland's layer animation for it (namespace
+`whisper-local-glow`), since it animates itself. Turn the glow off with
 `overlay.window_glow: false`.
 
 ## How text reaches the app

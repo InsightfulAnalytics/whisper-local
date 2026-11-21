@@ -1439,27 +1439,23 @@ class StreamingDeliveryWorkerTests(unittest.TestCase):
 # coming back; it had been patched away four times with one-off skipTest calls
 # before the cause was traced to the platform package importing its backends eagerly.
 class WindowGlowTests(unittest.TestCase):
-    def test_gradient_is_hyprland_syntax(self):
-        from whisper_key.window_glow import gradient
-        self.assertEqual(gradient(('00e5ff', '7c4dff'), 1.0, 370),
-                         'rgba(00e5ffff) rgba(7c4dffff) 10deg')
-
-    def test_recording_gradient_brightens_with_level(self):
-        from whisper_key.window_glow import recording_gradient
-        quiet = recording_gradient(0.0, 0)
-        loud = recording_gradient(1.0, 0)
-        self.assertIn('rgba(00e5ff59)', quiet)   # base colour at 35% alpha
-        self.assertNotIn('00e5ff', loud)          # flared towards white
-        self.assertTrue(loud.split()[0].endswith('ff)'))
-        self.assertEqual(recording_gradient(5.0, 0), loud)  # clamped
-
-    def test_flash_ends_and_hides(self):
-        from whisper_key.window_glow import WindowGlow, SUCCESS_COLOR
+    def test_flash_sends_its_state_then_ends(self):
+        from whisper_key.window_glow import WindowGlow
         glow = WindowGlow(level_provider=lambda: 0.0)
-        glow._flash(SUCCESS_COLOR, 0.4)
-        start = glow._flash_until - 0.4
-        self.assertIn(SUCCESS_COLOR, glow._next_frame(start + 0.1, 0.03))
-        self.assertIsNone(glow._next_frame(start + 0.5, 0.03))
+        glow.flash_success()
+        start = glow._flash_until - glow.SUCCESS_S
+        self.assertEqual(glow._next_frame(start + 0.1), ('success', 0.0))
+        self.assertIsNone(glow._next_frame(start + glow.SUCCESS_S + 0.1))
+
+    def test_recording_level_rises_at_once_and_decays(self):
+        from whisper_key.window_glow import WindowGlow
+        levels = iter([0.04, 0.0])
+        glow = WindowGlow(level_provider=lambda: next(levels))
+        glow.show_recording()
+        self.assertEqual(glow._next_frame(0.0), ('recording', 1.0))  # 0.04 x 25, clamped
+        state, level = glow._next_frame(0.0)
+        self.assertEqual(state, 'recording')
+        self.assertAlmostEqual(level, glow.DECAY)
 
     def test_unavailable_without_a_compositor(self):
         from unittest import mock
@@ -1469,22 +1465,129 @@ class WindowGlowTests(unittest.TestCase):
         self.assertFalse(glow.available)
         glow.start()
         self.assertIsNone(glow._thread)
+        glow._backend.start.assert_not_called()
 
-    def test_frames_carry_the_configured_border_size(self):
+    def test_frames_reach_the_backend_and_shutdown_stops_it(self):
         import time
         from unittest import mock
         from whisper_key.window_glow import WindowGlow
-        glow = WindowGlow(level_provider=lambda: 0.02, border_size=5)
+        glow = WindowGlow(level_provider=lambda: 0.02)
         glow._backend = mock.Mock(is_supported=mock.Mock(return_value=True))
         glow.start()
         glow.show_recording()
         time.sleep(0.15)
         glow.shutdown()
-        gradient, border_size = glow._backend.paint.call_args.args
-        self.assertEqual(border_size, 5)
-        self.assertTrue(gradient.endswith('deg'))
+        glow._backend.start.assert_called_once_with()
+        state, level = glow._backend.show.call_args.args
+        self.assertEqual(state, 'recording')
+        self.assertGreater(level, 0.0)
         glow._backend.clear.assert_called()
+        glow._backend.stop.assert_called_once_with()
 
+
+class GlowShapeTests(unittest.TestCase):
+    MONITORS = [
+        {'id': 0, 'name': 'DP-1', 'x': 0, 'y': 0, 'width': 2560, 'height': 1440, 'scale': 1.0,
+         'transform': 0, 'focused': False},
+        {'id': 1, 'name': 'HDMI-A-1', 'x': 2560, 'y': 0, 'width': 3840, 'height': 2160, 'scale': 1.5,
+         'transform': 0, 'focused': True},
+    ]
+
+    def test_commands_round_trip_and_reject_junk(self):
+        from whisper_key.platform.linux.glow_shape import format_command, parse_command
+        self.assertEqual(format_command('recording', 0.4234), 'recording 0.423\n')
+        self.assertEqual(parse_command(format_command('recording', 2.0)), ('recording', 1.0))
+        self.assertEqual(parse_command('hide'), ('hide', 0.0))
+        self.assertIsNone(parse_command('explode 1'))
+        self.assertIsNone(parse_command(''))
+
+    def test_band_sits_on_the_window_bottom_in_monitor_coordinates(self):
+        from whisper_key.platform.linux.glow_shape import Band, band_rect
+        window = {'monitor': 1, 'at': [2600, 100], 'size': [1000, 1000]}
+        self.assertEqual(band_rect(window, self.MONITORS), Band('HDMI-A-1', 40, 900, 1000, 200))
+
+    def test_band_is_clipped_to_the_scaled_monitor(self):
+        from whisper_key.platform.linux.glow_shape import band_rect
+        window = {'monitor': 1, 'at': [4560, 800], 'size': [1200, 900]}  # runs off the right and bottom
+        band = band_rect(window, self.MONITORS)
+        self.assertEqual((band.left, band.width), (2000, 560))  # monitor is 2560x1440 logical
+        self.assertEqual(band.top + band.height, 1440)
+
+    def test_no_window_spans_the_focused_monitor(self):
+        from whisper_key.platform.linux.glow_shape import band_rect
+        band = band_rect({}, self.MONITORS)
+        self.assertEqual(band, ('HDMI-A-1', 0, 1440 - 288, 2560, 288))  # a fifth of 1440 logical
+
+    def test_band_height_is_clamped(self):
+        from whisper_key.platform.linux.glow_shape import BAND_MAX, BAND_MIN, band_height
+        self.assertEqual(band_height(300), BAND_MIN)
+        self.assertEqual(band_height(5000), BAND_MAX)
+        self.assertEqual(band_height(80), 80)  # never taller than the window
+
+    def test_accent_comes_from_the_omarchy_theme(self):
+        import tempfile
+        from pathlib import Path
+        from whisper_key.platform.linux.glow_shape import DEFAULT_ACCENT, theme_accent
+        with tempfile.TemporaryDirectory() as home:
+            environ = {'HOME': home}
+            self.assertEqual(theme_accent(environ), DEFAULT_ACCENT)
+            theme = Path(home, '.local', 'state', 'omarchy', 'current', 'theme')
+            theme.mkdir(parents=True)
+            (theme / 'colors.toml').write_text('accent = "#E68E0D"\n', encoding='utf-8')
+            self.assertEqual(theme_accent(environ), '#e68e0d')
+            (theme / 'colors.toml').write_text('accent = "orange"\n', encoding='utf-8')
+            self.assertEqual(theme_accent(environ), DEFAULT_ACCENT)
+
+    def test_louder_voice_draws_a_taller_glow(self):
+        from whisper_key.platform.linux.glow_shape import Phases, glow_polygons
+        phases = Phases(1.0, 2.0, 3.0)
+
+        def top(level):
+            return min(y for polygon in glow_polygons(1000, 200, level, phases) for _, y in polygon)
+
+        self.assertLess(top(1.0), top(0.0))
+        quiet = glow_polygons(1000, 200, 1.0, phases, calm=True)
+        self.assertEqual(quiet, glow_polygons(1000, 200, 0.0, phases, calm=True))  # calm ignores level
+        for polygon in glow_polygons(1000, 200, 1.0, phases, overscan=10):
+            for x, y in polygon:
+                self.assertTrue(-10 <= x <= 1010 and 0 <= y <= 210)
+
+    # A level change alters how fast the waves flow, never where they are, so
+    # a twitchy level can't make them jump.
+    def test_waves_move_smoothly_whatever_the_level(self):
+        from whisper_key.platform.linux.glow_shape import Phases, advance_phases
+        start = Phases(1.0, 2.0, 3.0)
+        self.assertEqual(advance_phases(start, 1.0, 0.0), start)
+        quiet = advance_phases(start, 0.0, 1 / 60)
+        loud = advance_phases(start, 1.0, 1 / 60)
+        self.assertGreater(loud.long, quiet.long)
+        self.assertLess(loud.long - start.long, 0.05)  # under 3 degrees a frame at full voice
+
+    def test_room_noise_reads_as_silence(self):
+        from whisper_key.platform.linux.glow_shape import REST_GATE, voice_level
+        self.assertEqual(voice_level(REST_GATE * 0.9), 0.0)
+        self.assertEqual(voice_level(1.0), 1.0)
+        self.assertGreater(voice_level(0.5), 0.0)
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'), "the glow helper is a Linux process")
+class GlowBackendTests(unittest.TestCase):
+    def test_commands_reach_the_helper_and_stop_ends_it(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        from whisper_key.platform.linux import window_glow
+        with tempfile.TemporaryDirectory() as folder:
+            received = Path(folder, 'received.txt')
+            stand_in = [sys.executable, '-c',
+                        f'import sys; open({str(received)!r}, "w").write(sys.stdin.read())']
+            with mock.patch.object(window_glow, '_helper_command', return_value=stand_in):
+                window_glow.start()
+                window_glow.show('recording', 0.5)
+                window_glow.clear()
+                window_glow.stop()
+            self.assertEqual(received.read_text(), 'recording 0.500\nhide 0.000\n')
+class RecordingIndicatorsTests(unittest.TestCase):
     def test_indicators_fan_out_and_skip_missing_methods(self):
         from unittest import mock
         from whisper_key.indicators import RecordingIndicators

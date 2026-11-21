@@ -15,9 +15,10 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}"
 bin="$HOME/.local/bin"
 
 # PortAudio for the microphone, libc++ for ten-vad, wl-clipboard for paste, Tk for the overlay and
-# settings windows, PyGObject and Ayatana AppIndicator for the tray icon.
+# settings windows, PyGObject and Ayatana AppIndicator for the tray icon, gtk4-layer-shell for the
+# edge glow.
 missing=()
-for package in portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator; do
+for package in portaudio libc++ wl-clipboard tk python-gobject libayatana-appindicator gtk4-layer-shell; do
   pacman -Q "$package" &>/dev/null || missing+=("$package")
 done
 if ((${#missing[@]})); then
