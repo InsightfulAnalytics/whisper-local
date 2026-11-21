@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "whisper-local"
 version = "0.15.2"
-description = "Free, open-source, fully offline AI dictation for Windows and macOS. Hold a hotkey, speak, get text at the cursor. 100% local. Powered by Whisper."
+description = "Free, open-source, fully offline AI dictation for Windows, macOS and Linux (Hyprland). Hold a hotkey, speak, get text at the cursor. 100% local. Powered by Whisper."
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -19,7 +19,7 @@ keywords = [
     "transcription", "ai-dictation", "local-ai", "offline",
     "push-to-talk", "voice-recognition", "accessibility",
     "faster-whisper", "privacy", "self-hosted", "wispr-flow",
-    "ollama", "voice-commands", "windows", "macos"
+    "ollama", "voice-commands", "windows", "macos", "linux", "hyprland"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -30,6 +30,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -72,6 +73,10 @@ whispercpp = ["pywhispercpp>=1.2"]
 # Spectral noise suppression via noisereduce (set `audio.noise_suppression.enabled: true`)
 noise = ["noisereduce>=3.0.0"]
 
+# CUDA 12 cuBLAS for GPU transcription on Linux: ctranslate2's Linux wheel loads
+# libcublas.so.12, and whisper_engine preloads it from this wheel.
+cuda = ["nvidia-cublas-cu12; sys_platform=='linux'"]
+
 # Claude cloud backend for AI polish/transforms/rephrase
 # (set `postprocess.llm.provider: claude` in user_settings.yaml)
 claude = ["anthropic>=0.40"]
@@ -79,6 +84,7 @@ claude = ["anthropic>=0.40"]
 [project.scripts]
 whisper-local = "whisper_key.main:main"
 wl = "whisper_key.main:main"
+whisper-local-ctl = "whisper_key.control_socket:main"
 
 [project.urls]
 Homepage = "https://github.com/InsightfulAnalytics/whisper-local"

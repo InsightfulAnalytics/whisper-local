@@ -19,6 +19,7 @@ class LevelOverlay:
     LEVEL_AMP = 25.0
     UPDATE_HZ = 25
     FLASH_MS = 400
+    WINDOW_TITLE = 'Whisper Local overlay'
 
     POSITIONS = {
         'bottom-center': 'BC',
@@ -199,6 +200,10 @@ class LevelOverlay:
             import tkinter as tk
             self.root = tk.Tk()
             self.root.withdraw()
+            # A stable title lets a compositor rule match the pill. Hyprland
+            # manages it like any XWayland window and would otherwise move
+            # focus to it, so the paste lands in the pill instead of the app.
+            self.root.title(self.WINDOW_TITLE)
             self.root.overrideredirect(True)
             self.root.attributes('-topmost', True)
             try:

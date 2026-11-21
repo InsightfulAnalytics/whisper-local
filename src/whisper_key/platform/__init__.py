@@ -1,22 +1,26 @@
 import importlib as _importlib
 import platform as _platform
 
-# Resolve the platform once at import time. Whisper Local officially supports
-# Windows and macOS; Linux is "best-effort import only" so smoke tests and the
-# release toolchain on Linux CI can load most modules without exploding.
+# Resolve the platform once at import time. Windows and macOS were the original
+# targets. Linux targets a Wayland desktop running Hyprland (Omarchy): the
+# compositor owns the global hotkeys and forwards them over the control socket
+# (see control_socket.py), so the Linux backends need no root or input group.
 _system = _platform.system()
 if _system == 'Darwin':
     PLATFORM = 'macos'
 elif _system == 'Windows':
     PLATFORM = 'windows'
+elif _system == 'Linux':
+    PLATFORM = 'linux'
 else:
     PLATFORM = 'unsupported'
 
 IS_MACOS = PLATFORM == 'macos'
 IS_WINDOWS = PLATFORM == 'windows'
+IS_LINUX = PLATFORM == 'linux'
 
 # The mirrored backend API (see docs/platform-abstraction.md). Every name here
-# exists as a module under both macos/ and windows/.
+# exists as a module under macos/, windows/ and linux/.
 BACKEND_MODULES = ('instance_lock', 'keyboard', 'hotkeys', 'paths', 'app',
                    'permissions', 'icons', 'gpu', 'console', 'foreground',
                    'audio_endpoints')

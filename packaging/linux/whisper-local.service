@@ -1,0 +1,15 @@
+[Unit]
+Description=Whisper Local dictation
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/whisper-local/venv/bin/whisper-local
+Restart=on-failure
+RestartSec=3
+# Console output goes to the journal; app.log in ~/.config/whisperkey has the detail.
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target

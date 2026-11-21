@@ -7,7 +7,7 @@ from io import StringIO
 from ruamel.yaml import YAML
 
 from .utils import resolve_asset_path, beautify_hotkey, get_user_app_data_path, get_version
-from .platform import IS_MACOS
+from .platform import IS_LINUX, IS_MACOS
 
 REPO_URL = "https://github.com/InsightfulAnalytics/whisper-local"
 
@@ -250,7 +250,7 @@ class ConfigManager:
                 print(f"   ✓ Voice commands: disabled")
 
     def _display_path(self, path: str) -> str:
-        if IS_MACOS:
+        if IS_MACOS or IS_LINUX:
             home = os.path.expanduser("~")
             if path.startswith(home):
                 return "~" + path[len(home):]
@@ -283,6 +283,11 @@ class ConfigManager:
             print(f"   [{beautify_hotkey(auto_send_key)}] to auto-paste and send with ENTER")
 
     def print_startup_hotkey_instructions(self):
+        # On Linux Hyprland owns the keys (platform/linux/hotkeys.py), so the
+        # hotkey settings here describe nothing the user can press.
+        if IS_LINUX:
+            print("   Hotkeys are bound in Hyprland: ~/.config/whisper-local/shortcuts.lua")
+            return
         recording_hotkey = beautify_hotkey(self.config['hotkey']['recording_hotkey'])
         recording_mode = self.config['hotkey'].get('recording_mode', 'toggle')
         mode_hint = " (hold to record)" if recording_mode == "push_to_talk" else ""
