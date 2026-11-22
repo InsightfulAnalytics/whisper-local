@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import queue
+import signal
 import socket
 import sys
 import threading
@@ -160,11 +161,60 @@ def send_command(command: str, test_instance: bool = False, timeout: float = 2.0
         return json.loads(_read_line(connection) or '{}')
 
 
-# Forwards each line of stdin as one command, for as long as stdin stays open.
+# ---------------------------------------------------------------------------
+# Bridge (`whisper-local-ctl --bridge`)
+# ---------------------------------------------------------------------------
 # Hyprland's shortcuts.lua keeps one bridge open through io.popen, so a key
-# press costs a pipe write instead of starting a process. Errors are swallowed:
-# a bridge that exited would break every binding until Hyprland reloads.
+# press costs a pipe write instead of starting a process. A Hyprland reload
+# closes its end of the pipe and starts a new bridge, but every process
+# Hyprland launched in between inherited a copy of that end, so the old bridge
+# may never read end-of-file. Each new bridge retires the one it replaces.
+
+# One PID file per Hyprland instance, so a nested Hyprland's bridge does not
+# retire the main session's.
+def _bridge_pid_path(test_instance: bool, hyprland_instance: str) -> Path:
+    safe_instance = ''.join(c for c in hyprland_instance if c.isalnum() or c == '_')
+    socket_file = socket_path(test_instance)
+    return socket_file.with_name(f'{socket_file.stem}-bridge-{safe_instance or "default"}.pid')
+
+
+# True only if `pid` still runs a bridge: a PID file can outlive its process,
+# and the PID may since belong to something else.
+def _is_bridge_process(pid: int) -> bool:
+    try:
+        arguments = Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
+    except OSError:
+        return False
+    return b'--bridge' in arguments and any(a.endswith(b'whisper-local-ctl') for a in arguments)
+
+
+# Ends the bridge named in the PID file and records this one in its place.
+def _retire_previous_bridge(pid_path: Path) -> None:
+    try:
+        previous_pid = int(pid_path.read_text())
+    except (OSError, ValueError):
+        previous_pid = None
+    if previous_pid and previous_pid != os.getpid() and _is_bridge_process(previous_pid):
+        try:
+            os.kill(previous_pid, signal.SIGTERM)
+        except OSError:
+            pass
+    pid_path.write_text(str(os.getpid()))
+
+
+# Forwards each line of stdin as one command, for as long as stdin stays open.
+# Errors are swallowed: a bridge that exited would break every binding until
+# Hyprland reloads.
 def _run_bridge(test_instance: bool) -> int:
+    # io.popen hands the bridge Hyprland's signal mask, which blocks SIGTERM:
+    # unblock it, or the next bridge could never retire this one.
+    if hasattr(signal, 'pthread_sigmask'):  # absent on Windows, which has no bridge
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGTERM})
+    try:
+        hyprland_instance = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
+        _retire_previous_bridge(_bridge_pid_path(test_instance, hyprland_instance))
+    except OSError as e:
+        logger.debug(f"Could not retire the previous bridge: {e}")
     for line in sys.stdin:
         command = line.strip()
         if not command:

@@ -9,9 +9,16 @@ package.loaded["whisper-local.shortcuts"] = true
 
 -- One long-lived `whisper-local-ctl --bridge` carries every key press to the
 -- app's control socket, so Escape (seen on every press, below) costs a pipe
--- write rather than a new process. Hyprland closes the pipe on reload, and the
--- bridge exits with it.
-local bridge = io.popen("exec whisper-local-ctl --bridge", "w")
+-- write rather than a new process.
+--
+-- The shell io.popen starts must exit at once, so it runs the bridge in the
+-- background (`<&0` keeps the pipe as its stdin). A reload closes this handle,
+-- and closing a popen handle waits for that shell. If the shell were the
+-- bridge, Hyprland's main thread would wait for the bridge to read end-of-file,
+-- which never comes while any process Hyprland started since holds a copy of
+-- the pipe (they all inherit it): the whole desktop froze that way. The next
+-- bridge retires the old one instead.
+local bridge = io.popen("whisper-local-ctl --bridge <&0 &", "w")
 if bridge then
   bridge:setvbuf("no")
 end
