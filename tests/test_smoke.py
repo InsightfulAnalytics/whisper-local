@@ -678,6 +678,20 @@ class UtilsTests(unittest.TestCase):
         absolute = os.path.abspath(__file__)
         self.assertEqual(resolve_asset_path(absolute), absolute)
 
+    # A module started from a folder holding a planted json.py must still get
+    # the real json: -P keeps that folder off the child's import path.
+    def test_python_module_command_ignores_the_working_folder(self):
+        import subprocess
+        import tempfile
+        from whisper_key.utils import python_module_command
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, 'json.py').write_text('raise SystemExit("planted json.py ran")\n')
+            result = subprocess.run(python_module_command('json.tool'), cwd=folder,
+                                    input='{"a": 1}', capture_output=True, text=True)
+        self.assertNotIn('planted', result.stdout + result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"a": 1', result.stdout)
+
 
 # Windows hands stdout the legacy cp1252 codepage whenever it is a pipe rather
 # than a console, and the app prints non-ASCII status glyphs. Without the guard

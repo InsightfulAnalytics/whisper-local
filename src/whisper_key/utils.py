@@ -105,6 +105,14 @@ def restart_or_exit(message_restart, message_exit):
     sys.exit(0)
 
 
+# The command that runs one of the app's modules in a new Python process. -P
+# keeps the working directory off sys.path: plain `python -m` searches the
+# folder the app was started from first, so a file planted there (a json.py,
+# say) would stand in for one of the child's imports.
+def python_module_command(module: str, *args: str) -> list:
+    return [sys.executable, '-P', '-m', module, *args]
+
+
 def get_version():
     if is_installed_package():
         import importlib.metadata

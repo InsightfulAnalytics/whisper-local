@@ -568,10 +568,10 @@ class SystemTray:
 
     def _run_module_in_window(self, flag: str):
         import subprocess
-        import sys
+        from .utils import python_module_command
         try:
             subprocess.Popen(
-                [sys.executable, '-m', 'whisper_key.main', flag],
+                python_module_command('whisper_key.main', flag),
                 creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0)
             )
         except Exception as e:
