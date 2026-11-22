@@ -81,6 +81,13 @@ History inherited from upstream [`whisper-key-local`](https://github.com/PinW/wh
   `user_settings.yaml`.
 
 ### Fixed
+- **A Hyprland reload could freeze the whole desktop.** `shortcuts.lua` started the key
+  bridge with `io.popen`, and a reload closes that handle, which waits for the started process
+  to exit. The bridge exits only at end of input, but every process Hyprland launched after it
+  inherited a copy of the pipe, so after a theme change on 2026-11-22 Hyprland waited for ever
+  and took input and drawing with it. The popen'd shell now starts the bridge in the background
+  and returns at once, and each new bridge retires the one it replaces (one PID file per
+  Hyprland instance), first unblocking the SIGTERM that Hyprland's signal mask blocks.
 - **An unreachable Ollama endpoint stalled every dictation for about 21 seconds.** The
   polish call used one timeout for both connecting and waiting for the reply, so it had to
   be long enough for a cold model load (`timeout: 60`). Against an address that no longer
