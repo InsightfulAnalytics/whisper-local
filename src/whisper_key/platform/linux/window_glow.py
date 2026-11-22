@@ -9,10 +9,10 @@ import ctypes.util
 import logging
 import os
 import subprocess
-import sys
 import threading
 import time
 
+from ...utils import python_module_command
 from . import glow_shape, hyprland
 
 logger = logging.getLogger(__name__)
@@ -39,10 +39,8 @@ def is_supported() -> bool:
     return hyprland.is_available() and bool(_layer_shell_library())
 
 
-# -P keeps the working directory off sys.path, so a file planted in the folder
-# the app was started from can't stand in for one of the helper's imports.
 def _helper_command():
-    return [sys.executable, '-P', '-m', _HELPER_MODULE]
+    return python_module_command(_HELPER_MODULE)
 
 
 # ---------------------------------------------------------------------------
